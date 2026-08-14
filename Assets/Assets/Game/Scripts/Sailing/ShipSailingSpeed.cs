@@ -10,6 +10,9 @@ public class ShipSailingSpeed : MonoBehaviour
     [SerializeField]
     private SailPolarProfile sailPolarProfile;
 
+    [SerializeField]
+    private ShipTurning shipTurning;
+
 
     [Header("Speed Settings")]
 
@@ -28,6 +31,13 @@ public class ShipSailingSpeed : MonoBehaviour
     [SerializeField]
     [Min(0f)]
     private float stopThreshold = 0.03f;
+
+
+    [Header("Turning Drag Settings")]
+
+    [SerializeField]
+    [Min(0.01f)]
+    private float fullTurnDragTimeConstant = 20f;
 
 
     [Header("Runtime Debug")]
@@ -56,6 +66,15 @@ public class ShipSailingSpeed : MonoBehaviour
     [SerializeField]
     private bool isInNoGoZone;
 
+    [SerializeField]
+    private float turningIntensity;
+
+    [SerializeField]
+    private float turningDragIntensity;
+
+    [SerializeField]
+    private float turningDragFactor = 1f;
+
     [Header("Debug Visualization")]
 
     [SerializeField]
@@ -77,6 +96,7 @@ public class ShipSailingSpeed : MonoBehaviour
 
     CalculateSailingData();
     UpdateCurrentSpeed(Time.deltaTime);
+    ApplyTurningDrag(Time.deltaTime);
     MoveShip(Time.deltaTime);
     }
 
@@ -141,6 +161,30 @@ public class ShipSailingSpeed : MonoBehaviour
         
         }
     }
+
+
+    private void ApplyTurningDrag(float deltaTime)
+    {
+        if (shipTurning == null)
+        {
+            turningIntensity = 0f;
+            turningDragIntensity = 0f;
+            turningDragFactor = 1f;
+            return;
+        }
+
+        turningIntensity = shipTurning.TurningIntensity;
+        turningDragIntensity = turningIntensity * turningIntensity;
+        turningDragFactor = Mathf.Exp(
+            -turningDragIntensity
+            * deltaTime
+            / fullTurnDragTimeConstant
+        );
+
+        currentSpeed *= turningDragFactor;
+    }
+
+
     private void MoveShip(float deltaTime)
     {
     Vector3 velocity = transform.forward * currentSpeed;

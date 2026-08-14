@@ -119,90 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &206045404
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 206045407}
-  - component: {fileID: 206045406}
-  - component: {fileID: 206045405}
-  m_Layer: 0
-  m_Name: ShipTurning
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &206045405
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 206045404}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c26eccae624c17441a27af4c486bdddc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ShipTurning
-  shipSailingSpeed: {fileID: 0}
-  rudderCommand: 0
-  maxRudderAngle: 30
-  rudderResponse: 45
-  rudderReferenceSpeed: 3
-  maxTurnRate: 6
-  targetRudderAngle: 0
-  currentRudderAngle: 0
-  speedFactor: 0
-  normalizedRudder: 0
-  currentTurnRate: 0
---- !u!114 &206045406
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 206045404}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee67ab23bd753b74995aadaf5b5c9071, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ShipSailingSpeed
-  globalWind: {fileID: 0}
-  sailPolarProfile: {fileID: 0}
-  baseMaxSpeed: 4
-  accelerationTimeConstant: 8
-  naturalDragTimeConstant: 12
-  stopThreshold: 0.03
-  relativeWindAngleSigned: 0
-  relativeWindAngleAbsolute: 0
-  polarEfficiency: 0
-  targetSpeed: 0
-  currentSpeed: 0
-  speedError: 0
-  longitudinalAcceleration: 0
-  isInNoGoZone: 0
-  headingArrowLength: 20
-  velocityArrowScale: 10
---- !u!4 &206045407
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 206045404}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1.98209, y: -1.23694, z: -20}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &729984729
 Mesh:
   m_ObjectHideFlags: 0
@@ -475,10 +391,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShipSailingSpeed
   globalWind: {fileID: 1441854860}
   sailPolarProfile: {fileID: 11400000, guid: 9d1b9a9544e48c3418099aeb623cafa2, type: 2}
+  shipTurning: {fileID: 1193362033}
   baseMaxSpeed: 4
   accelerationTimeConstant: 8
   naturalDragTimeConstant: 12
   stopThreshold: 0.03
+  fullTurnDragTimeConstant: 20
   relativeWindAngleSigned: 0
   relativeWindAngleAbsolute: 0
   polarEfficiency: 0
@@ -487,6 +405,9 @@ MonoBehaviour:
   speedError: 0
   longitudinalAcceleration: 0
   isInNoGoZone: 0
+  turningIntensity: 0
+  turningDragIntensity: 0
+  turningDragFactor: 1
   headingArrowLength: 20
   velocityArrowScale: 10
 --- !u!114 &1193362033
@@ -501,7 +422,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c26eccae624c17441a27af4c486bdddc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipTurning
-  shipSailingSpeed: {fileID: 0}
+  shipSailingSpeed: {fileID: 1193362031}
   rudderCommand: 0
   maxRudderAngle: 30
   rudderResponse: 45
@@ -512,6 +433,9 @@ MonoBehaviour:
   speedFactor: 0
   normalizedRudder: 0
   currentTurnRate: 0
+  isTurning: 0
+  estimatedTurnRadius: 0
+  turningIntensity: 0
 --- !u!1 &1441854859
 GameObject:
   m_ObjectHideFlags: 0
@@ -565,4 +489,3 @@ SceneRoots:
   m_Roots:
   - {fileID: 1193362029}
   - {fileID: 1441854861}
-  - {fileID: 206045407}

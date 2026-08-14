@@ -55,6 +55,11 @@ public class ShipTurning : MonoBehaviour
     [SerializeField]
     private float estimatedTurnRadius;
 
+    [SerializeField]
+    private float turningIntensity;
+
+    public float TurningIntensity => turningIntensity;
+
     private void Awake()
     {
         if (shipSailingSpeed == null)
@@ -88,6 +93,10 @@ public class ShipTurning : MonoBehaviour
             maxTurnRate
             * normalizedRudder
             * speedFactor;
+
+        turningIntensity = maxTurnRate > 0f
+            ? Mathf.Clamp01(Mathf.Abs(currentTurnRate) / maxTurnRate)
+            : 0f;
 
         transform.Rotate(
             0f,

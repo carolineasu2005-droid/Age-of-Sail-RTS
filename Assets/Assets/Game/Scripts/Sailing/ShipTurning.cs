@@ -58,7 +58,28 @@ public class ShipTurning : MonoBehaviour
     [SerializeField]
     private float turningIntensity;
 
+    [SerializeField]
+    private float baseTurnRate;
+
+    [SerializeField]
+    private float maneuverYawAssistRate;
+
     public float TurningIntensity => turningIntensity;
+
+    public void SetManeuverYawAssistRate(float yawRate)
+    {
+        maneuverYawAssistRate = yawRate;
+    }
+
+    public void ClearManeuverYawAssist()
+    {
+        maneuverYawAssistRate = 0f;
+    }
+
+    public void SetRudderCommand(float command)
+    {
+        rudderCommand = Mathf.Clamp(command, -1f, 1f);
+    }
 
     private void Awake()
     {
@@ -89,13 +110,15 @@ public class ShipTurning : MonoBehaviour
 
         normalizedRudder = currentRudderAngle / maxRudderAngle;
 
-        currentTurnRate =
+        baseTurnRate =
             maxTurnRate
             * normalizedRudder
             * speedFactor;
 
+        currentTurnRate = baseTurnRate + maneuverYawAssistRate;
+
         turningIntensity = maxTurnRate > 0f
-            ? Mathf.Clamp01(Mathf.Abs(currentTurnRate) / maxTurnRate)
+            ? Mathf.Clamp01(Mathf.Abs(baseTurnRate) / maxTurnRate)
             : 0f;
 
         transform.Rotate(

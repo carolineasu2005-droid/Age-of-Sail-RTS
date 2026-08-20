@@ -87,6 +87,14 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float CurrentSpeed => currentSpeed;
 
+    public float RelativeWindAngleSigned => relativeWindAngleSigned;
+
+    public float RelativeWindAngleAbsolute => relativeWindAngleAbsolute;
+
+    public float PolarEfficiency => polarEfficiency;
+
+    public bool IsInNoGoZone => isInNoGoZone;
+
     private void Update()
     {
     if (globalWind == null || sailPolarProfile == null)

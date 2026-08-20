@@ -119,13 +119,13 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!43 &729984729
+--- !u!43 &414055635
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: pb_Mesh568105589213688642
+  m_Name: pb_Mesh568105589213756048
   serializedVersion: 12
   m_SubMeshes:
   - serializedVersion: 2
@@ -308,7 +308,7 @@ PrefabInstance:
     - target: {fileID: 424573637954154826, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 729984729}
+      objectReference: {fileID: 414055635}
     - target: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_Name
       value: PF_Proxy_Medium_v01
@@ -316,7 +316,7 @@ PrefabInstance:
     - target: {fileID: 5977199149085479063, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 729984729}
+      objectReference: {fileID: 414055635}
     - target: {fileID: 5977199149085479063, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_VersionIndex
       value: 30
@@ -335,7 +335,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.7933534
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.x
@@ -343,7 +343,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: 0.60876137
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.z
@@ -355,7 +355,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
+      value: 75
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
@@ -371,6 +371,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1193362033}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1193362034}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1193362035}
   m_SourcePrefab: {fileID: 100100000, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
 --- !u!1 &1193362030 stripped
 GameObject:
@@ -436,6 +442,76 @@ MonoBehaviour:
   isTurning: 0
   estimatedTurnRadius: 0
   turningIntensity: 0
+  baseTurnRate: 0
+  maneuverYawAssistRate: 0
+--- !u!114 &1193362034
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1193362030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3b8e48d48df47b49936713649bb51b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipHeadingController
+  shipTurning: {fileID: 1193362033}
+  rudderEaseAngle: 20
+  headingTolerance: 0.5
+  isActive: 0
+  targetHeading: 0
+  currentHeading: 0
+  turnDirection: 0
+  commandedArc: 0
+  accumulatedTurnAngle: 0
+  remainingTurnAngle: 0
+  rudderCommandOutput: 0
+  actualHeadingError: 0
+  debugTargetHeading: 0
+  debugTurnDirection: 0
+  debugExecuteCommand: 0
+  debugCancelCommand: 0
+--- !u!114 &1193362035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1193362030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 931840803e74e4a4b9153e8195ccef62, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipTacking
+  shipSailingSpeed: {fileID: 1193362031}
+  shipTurning: {fileID: 1193362033}
+  headingController: {fileID: 1193362034}
+  tackYawAssistRate: 5
+  tackAbortSpeed: 0.25
+  tackAbortDelay: 1.5
+  tackExitAngle: 67.5
+  windCrossDeadZone: 1
+  state: 0
+  isActive: 0
+  targetHeading: 0
+  turnDirection: 0
+  startSignedWindAngle: 0
+  startWindSide: 0
+  currentSignedWindAngle: 0
+  currentAbsoluteWindAngle: 0
+  crossedWind: 0
+  entrySpeed: 0
+  minimumSpeedDuringTack: 0
+  exitSpeed: 0
+  tackElapsedTime: 0
+  lowSpeedTimer: 0
+  yawAssistActive: 0
+  currentYawAssistRate: 0
+  debugTargetHeading: 285
+  debugTurnDirection: 1
+  debugStartTack: 0
+  debugCancelTack: 0
 --- !u!1 &1441854859
 GameObject:
   m_ObjectHideFlags: 0

@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!43 &414055635
+--- !u!43 &815995249
 Mesh:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -308,7 +308,7 @@ PrefabInstance:
     - target: {fileID: 424573637954154826, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 414055635}
+      objectReference: {fileID: 815995249}
     - target: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_Name
       value: PF_Proxy_Medium_v01
@@ -316,7 +316,7 @@ PrefabInstance:
     - target: {fileID: 5977199149085479063, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 414055635}
+      objectReference: {fileID: 815995249}
     - target: {fileID: 5977199149085479063, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_VersionIndex
       value: 30
@@ -335,7 +335,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.7933534
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.x
@@ -343,7 +343,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.60876137
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalRotation.z
@@ -355,7 +355,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 75
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
@@ -377,6 +377,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1193362035}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1193362037}
   m_SourcePrefab: {fileID: 100100000, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
 --- !u!1 &1193362030 stripped
 GameObject:
@@ -502,16 +505,57 @@ MonoBehaviour:
   currentAbsoluteWindAngle: 0
   crossedWind: 0
   entrySpeed: 0
+  noGoEntrySpeed: 0
+  windCrossSpeed: 0
   minimumSpeedDuringTack: 0
   exitSpeed: 0
   tackElapsedTime: 0
+  turningIntoWindTime: 0
+  crossingNoGoTime: 0
+  recoveryTime: 0
   lowSpeedTimer: 0
   yawAssistActive: 0
   currentYawAssistRate: 0
-  debugTargetHeading: 285
-  debugTurnDirection: 1
+  debugTargetHeading: 75
+  debugTurnDirection: 0
   debugStartTack: 0
   debugCancelTack: 0
+--- !u!114 &1193362037
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1193362030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8922d4ab3f626bf4e9f470c11bb9b3e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShipWearing
+  shipSailingSpeed: {fileID: 1193362031}
+  headingController: {fileID: 1193362034}
+  downwindCrossThreshold: 170
+  state: 0
+  isActive: 0
+  targetHeading: 0
+  turnDirection: 0
+  startSignedWindAngle: 0
+  previousSignedWindAngle: 0
+  currentSignedWindAngle: 0
+  currentAbsoluteWindAngle: 0
+  crossedDownwind: 0
+  entrySpeed: 0
+  downwindCrossSpeed: 0
+  minimumSpeedDuringWear: 0
+  maximumSpeedDuringWear: 0
+  completionSpeed: 0
+  timeToDownwindCross: 0
+  recoveryTime: 0
+  totalWearTime: 0
+  debugTargetHeading: 75
+  debugTurnDirection: 1
+  debugStartWear: 0
+  debugCancelWear: 0
 --- !u!1 &1441854859
 GameObject:
   m_ObjectHideFlags: 0
@@ -541,7 +585,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8a1686bf11b41f4d946254030609da4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GlobalWind
-  windFromDegrees: 0
+  windFromDegrees: 240
   windStrength: 1
   debugArrowLength: 30
 --- !u!4 &1441854861

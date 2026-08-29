@@ -13,6 +13,9 @@ public class ShipSailingSpeed : MonoBehaviour
     [SerializeField]
     private ShipTurning shipTurning;
 
+    [SerializeField]
+    private ShipLeeway shipLeeway;
+
 
     [Header("Speed Settings")]
 
@@ -75,6 +78,24 @@ public class ShipSailingSpeed : MonoBehaviour
     [SerializeField]
     private float turningDragFactor = 1f;
 
+    [SerializeField]
+    private Vector3 forwardVelocity;
+
+    [SerializeField]
+    private Vector3 leewayVelocity;
+
+    [SerializeField]
+    private Vector3 actualVelocity;
+
+    [SerializeField]
+    private float courseSpeed;
+
+    [SerializeField]
+    private float courseHeading;
+
+    [SerializeField]
+    private float headingCourseDelta;
+
     [Header("Debug Visualization")]
 
     [SerializeField]
@@ -94,6 +115,26 @@ public class ShipSailingSpeed : MonoBehaviour
     public float PolarEfficiency => polarEfficiency;
 
     public bool IsInNoGoZone => isInNoGoZone;
+
+    public Vector3 ForwardVelocity => forwardVelocity;
+
+    public Vector3 LeewayVelocity => leewayVelocity;
+
+    public Vector3 ActualVelocity => actualVelocity;
+
+    public float CourseSpeed => courseSpeed;
+
+    public float CourseHeading => courseHeading;
+
+    public float HeadingCourseDelta => headingCourseDelta;
+
+    private void Awake()
+    {
+        if (shipLeeway == null)
+        {
+            shipLeeway = GetComponent<ShipLeeway>();
+        }
+    }
 
     private void Update()
     {
@@ -195,9 +236,35 @@ public class ShipSailingSpeed : MonoBehaviour
 
     private void MoveShip(float deltaTime)
     {
-    Vector3 velocity = transform.forward * currentSpeed;
+    forwardVelocity = transform.forward * currentSpeed;
+    leewayVelocity = shipLeeway != null
+        ? shipLeeway.CalculateLeewayVelocity(
+            currentSpeed,
+            relativeWindAngleAbsolute,
+            globalWind.WindFlowDirection
+        )
+        : Vector3.zero;
+    actualVelocity = forwardVelocity + leewayVelocity;
+    courseSpeed = actualVelocity.magnitude;
 
-    transform.position += velocity * deltaTime;
+    float shipHeading = Mathf.Repeat(transform.eulerAngles.y, 360f);
+    Vector3 horizontalActualVelocity = Vector3.ProjectOnPlane(
+        actualVelocity,
+        Vector3.up
+    );
+
+    courseHeading = horizontalActualVelocity.sqrMagnitude > 0.0001f
+        ? Mathf.Repeat(
+            Mathf.Atan2(
+                horizontalActualVelocity.x,
+                horizontalActualVelocity.z
+            ) * Mathf.Rad2Deg,
+            360f
+        )
+        : shipHeading;
+    headingCourseDelta = Mathf.DeltaAngle(shipHeading, courseHeading);
+
+    transform.position += actualVelocity * deltaTime;
     }
     private void OnDrawGizmos()
     {
@@ -212,7 +279,7 @@ public class ShipSailingSpeed : MonoBehaviour
         Gizmos.color = Color.green;
         Gizmos.DrawLine(
             origin,
-            origin + transform.forward * currentSpeed * velocityArrowScale
+            origin + actualVelocity * velocityArrowScale
         );
     }
 }

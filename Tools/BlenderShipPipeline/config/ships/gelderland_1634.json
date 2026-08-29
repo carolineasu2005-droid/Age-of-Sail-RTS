@@ -1,0 +1,308 @@
+{
+  "schema_version": 2,
+  "id": "gelderland_1634",
+  "display_name": "Dutch Medium Warship — Gelderland Type c.1634",
+  "stage": "formal_base_model",
+  "identity": {
+    "period_label": "c.1634",
+    "cultural_origin": "Dutch Republic",
+    "ship_type": "medium_warship",
+    "family": "pinas_early_dutch_warship",
+    "design_intent": "low_long_compact"
+  },
+  "coordinate_system": {
+    "longitudinal_axis": "X",
+    "bow_direction": "-X",
+    "stern_direction": "+X",
+    "transverse_axis": "Y",
+    "port_direction": "-Y",
+    "starboard_direction": "+Y",
+    "up_direction": "+Z",
+    "meters_per_blender_unit": 1.0,
+    "normalized_longitudinal_ratio": "0_at_bow_1_at_stern"
+  },
+  "dimensions": {
+    "length_m": 36.4,
+    "beam_m": 8.6,
+    "hull_depth_m": 4.2
+  },
+  "hull": {
+    "max_beam_x_ratio": 0.54,
+    "max_beam_z_ratio": 0.52,
+    "midship_fullness": 0.9,
+    "floor_width_ratio": 0.46,
+    "bilge_roundness": 0.72,
+    "tumblehome_style": "moderate",
+    "tumblehome_ratio": 0.11,
+    "tumblehome_start_z_ratio": 0.62,
+    "upper_side_inset_ratio": 0.1,
+    "bow_region_end_ratio": 0.24,
+    "forward_mid_end_ratio": 0.42,
+    "aft_mid_start_ratio": 0.68,
+    "stern_run_start_ratio": 0.8,
+    "bow_fineness": 0.76,
+    "bow_v_shape": 0.72,
+    "stern_fineness": 0.82,
+    "stern_run_fullness": 0.72,
+    "bow_sheer_rise_m": 1.1,
+    "stern_sheer_rise_m": 1.55,
+    "sheer_curve_exponent": 1.9,
+    "keel_curve_m": 0.18
+  },
+  "keel": {
+    "width_m": 0.32,
+    "depth_m": 0.38,
+    "bow_inset_ratio": 0.025,
+    "stern_inset_ratio": 0.025
+  },
+  "stem": {
+    "rake_deg": 10.0,
+    "curvature_ratio": 0.18,
+    "width_m": 0.34,
+    "depth_m": 0.4,
+    "forward_extension_m": 0.75
+  },
+  "stern": {
+    "form": "mirror_transom",
+    "sternpost_rake_deg": 5.5,
+    "sternpost_width_m": 0.34,
+    "sternpost_depth_m": 0.4,
+    "transom_width_ratio": 0.58,
+    "transom_height_m": 2.7,
+    "transom_bottom_z_ratio": 0.48,
+    "transom_rake_deg": 4.0,
+    "upperworks_height_m": 1.35,
+    "upperworks_length_ratio": 0.18
+  },
+  "rudder": {
+    "height_m": 3.0,
+    "length_m": 1.25,
+    "thickness_m": 0.28,
+    "aft_offset_m": 0.18
+  },
+  "decks": {
+    "main": {
+      "baseline_z_m": 4.2,
+      "elevation_m": 0.04,
+      "thickness_m": 0.18,
+      "edge_inset_m": 0.16,
+      "follow_sheer": true
+    },
+    "forecastle": {
+      "start_x_ratio": 0.035,
+      "end_x_ratio": 0.235,
+      "elevation_m": 0.72,
+      "thickness_m": 0.18,
+      "side_height_m": 0.52
+    },
+    "quarterdeck": {
+      "start_x_ratio": 0.7,
+      "end_x_ratio": 0.965,
+      "elevation_m": 0.82,
+      "thickness_m": 0.18,
+      "side_height_m": 0.58
+    }
+  },
+  "bulwarks": {
+    "start_x_ratio": 0.055,
+    "end_x_ratio": 0.945,
+    "height_m": 0.82,
+    "thickness_m": 0.16,
+    "top_rail_height_m": 0.14,
+    "top_rail_outboard_m": 0.08
+  },
+  "wales": {
+    "count_per_side": 2,
+    "vertical_z_ratios": [
+      0.49,
+      0.62
+    ],
+    "height_m": 0.3,
+    "outboard_projection_m": 0.13,
+    "start_x_ratio": 0.08,
+    "end_x_ratio": 0.92
+  },
+  "gunports": {
+    "deck_count": 1,
+    "count_per_side": 14,
+    "width_m": 1.0,
+    "height_m": 0.82,
+    "forward_limit_ratio": 0.145,
+    "aft_limit_ratio": 0.82,
+    "spacing_mode": "even_between_limits",
+    "vertical_offset_m": 1.18,
+    "follow_sheer": true,
+    "recess_depth_m": 0.34,
+    "frame_thickness_m": 0.11
+  },
+  "generation": {
+    "longitudinal_sections": 41,
+    "cross_section_resolution": 13,
+    "mirror_strategy": "procedural_y_symmetry",
+    "centerline_merge_tolerance_m": 0.000001
+  },
+  "stylization": {
+    "structural_exaggeration": 1.08,
+    "minimum_feature_size_m": 0.1,
+    "wale_projection_scale": 1.15,
+    "gunport_frame_scale": 1.08
+  },
+  "materials": {
+    "hull_wood_rgba": [0.25, 0.105, 0.035, 1.0],
+    "deck_wood_rgba": [0.42, 0.25, 0.105, 1.0],
+    "structural_dark_wood_rgba": [0.105, 0.045, 0.018, 1.0],
+    "gunport_interior_rgba": [0.012, 0.015, 0.018, 1.0]
+  },
+  "validation": {
+    "dimension_abs_tolerance_m": 0.03,
+    "ratio_abs_tolerance": 0.02,
+    "symmetry_tolerance_m": 0.0001,
+    "centerline_tolerance_m": 0.000001,
+    "duplicate_vertex_tolerance_m": 0.000001,
+    "zero_area_tolerance_m2": 1e-10,
+    "spacing_relative_tolerance": 0.03,
+    "transform_tolerance": 0.000001,
+    "render_safe_margin_ratio": 0.035
+  },
+  "output": {
+    "blend_name": "gelderland_1634_base.blend",
+    "render_prefix": "gelderland_1634/base",
+    "required_views": [
+      "port",
+      "starboard",
+      "top",
+      "bow",
+      "stern",
+      "perspective",
+      "rts_perspective"
+    ]
+  },
+  "provenance": {
+    "user_locked_historical_baseline": {
+      "description": "Requirements supplied by the user as identity, scale, coordinate, or armament-layout baselines. This label does not claim that every item is independently documented historical fact.",
+      "parameters": [
+        "identity.period_label",
+        "identity.cultural_origin",
+        "identity.ship_type",
+        "identity.family",
+        "identity.design_intent",
+        "coordinate_system.longitudinal_axis",
+        "coordinate_system.bow_direction",
+        "coordinate_system.stern_direction",
+        "coordinate_system.transverse_axis",
+        "coordinate_system.port_direction",
+        "coordinate_system.starboard_direction",
+        "coordinate_system.up_direction",
+        "coordinate_system.meters_per_blender_unit",
+        "coordinate_system.normalized_longitudinal_ratio",
+        "dimensions.length_m",
+        "dimensions.beam_m",
+        "hull.tumblehome_style",
+        "stern.form",
+        "gunports.deck_count",
+        "gunports.count_per_side"
+      ]
+    },
+    "modeling_heuristic": {
+      "description": "Numerical construction choices used to turn the locked brief into a stable editable production blockout; they are not asserted as historical measurements.",
+      "parameters": [
+        "dimensions.hull_depth_m",
+        "hull.max_beam_x_ratio",
+        "hull.max_beam_z_ratio",
+        "hull.midship_fullness",
+        "hull.floor_width_ratio",
+        "hull.bilge_roundness",
+        "hull.tumblehome_ratio",
+        "hull.tumblehome_start_z_ratio",
+        "hull.upper_side_inset_ratio",
+        "hull.bow_region_end_ratio",
+        "hull.forward_mid_end_ratio",
+        "hull.aft_mid_start_ratio",
+        "hull.stern_run_start_ratio",
+        "hull.bow_fineness",
+        "hull.bow_v_shape",
+        "hull.stern_fineness",
+        "hull.stern_run_fullness",
+        "hull.bow_sheer_rise_m",
+        "hull.stern_sheer_rise_m",
+        "hull.sheer_curve_exponent",
+        "hull.keel_curve_m",
+        "keel.width_m",
+        "keel.depth_m",
+        "keel.bow_inset_ratio",
+        "keel.stern_inset_ratio",
+        "stem.rake_deg",
+        "stem.curvature_ratio",
+        "stem.width_m",
+        "stem.depth_m",
+        "stem.forward_extension_m",
+        "stern.sternpost_rake_deg",
+        "stern.sternpost_width_m",
+        "stern.sternpost_depth_m",
+        "stern.transom_width_ratio",
+        "stern.transom_height_m",
+        "stern.transom_bottom_z_ratio",
+        "stern.transom_rake_deg",
+        "stern.upperworks_height_m",
+        "stern.upperworks_length_ratio",
+        "rudder.height_m",
+        "rudder.length_m",
+        "rudder.thickness_m",
+        "rudder.aft_offset_m",
+        "decks.main.baseline_z_m",
+        "decks.main.elevation_m",
+        "decks.main.thickness_m",
+        "decks.main.edge_inset_m",
+        "decks.main.follow_sheer",
+        "decks.forecastle.start_x_ratio",
+        "decks.forecastle.end_x_ratio",
+        "decks.forecastle.elevation_m",
+        "decks.forecastle.thickness_m",
+        "decks.forecastle.side_height_m",
+        "decks.quarterdeck.start_x_ratio",
+        "decks.quarterdeck.end_x_ratio",
+        "decks.quarterdeck.elevation_m",
+        "decks.quarterdeck.thickness_m",
+        "decks.quarterdeck.side_height_m",
+        "bulwarks.start_x_ratio",
+        "bulwarks.end_x_ratio",
+        "bulwarks.height_m",
+        "bulwarks.thickness_m",
+        "wales.count_per_side",
+        "wales.vertical_z_ratios",
+        "wales.start_x_ratio",
+        "wales.end_x_ratio",
+        "gunports.width_m",
+        "gunports.height_m",
+        "gunports.forward_limit_ratio",
+        "gunports.aft_limit_ratio",
+        "gunports.spacing_mode",
+        "gunports.vertical_offset_m",
+        "gunports.follow_sheer",
+        "gunports.recess_depth_m",
+        "generation.longitudinal_sections",
+        "generation.cross_section_resolution",
+        "generation.mirror_strategy",
+        "generation.centerline_merge_tolerance_m"
+      ]
+    },
+    "stylization": {
+      "description": "Deliberate readability exaggerations and presentation choices for a stylized RTS asset.",
+      "parameters": [
+        "bulwarks.top_rail_height_m",
+        "bulwarks.top_rail_outboard_m",
+        "wales.height_m",
+        "wales.outboard_projection_m",
+        "gunports.frame_thickness_m",
+        "stylization.structural_exaggeration",
+        "stylization.minimum_feature_size_m",
+        "stylization.wale_projection_scale",
+        "stylization.gunport_frame_scale",
+        "materials.hull_wood_rgba",
+        "materials.deck_wood_rgba",
+        "materials.structural_dark_wood_rgba",
+        "materials.gunport_interior_rgba"
+      ]
+    }
+  }
+}

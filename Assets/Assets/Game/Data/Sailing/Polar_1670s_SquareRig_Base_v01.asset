@@ -12,69 +12,69 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7fc8ae62a4883ed4f9b705e5e56781dd, type: 3}
   m_Name: Polar_1670s_SquareRig_Base_v01
   m_EditorClassIdentifier: Assembly-CSharp::SailPolarProfile
-  noGoAngle: 65
+  noGoAngle: 45
   polarCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
+      time: 0.41095892
+      value: 0.40227702
+      inSlope: 0.0006666667
+      outSlope: 0.0017573512
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 45
-      value: 0
-      inSlope: -0
-      outSlope: 0
+      time: 30.410965
+      value: 0.45499757
+      inSlope: 0.0017573512
+      outSlope: 0.0039703334
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 60
-      value: 0
-      inSlope: -0
-      outSlope: 0
+      time: 41.917816
+      value: 0.5006836
+      inSlope: 0.0039703334
+      outSlope: 0.017826611
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 65
-      value: 0
-      inSlope: -0
-      outSlope: 0.14
+      time: 50.41095
+      value: 0.6520874
+      inSlope: 0.017826611
+      outSlope: 0.010809776
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 67.5
-      value: 0.35
-      inSlope: 0.14
-      outSlope: 0.020000001
+      time: 59.794525
+      value: 0.75352174
+      inSlope: 0.010809776
+      outSlope: 0.0064035123
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 75
-      value: 0.5
-      inSlope: 0.020000001
-      outSlope: 0.020000001
+      time: 75.41095
+      value: 0.8535217
+      inSlope: 0.0064035123
+      outSlope: 0.0070602163
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 90
-      value: 0.8
-      inSlope: 0.020000001
-      outSlope: 0.0066666664
+      time: 90.205475
+      value: 0.95797426
+      inSlope: 0.0070602163
+      outSlope: 0.001410519
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
@@ -82,26 +82,26 @@ MonoBehaviour:
     - serializedVersion: 3
       time: 120
       value: 1
-      inSlope: 0.0066666664
-      outSlope: -0.003333334
+      inSlope: 0.001410519
+      outSlope: -0.0006046283
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 150
-      value: 0.9
-      inSlope: -0.003333334
-      outSlope: -0.0049999994
+      time: 151.23291
+      value: 0.9811157
+      inSlope: -0.0006046283
+      outSlope: -0.0019351732
       tangentMode: 69
       weightedMode: 0
       inWeight: 0
       outWeight: 0
     - serializedVersion: 3
-      time: 180
-      value: 0.75
-      inSlope: -0.0049999994
-      outSlope: 0
+      time: 180.20544
+      value: 0.9250488
+      inSlope: -0.0019351732
+      outSlope: -0.005
       tangentMode: 69
       weightedMode: 0
       inWeight: 0

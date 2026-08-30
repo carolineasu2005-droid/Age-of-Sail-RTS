@@ -28,7 +28,11 @@ public class ShipTacking : MonoBehaviour
 
     [SerializeField]
     [Min(0f)]
-    private float tackYawAssistRate = 4f;
+    private float tackYawAssistRate = 7f;
+
+    [SerializeField]
+    [Min(0f)]
+    private float tackMinimumTargetSpeed = 1f;
 
     [SerializeField]
     [Min(0f)]
@@ -40,7 +44,7 @@ public class ShipTacking : MonoBehaviour
 
     [SerializeField]
     [Range(0f, 180f)]
-    private float tackExitAngle = 67.5f;
+    private float tackExitAngle = 50f;
 
     [SerializeField]
     [Min(0f)]
@@ -198,6 +202,11 @@ public class ShipTacking : MonoBehaviour
             CancelTack();
         }
 
+        if (shipSailingSpeed != null)
+        {
+            shipSailingSpeed.ClearManeuverMinimumTargetSpeed();
+        }
+
         targetHeading = Mathf.Repeat(requestedTargetHeading, 360f);
         turnDirection = requestedDirection;
         ClearYawAssist();
@@ -247,6 +256,11 @@ public class ShipTacking : MonoBehaviour
     {
         ClearYawAssist();
 
+        if (shipSailingSpeed != null)
+        {
+            shipSailingSpeed.ClearManeuverMinimumTargetSpeed();
+        }
+
         if (headingController != null)
         {
             headingController.CancelHeadingCommand();
@@ -268,6 +282,9 @@ public class ShipTacking : MonoBehaviour
         {
             noGoEntrySpeed = shipSailingSpeed.CurrentSpeed;
             state = TackState.CrossingNoGo;
+            shipSailingSpeed.SetManeuverMinimumTargetSpeed(
+                tackMinimumTargetSpeed
+            );
         }
     }
 
@@ -328,6 +345,7 @@ public class ShipTacking : MonoBehaviour
             ClearYawAssist();
             lowSpeedTimer = 0f;
             state = TackState.Recovering;
+            shipSailingSpeed.ClearManeuverMinimumTargetSpeed();
         }
     }
 
@@ -340,6 +358,7 @@ public class ShipTacking : MonoBehaviour
         {
             state = TackState.Completed;
             isActive = false;
+            shipSailingSpeed.ClearManeuverMinimumTargetSpeed();
         }
     }
 
@@ -369,6 +388,11 @@ public class ShipTacking : MonoBehaviour
     private void FailTack()
     {
         ClearYawAssist();
+
+        if (shipSailingSpeed != null)
+        {
+            shipSailingSpeed.ClearManeuverMinimumTargetSpeed();
+        }
 
         if (headingController != null)
         {

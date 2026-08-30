@@ -58,6 +58,18 @@ public class ShipSailingSpeed : MonoBehaviour
     private float targetSpeed;
 
     [SerializeField]
+    private float polarTargetSpeed;
+
+    [SerializeField]
+    private float effectiveTargetSpeed;
+
+    [SerializeField]
+    private bool maneuverMinimumTargetSpeedActive;
+
+    [SerializeField]
+    private float maneuverMinimumTargetSpeed;
+
+    [SerializeField]
     private float currentSpeed;
 
     [SerializeField]
@@ -128,6 +140,18 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float HeadingCourseDelta => headingCourseDelta;
 
+    public void SetManeuverMinimumTargetSpeed(float minimumTargetSpeed)
+    {
+        maneuverMinimumTargetSpeed = Mathf.Max(0f, minimumTargetSpeed);
+        maneuverMinimumTargetSpeedActive = true;
+    }
+
+    public void ClearManeuverMinimumTargetSpeed()
+    {
+        maneuverMinimumTargetSpeedActive = false;
+        maneuverMinimumTargetSpeed = 0f;
+    }
+
     private void Awake()
     {
         if (shipLeeway == null)
@@ -171,6 +195,10 @@ public class ShipSailingSpeed : MonoBehaviour
             baseMaxSpeed
             * polarEfficiency
             * globalWind.windStrength;
+        polarTargetSpeed = targetSpeed;
+        effectiveTargetSpeed = maneuverMinimumTargetSpeedActive
+            ? Mathf.Max(polarTargetSpeed, maneuverMinimumTargetSpeed)
+            : polarTargetSpeed;
 
         isInNoGoZone =
             relativeWindAngleAbsolute <= sailPolarProfile.noGoAngle;
@@ -182,7 +210,7 @@ public class ShipSailingSpeed : MonoBehaviour
         float previousSpeed = currentSpeed;
 
         float timeConstant =
-            targetSpeed > currentSpeed
+            effectiveTargetSpeed > currentSpeed
                 ? accelerationTimeConstant
                 : naturalDragTimeConstant;
 
@@ -190,14 +218,14 @@ public class ShipSailingSpeed : MonoBehaviour
             1f - Mathf.Exp(-deltaTime / timeConstant);
 
         currentSpeed =
-            Mathf.Lerp(currentSpeed, targetSpeed, response);
+            Mathf.Lerp(currentSpeed, effectiveTargetSpeed, response);
 
-        if (targetSpeed <= 0f && currentSpeed < stopThreshold)
+        if (effectiveTargetSpeed <= 0f && currentSpeed < stopThreshold)
         {
             currentSpeed = 0f;
         }
 
-        speedError = targetSpeed - currentSpeed;
+        speedError = effectiveTargetSpeed - currentSpeed;
 
         if (deltaTime > 0f)
         {

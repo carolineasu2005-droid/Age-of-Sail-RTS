@@ -692,16 +692,44 @@ MonoBehaviour:
   commandCamera: {fileID: 1123039780}
   selectionManager: {fileID: 1123039782}
   commandDispatcher: {fileID: 1123039783}
+  formationCommandController: {fileID: 0}
   defaultNavigationPlaneY: 0
   windNavigationAssistMode: 1
+  boxSelectionDragThreshold: 8
+  rightDragThreshold: 10
   cameraAvailable: 0
   selectionManagerAvailable: 0
   commandDispatcherAvailable: 0
   leftMouseDetectedThisFrame: 0
+  leftMouseReleasedThisFrame: 0
+  selectionGestureActive: 0
+  boxSelectionActive: 0
+  selectionShiftHeldAtMouseDown: 0
+  selectionMouseDownScreenPosition: {x: 0, y: 0}
+  selectionCurrentScreenPosition: {x: 0, y: 0}
+  selectionScreenRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 0
+    height: 0
+  lastBoxSelectionCount: 0
   lastSelectionClickPosition: {x: 0, y: 0}
   lastSelectionPickValid: 0
   lastSelectedShip: {fileID: 0}
   rightMouseDetectedThisFrame: 0
+  rightMouseReleasedThisFrame: 0
+  rightPlacementGestureActive: 0
+  formationPlacementPreviewActive: 0
+  rightMouseDownFormationSnapshotCaptured: 0
+  rightMouseDownScreenPosition: {x: 0, y: 0}
+  rightMouseCurrentScreenPosition: {x: 0, y: 0}
+  rightMouseDownWorldPosition: {x: 0, y: 0, z: 0}
+  rightMouseCurrentWorldPosition: {x: 0, y: 0, z: 0}
+  previewFormationHeading: 0
+  lastValidPreviewHeading: 0
+  hasLastValidPreviewHeading: 0
+  previewGhostMeshCount: 0
   lastClickValid: 0
   lastMouseScreenPosition: {x: 0, y: 0}
   lastWorldDestination: {x: 0, y: 0, z: 0}
@@ -884,6 +912,8 @@ MonoBehaviour:
   pendingGroupDestination: {x: 0, y: 0, z: 0}
   pendingGroupSelectionMode: 0
   pendingGroupNavigationAssistMode: 1
+  pendingGroupHasExplicitFormationHeading: 0
+  pendingGroupExplicitFormationHeading: 0
   pendingGroupShipCount: 0
   pendingGroupDispatchSequence: 0
 --- !u!114 &1123039784
@@ -906,6 +936,7 @@ MonoBehaviour:
   formationCruiseFactor: 0.9
   slotPositionDeadband: 3
   slotHeadingCommandThreshold: 4
+  directSlotCorrectionAngle: 30
   manualSlotCorrectionAngle: 12
   formationAlignmentDistance: 5
   formationArrivalRadius: 8
@@ -913,6 +944,11 @@ MonoBehaviour:
   isActive: 0
   memberCount: 0
   formationAnchorPosition: {x: 0, y: 0, z: 0}
+  formationBoundsCenter: {x: 0, y: 0, z: 0}
+  boundsMinX: 0
+  boundsMaxX: 0
+  boundsMinZ: 0
+  boundsMaxZ: 0
   formationHeading: 0
   targetFormationHeading: 0
   formationForward: {x: 0, y: 0, z: 0}
@@ -925,6 +961,14 @@ MonoBehaviour:
   anchorMoveSpeed: 0
   distanceToGroupDestination: 0
   targetRelativeWindAngle: 0
+  formationManeuverState: 0
+  formationManeuverType: 0
+  maneuverTargetHeading: 0
+  maneuverTurnDirection: 0
+  maneuverValidMemberCount: 0
+  maneuverCompletedMemberCount: 0
+  formationManeuverLocked: 0
+  reformingMemberCount: 0
   consumedDispatchSequence: 0
   currentDispatcherSequence: 0
   members: []
@@ -966,7 +1010,7 @@ PrefabInstance:
       objectReference: {fileID: 1441854860}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.6
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1175,7 +1219,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.9848078
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalRotation.x
@@ -1183,7 +1227,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.17364816
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalRotation.z
@@ -1195,7 +1239,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 20
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z

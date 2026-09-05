@@ -34,6 +34,22 @@ public class ShipSelectionManager : MonoBehaviour
     private readonly HashSet<ShipDestinationController> uniqueShips = new();
 
 
+    private struct ScreenSelectionCandidate
+    {
+        public ShipDestinationController ship;
+        public Vector2 screenPosition;
+
+        public ScreenSelectionCandidate(
+            ShipDestinationController ship,
+            Vector2 screenPosition
+        )
+        {
+            this.ship = ship;
+            this.screenPosition = screenPosition;
+        }
+    }
+
+
     public IReadOnlyList<ShipDestinationController> SelectedShips
     {
         get
@@ -147,6 +163,82 @@ public class ShipSelectionManager : MonoBehaviour
     }
 
 
+    public int SelectShipsInScreenRect(
+        Camera camera,
+        Rect screenRect,
+        bool addToSelection
+    )
+    {
+        if (camera == null)
+        {
+            return 0;
+        }
+
+        RefreshSelectionData();
+
+        List<ScreenSelectionCandidate> matchingCandidates =
+            new List<ScreenSelectionCandidate>();
+        ShipDestinationController[] candidates =
+            FindObjectsByType<ShipDestinationController>(
+                FindObjectsInactive.Exclude
+            );
+
+        foreach (ShipDestinationController candidate in candidates)
+        {
+            if (candidate == null || !candidate.isActiveAndEnabled)
+            {
+                continue;
+            }
+
+            Vector3 projectedPosition = camera.WorldToScreenPoint(
+                candidate.transform.position
+            );
+
+            if (projectedPosition.z <= 0f)
+            {
+                continue;
+            }
+
+            Vector2 projectedScreenPosition = new Vector2(
+                projectedPosition.x,
+                projectedPosition.y
+            );
+
+            if (!IsPointInsideScreenRect(
+                projectedScreenPosition,
+                screenRect
+            ))
+            {
+                continue;
+            }
+
+            matchingCandidates.Add(new ScreenSelectionCandidate(
+                candidate,
+                projectedScreenPosition
+            ));
+        }
+
+        matchingCandidates.Sort(CompareScreenSelectionCandidates);
+
+        if (!addToSelection)
+        {
+            selectedShips.Clear();
+        }
+
+        foreach (ScreenSelectionCandidate matchingCandidate
+                 in matchingCandidates)
+        {
+            if (!selectedShips.Contains(matchingCandidate.ship))
+            {
+                selectedShips.Add(matchingCandidate.ship);
+            }
+        }
+
+        RefreshSelectionData();
+        return matchingCandidates.Count;
+    }
+
+
     public bool TryPickShip(
         Camera camera,
         Vector2 mouseScreenPosition,
@@ -256,6 +348,47 @@ public class ShipSelectionManager : MonoBehaviour
         primarySelectedShip = selectedCount > 0
             ? selectedShips[0]
             : null;
+    }
+
+
+    private static bool IsPointInsideScreenRect(
+        Vector2 point,
+        Rect screenRect
+    )
+    {
+        return point.x >= screenRect.xMin
+            && point.x <= screenRect.xMax
+            && point.y >= screenRect.yMin
+            && point.y <= screenRect.yMax;
+    }
+
+
+    private static int CompareScreenSelectionCandidates(
+        ScreenSelectionCandidate first,
+        ScreenSelectionCandidate second
+    )
+    {
+        int horizontalComparison = first.screenPosition.x.CompareTo(
+            second.screenPosition.x
+        );
+
+        if (horizontalComparison != 0)
+        {
+            return horizontalComparison;
+        }
+
+        int verticalComparison = second.screenPosition.y.CompareTo(
+            first.screenPosition.y
+        );
+
+        if (verticalComparison != 0)
+        {
+            return verticalComparison;
+        }
+
+        return first.ship.GetEntityId().CompareTo(
+            second.ship.GetEntityId()
+        );
     }
 
 

@@ -173,30 +173,93 @@ public class ShipManeuverPlanner : MonoBehaviour
             turnDirection
         );
         crossesWindFrom = IsBoundaryInsideCommandedArc(
-            windFromDirectedDistance
+            windFromDirectedDistance,
+            commandedArc
         );
         crossesDownwind = IsBoundaryInsideCommandedArc(
-            downwindDirectedDistance
+            downwindDirectedDistance,
+            commandedArc
         );
 
-        if (crossesWindFrom && crossesDownwind)
-        {
-            classifiedManeuver = ManeuverType.Complex;
-        }
-        else if (crossesWindFrom)
-        {
-            classifiedManeuver = ManeuverType.Tack;
-        }
-        else if (crossesDownwind)
-        {
-            classifiedManeuver = ManeuverType.Wear;
-        }
-        else
-        {
-            classifiedManeuver = ManeuverType.NormalTurn;
-        }
+        classifiedManeuver = ClassifyDirectedArc(
+            currentHeading,
+            targetHeading,
+            turnDirection,
+            globalWind.WindFromDirection
+        );
 
         return classifiedManeuver;
+    }
+
+
+    public static ManeuverType ClassifyDirectedArc(
+        float requestedCurrentHeading,
+        float requestedTargetHeading,
+        TurnDirection requestedDirection,
+        Vector3 windFromDirection
+    )
+    {
+        float normalizedCurrentHeading = NormalizeHeading(
+            requestedCurrentHeading
+        );
+        float normalizedTargetHeading = NormalizeHeading(
+            requestedTargetHeading
+        );
+        float directedArc = CalculateDirectedDistance(
+            normalizedCurrentHeading,
+            normalizedTargetHeading,
+            requestedDirection
+        );
+        Vector3 horizontalWindFrom = Vector3.ProjectOnPlane(
+            windFromDirection,
+            Vector3.up
+        );
+
+        if (directedArc <= ClassificationEpsilon
+            || horizontalWindFrom.sqrMagnitude <= 0.0001f)
+        {
+            return ManeuverType.None;
+        }
+
+        float normalizedWindFromHeading = HeadingFromDirection(
+            horizontalWindFrom
+        );
+        float downwindBoundaryHeading = NormalizeHeading(
+            normalizedWindFromHeading + 180f
+        );
+        bool crossesWindBoundary = IsBoundaryInsideCommandedArc(
+            CalculateDirectedDistance(
+                normalizedCurrentHeading,
+                normalizedWindFromHeading,
+                requestedDirection
+            ),
+            directedArc
+        );
+        bool crossesDownwindBoundary = IsBoundaryInsideCommandedArc(
+            CalculateDirectedDistance(
+                normalizedCurrentHeading,
+                downwindBoundaryHeading,
+                requestedDirection
+            ),
+            directedArc
+        );
+
+        if (crossesWindBoundary && crossesDownwindBoundary)
+        {
+            return ManeuverType.Complex;
+        }
+
+        if (crossesWindBoundary)
+        {
+            return ManeuverType.Tack;
+        }
+
+        if (crossesDownwindBoundary)
+        {
+            return ManeuverType.Wear;
+        }
+
+        return ManeuverType.NormalTurn;
     }
 
 
@@ -220,6 +283,59 @@ public class ShipManeuverPlanner : MonoBehaviour
                 if (headingController != null)
                 {
                     headingController.SetTargetHeading(targetHeading, turnDirection);
+                    isActive = headingController.IsActive;
+                }
+                break;
+            case ManeuverType.Tack:
+                if (shipTacking != null && headingController != null)
+                {
+                    shipTacking.StartTack(targetHeading, turnDirection);
+                    isActive = headingController.IsActive;
+                }
+                break;
+            case ManeuverType.Wear:
+                if (shipWearing != null && headingController != null)
+                {
+                    shipWearing.StartWear(targetHeading, turnDirection);
+                    isActive = headingController.IsActive;
+                }
+                break;
+        }
+    }
+
+
+    public void ExecuteCoordinatedManeuverCommand(
+        float requestedTargetHeading,
+        TurnDirection requestedDirection,
+        ManeuverType requestedManeuver
+    )
+    {
+        if (isActive)
+        {
+            CancelCurrentManeuver();
+        }
+
+        currentHeading = NormalizeHeading(transform.eulerAngles.y);
+        targetHeading = NormalizeHeading(requestedTargetHeading);
+        turnDirection = requestedDirection;
+        commandedArc = CalculateDirectedDistance(
+            currentHeading,
+            targetHeading,
+            turnDirection
+        );
+        classifiedManeuver = requestedManeuver;
+        currentManeuver = requestedManeuver;
+        isActive = false;
+
+        switch (requestedManeuver)
+        {
+            case ManeuverType.NormalTurn:
+                if (headingController != null)
+                {
+                    headingController.SetTargetHeading(
+                        targetHeading,
+                        turnDirection
+                    );
                     isActive = headingController.IsActive;
                 }
                 break;
@@ -271,7 +387,7 @@ public class ShipManeuverPlanner : MonoBehaviour
     }
 
 
-    private float CalculateDirectedDistance(
+    private static float CalculateDirectedDistance(
         float fromHeading,
         float toHeading,
         TurnDirection direction
@@ -283,10 +399,13 @@ public class ShipManeuverPlanner : MonoBehaviour
     }
 
 
-    private bool IsBoundaryInsideCommandedArc(float boundaryDistance)
+    private static bool IsBoundaryInsideCommandedArc(
+        float boundaryDistance,
+        float directedArc
+    )
     {
         return boundaryDistance > ClassificationEpsilon
-            && boundaryDistance < commandedArc - ClassificationEpsilon;
+            && boundaryDistance < directedArc - ClassificationEpsilon;
     }
 
 

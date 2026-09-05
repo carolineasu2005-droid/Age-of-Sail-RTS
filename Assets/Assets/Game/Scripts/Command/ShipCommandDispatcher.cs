@@ -57,6 +57,14 @@ public class ShipCommandDispatcher : MonoBehaviour
         WindNavigationAssistMode.Assisted;
 
     [SerializeField]
+    private bool pendingGroupHasExplicitFormationHeading;
+
+    [SerializeField]
+    private float pendingGroupExplicitFormationHeading;
+
+    private FormationGeometrySnapshot pendingGroupGeometrySnapshot;
+
+    [SerializeField]
     private int pendingGroupShipCount;
 
     [SerializeField]
@@ -90,6 +98,15 @@ public class ShipCommandDispatcher : MonoBehaviour
 
     public WindNavigationAssistMode PendingGroupNavigationAssistMode
         => pendingGroupNavigationAssistMode;
+
+    public bool PendingGroupHasExplicitFormationHeading
+        => pendingGroupHasExplicitFormationHeading;
+
+    public float PendingGroupExplicitFormationHeading
+        => pendingGroupExplicitFormationHeading;
+
+    public FormationGeometrySnapshot PendingGroupGeometrySnapshot
+        => pendingGroupGeometrySnapshot;
 
     public int PendingGroupShipCount => pendingGroupShipCount;
 
@@ -161,8 +178,51 @@ public class ShipCommandDispatcher : MonoBehaviour
         pendingGroupDestination = worldDestination;
         pendingGroupSelectionMode = selectionMode;
         pendingGroupNavigationAssistMode = navigationAssistMode;
+        pendingGroupHasExplicitFormationHeading = false;
+        pendingGroupExplicitFormationHeading = 0f;
+        pendingGroupGeometrySnapshot = null;
         pendingGroupShipCount = lastSelectedShipCount;
         pendingGroupDispatchSequence = dispatchSequence;
+        lastDispatchResult = DispatchResult.RequiresFormation;
+    }
+
+
+    public void DispatchFormationPlacement(
+        Vector3 formationCenter,
+        float formationHeading,
+        FormationGeometrySnapshot geometrySnapshot,
+        ShipDestinationController.TurnSelectionMode selectionMode,
+        WindNavigationAssistMode navigationAssistMode
+    )
+    {
+        dispatchSequence++;
+        DispatchSequenceChanged?.Invoke(dispatchSequence);
+        lastWorldDestination = formationCenter;
+        lastSelectionMode = selectionMode;
+        lastNavigationAssistMode = navigationAssistMode;
+        lastSingleShip = null;
+
+        if (geometrySnapshot == null || geometrySnapshot.Members.Count < 2)
+        {
+            lastSelectedShipCount = 0;
+            lastDispatchResult = DispatchResult.NoSelection;
+            return;
+        }
+
+        ClearPendingGroupCommand();
+        groupCommandPending = true;
+        pendingGroupDestination = formationCenter;
+        pendingGroupSelectionMode = selectionMode;
+        pendingGroupNavigationAssistMode = navigationAssistMode;
+        pendingGroupHasExplicitFormationHeading = true;
+        pendingGroupExplicitFormationHeading = Mathf.Repeat(
+            formationHeading,
+            360f
+        );
+        pendingGroupGeometrySnapshot = geometrySnapshot;
+        pendingGroupShipCount = geometrySnapshot.Members.Count;
+        pendingGroupDispatchSequence = dispatchSequence;
+        lastSelectedShipCount = pendingGroupShipCount;
         lastDispatchResult = DispatchResult.RequiresFormation;
     }
 
@@ -175,6 +235,9 @@ public class ShipCommandDispatcher : MonoBehaviour
             ShipDestinationController.TurnSelectionMode.Auto;
         pendingGroupNavigationAssistMode =
             WindNavigationAssistMode.Assisted;
+        pendingGroupHasExplicitFormationHeading = false;
+        pendingGroupExplicitFormationHeading = 0f;
+        pendingGroupGeometrySnapshot = null;
         pendingGroupShipCount = 0;
         pendingGroupDispatchSequence = 0;
     }

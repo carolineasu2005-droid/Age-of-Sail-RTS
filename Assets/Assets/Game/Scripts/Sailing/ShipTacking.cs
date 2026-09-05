@@ -132,6 +132,16 @@ public class ShipTacking : MonoBehaviour
     [SerializeField]
     private bool debugCancelTack;
 
+    public void ApplyMovementProfile(ShipMovementProfile movementProfile)
+    {
+        if (movementProfile == null)
+        {
+            return;
+        }
+
+        tackYawAssistRate = movementProfile.tackYawAssistRate;
+    }
+
     private void Awake()
     {
         if (shipSailingSpeed == null)

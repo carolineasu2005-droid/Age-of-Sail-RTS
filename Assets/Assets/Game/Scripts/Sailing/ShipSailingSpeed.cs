@@ -70,6 +70,12 @@ public class ShipSailingSpeed : MonoBehaviour
     private float maneuverMinimumTargetSpeed;
 
     [SerializeField]
+    private bool formationMaximumTargetSpeedActive;
+
+    [SerializeField]
+    private float formationMaximumTargetSpeed;
+
+    [SerializeField]
     private float currentSpeed;
 
     [SerializeField]
@@ -120,6 +126,12 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float CurrentSpeed => currentSpeed;
 
+    public float PolarTargetSpeed => polarTargetSpeed;
+
+    public float EffectiveTargetSpeed => effectiveTargetSpeed;
+
+    public float BaseMaxSpeed => baseMaxSpeed;
+
     public float RelativeWindAngleSigned => relativeWindAngleSigned;
 
     public float RelativeWindAngleAbsolute => relativeWindAngleAbsolute;
@@ -140,6 +152,19 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float HeadingCourseDelta => headingCourseDelta;
 
+    public void ApplyMovementProfile(ShipMovementProfile movementProfile)
+    {
+        if (movementProfile == null)
+        {
+            return;
+        }
+
+        baseMaxSpeed = movementProfile.baseMaxSpeed;
+        accelerationTimeConstant = movementProfile.accelerationTimeConstant;
+        naturalDragTimeConstant = movementProfile.naturalDragTimeConstant;
+        fullTurnDragTimeConstant = movementProfile.fullTurnDragTimeConstant;
+    }
+
     public void SetManeuverMinimumTargetSpeed(float minimumTargetSpeed)
     {
         maneuverMinimumTargetSpeed = Mathf.Max(0f, minimumTargetSpeed);
@@ -150,6 +175,18 @@ public class ShipSailingSpeed : MonoBehaviour
     {
         maneuverMinimumTargetSpeedActive = false;
         maneuverMinimumTargetSpeed = 0f;
+    }
+
+    public void SetFormationMaximumTargetSpeed(float maximumTargetSpeed)
+    {
+        formationMaximumTargetSpeed = Mathf.Max(0f, maximumTargetSpeed);
+        formationMaximumTargetSpeedActive = true;
+    }
+
+    public void ClearFormationMaximumTargetSpeed()
+    {
+        formationMaximumTargetSpeedActive = false;
+        formationMaximumTargetSpeed = 0f;
     }
 
     private void Awake()
@@ -196,9 +233,23 @@ public class ShipSailingSpeed : MonoBehaviour
             * polarEfficiency
             * globalWind.windStrength;
         polarTargetSpeed = targetSpeed;
-        effectiveTargetSpeed = maneuverMinimumTargetSpeedActive
-            ? Mathf.Max(polarTargetSpeed, maneuverMinimumTargetSpeed)
-            : polarTargetSpeed;
+        effectiveTargetSpeed = polarTargetSpeed;
+
+        if (maneuverMinimumTargetSpeedActive)
+        {
+            effectiveTargetSpeed = Mathf.Max(
+                effectiveTargetSpeed,
+                maneuverMinimumTargetSpeed
+            );
+        }
+
+        if (formationMaximumTargetSpeedActive)
+        {
+            effectiveTargetSpeed = Mathf.Min(
+                effectiveTargetSpeed,
+                formationMaximumTargetSpeed
+            );
+        }
 
         isInNoGoZone =
             relativeWindAngleAbsolute <= sailPolarProfile.noGoAngle;

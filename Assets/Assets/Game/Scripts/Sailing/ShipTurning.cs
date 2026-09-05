@@ -66,6 +66,19 @@ public class ShipTurning : MonoBehaviour
 
     public float TurningIntensity => turningIntensity;
 
+    public void ApplyMovementProfile(ShipMovementProfile movementProfile)
+    {
+        if (movementProfile == null)
+        {
+            return;
+        }
+
+        maxRudderAngle = movementProfile.maxRudderAngle;
+        rudderResponse = movementProfile.rudderResponse;
+        rudderReferenceSpeed = movementProfile.rudderReferenceSpeed;
+        maxTurnRate = movementProfile.maxTurnRate;
+    }
+
     public void SetManeuverYawAssistRate(float yawRate)
     {
         maneuverYawAssistRate = yawRate;

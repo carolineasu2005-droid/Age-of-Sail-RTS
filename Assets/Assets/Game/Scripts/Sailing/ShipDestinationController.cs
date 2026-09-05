@@ -92,6 +92,10 @@ public class ShipDestinationController : MonoBehaviour
     private NavigationMode navigationMode;
 
     [SerializeField]
+    private WindNavigationAssistMode activeNavigationAssistMode =
+        WindNavigationAssistMode.Assisted;
+
+    [SerializeField]
     private float windFromHeading;
 
     [SerializeField]
@@ -193,6 +197,13 @@ public class ShipDestinationController : MonoBehaviour
             return;
         }
 
+        if (activeNavigationAssistMode != WindNavigationAssistMode.Assisted
+            && navigationMode == NavigationMode.BeatingUpwind)
+        {
+            ClearAssistedNavigationState();
+            navigationMode = NavigationMode.Direct;
+        }
+
         if (navigationMode == NavigationMode.BeatingUpwind)
         {
             UpdateBeatingUpwindNavigation();
@@ -219,16 +230,15 @@ public class ShipDestinationController : MonoBehaviour
 
     public void SetDestination(
         Vector3 worldDestination,
-        TurnSelectionMode selectionMode
+        TurnSelectionMode selectionMode,
+        WindNavigationAssistMode navigationAssistMode
     )
     {
+        ResetPreviousNavigationCommand();
         destination = worldDestination;
         hasDestination = true;
-        reachedDestination = false;
-        navigationBlocked = false;
         initialSelectionMode = selectionMode;
-        tackSwitchCount = 0;
-        lastTackSwitchPosition = Vector3.zero;
+        activeNavigationAssistMode = navigationAssistMode;
 
         UpdateDestinationData();
 
@@ -237,6 +247,13 @@ public class ShipDestinationController : MonoBehaviour
             reachedDestination = true;
             hasDestination = false;
             navigationMode = NavigationMode.None;
+            return;
+        }
+
+        if (activeNavigationAssistMode != WindNavigationAssistMode.Assisted)
+        {
+            navigationMode = NavigationMode.Direct;
+            IssueHeadingCommand(desiredBearing, selectionMode);
             return;
         }
 
@@ -258,15 +275,52 @@ public class ShipDestinationController : MonoBehaviour
 
     public void ClearDestination()
     {
-        hasDestination = false;
-        reachedDestination = false;
-        navigationBlocked = false;
-        navigationMode = NavigationMode.None;
+        ResetPreviousNavigationCommand();
+    }
 
+
+    private void ResetPreviousNavigationCommand()
+    {
         if (maneuverPlanner != null && maneuverPlanner.IsActive)
         {
             maneuverPlanner.CancelCurrentManeuver();
         }
+
+        hasDestination = false;
+        reachedDestination = false;
+        navigationBlocked = false;
+        navigationMode = NavigationMode.None;
+        activeNavigationAssistMode = WindNavigationAssistMode.Assisted;
+        destination = Vector3.zero;
+        distanceToDestination = 0f;
+        desiredBearing = 0f;
+        currentDestinationBearing = 0f;
+        ClearAssistedNavigationState();
+        initialSelectionMode = TurnSelectionMode.Auto;
+        lastCommandedHeading = 0f;
+        lastCommandedDirection = TurnDirection.Clockwise;
+    }
+
+
+    private void ClearAssistedNavigationState()
+    {
+        navigationBlocked = false;
+        windFromHeading = 0f;
+        desiredBearingRelativeToWind = 0f;
+        currentDestinationBearingRelativeToWind = 0f;
+        positiveCloseHauledHeading = 0f;
+        negativeCloseHauledHeading = 0f;
+        currentLegHeading = 0f;
+        currentLegCrossTrackSign = 0f;
+        crossTrackDistance = 0f;
+        dynamicCorridorHalfWidth = 0f;
+        tackSwitchCount = 0;
+        lastTackSwitchPosition = Vector3.zero;
+        routeOrigin = Vector3.zero;
+        routeDestination = Vector3.zero;
+        routeDirection = Vector3.zero;
+        routeRight = Vector3.zero;
+        initialUpwindSelectionMode = TurnSelectionMode.Auto;
     }
 
 
@@ -325,6 +379,13 @@ public class ShipDestinationController : MonoBehaviour
 
     private void UpdateBeatingUpwindNavigation()
     {
+        if (activeNavigationAssistMode != WindNavigationAssistMode.Assisted)
+        {
+            ClearAssistedNavigationState();
+            navigationMode = NavigationMode.Direct;
+            return;
+        }
+
         UpdateWindNavigationData();
         UpdateCorridorData();
 

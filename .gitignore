@@ -44,3 +44,6 @@ Desktop.ini
 *.apk
 *.aab
 *.unitypackage
+
+# Blender
+/Assets/Assets/Game/Ship/ArtReference/Gelderland_c1634/3D/

@@ -666,10 +666,10 @@ GameObject:
   - component: {fileID: 1123039779}
   - component: {fileID: 1123039777}
   - component: {fileID: 1123039776}
+  - component: {fileID: 1123039784}
   - component: {fileID: 1123039782}
   - component: {fileID: 1123039783}
   - component: {fileID: 1123039778}
-  - component: {fileID: 1123039784}
   m_Layer: 0
   m_Name: PrototypeCamera
   m_TagString: MainCamera
@@ -694,7 +694,7 @@ MonoBehaviour:
   commandDispatcher: {fileID: 1123039783}
   formationCommandController: {fileID: 0}
   defaultNavigationPlaneY: 0
-  windNavigationAssistMode: 1
+  windNavigationAssistMode: 2
   boxSelectionDragThreshold: 8
   rightDragThreshold: 10
   cameraAvailable: 0
@@ -932,6 +932,12 @@ MonoBehaviour:
   commandDispatcher: {fileID: 1123039783}
   globalWind: {fileID: 1441854860}
   directFormationSailingThreshold: 45
+  directFormationResumeThreshold: 50
+  formationCloseHauledHeadingAngle: 50
+  maximumFormationTackCorridorHalfWidth: 15
+  minimumFormationTackCorridorHalfWidth: 6
+  formationCorridorDistanceRatio: 0.08
+  formationCorridorSwitchFactor: 0.85
   formationHeadingTurnRate: 12
   formationCruiseFactor: 0.9
   slotPositionDeadband: 3
@@ -951,6 +957,9 @@ MonoBehaviour:
   boundsMaxZ: 0
   formationHeading: 0
   targetFormationHeading: 0
+  navigationHeading: 0
+  finalFormationHeading: 0
+  hasExplicitFinalFormationHeading: 0
   formationForward: {x: 0, y: 0, z: 0}
   formationRight: {x: 0, y: 0, z: 0}
   groupDestination: {x: 0, y: 0, z: 0}
@@ -961,6 +970,22 @@ MonoBehaviour:
   anchorMoveSpeed: 0
   distanceToGroupDestination: 0
   targetRelativeWindAngle: 0
+  formationNavigationMode: 0
+  currentBeatingLegHeading: 0
+  oppositeBeatingLegHeading: 0
+  currentBeatingLegCrossTrackSign: 0
+  formationCorridorHalfWidth: 0
+  formationCorridorCrossTrack: 0
+  formationTackSwitchCount: 0
+  beatingLegSwitchRequested: 0
+  automaticBeatingTackRequested: 0
+  directResumeAvailable: 0
+  finalAlignmentActive: 0
+  finalAlignmentCompleted: 0
+  beatingRouteOrigin: {x: 0, y: 0, z: 0}
+  beatingRouteDestination: {x: 0, y: 0, z: 0}
+  beatingRouteDirection: {x: 0, y: 0, z: 0}
+  beatingRouteRight: {x: 0, y: 0, z: 0}
   formationManeuverState: 0
   formationManeuverType: 0
   maneuverTargetHeading: 0
@@ -1002,7 +1027,7 @@ PrefabInstance:
       objectReference: {fileID: 350266504}
     - target: {fileID: 5977199149085479063, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_VersionIndex
-      value: 36
+      value: 39
       objectReference: {fileID: 0}
     - target: {fileID: 7980532100417072468, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: globalWind
@@ -1082,7 +1107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8a1686bf11b41f4d946254030609da4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GlobalWind
-  windFromDegrees: 0
+  windFromDegrees: 90
   windStrength: 1
   debugArrowLength: 30
 --- !u!4 &1441854861
@@ -1114,11 +1139,11 @@ PrefabInstance:
       objectReference: {fileID: 607055583}
     - target: {fileID: 1324973022301360879, guid: dbbf9c71896aad94a917e381d8a8657f, type: 3}
       propertyPath: m_VersionIndex
-      value: 42
+      value: 45
       objectReference: {fileID: 0}
     - target: {fileID: 3483314543192300081, guid: dbbf9c71896aad94a917e381d8a8657f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -40
       objectReference: {fileID: 0}
     - target: {fileID: 3483314543192300081, guid: dbbf9c71896aad94a917e381d8a8657f, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1203,11 +1228,11 @@ PrefabInstance:
       objectReference: {fileID: 795802191}
     - target: {fileID: 1354815805549890684, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_VersionIndex
-      value: 36
+      value: 39
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalPosition.y

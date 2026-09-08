@@ -261,7 +261,10 @@ public class ShipDestinationController : MonoBehaviour
         InitializeRouteReference();
 
         if (globalWind == null
-            || desiredBearingRelativeToWind >= directSailingThreshold)
+            || !WindBeatingNavigationMath.ShouldEnterBeating(
+                desiredBearingRelativeToWind,
+                directSailingThreshold
+            ))
         {
             navigationMode = NavigationMode.Direct;
             IssueHeadingCommand(desiredBearing, selectionMode);
@@ -331,9 +334,11 @@ public class ShipDestinationController : MonoBehaviour
 
         distanceToDestination = horizontalOffset.magnitude;
         currentHeading = GetHeading(transform.forward);
-        desiredBearing = distanceToDestination > 0.0001f
-            ? GetHeading(horizontalOffset)
-            : currentHeading;
+        desiredBearing = WindBeatingNavigationMath.GetHorizontalBearing(
+            transform.position,
+            destination,
+            currentHeading
+        );
         currentDestinationBearing = desiredBearing;
     }
 
@@ -349,17 +354,20 @@ public class ShipDestinationController : MonoBehaviour
         }
 
         windFromHeading = GetHeading(globalWind.WindFromDirection);
-        desiredBearingRelativeToWind = Mathf.Abs(
-            Mathf.DeltaAngle(desiredBearing, windFromHeading)
-        );
+        desiredBearingRelativeToWind =
+            WindBeatingNavigationMath.GetAbsoluteBearingRelativeToWind(
+                desiredBearing,
+                windFromHeading
+            );
         currentDestinationBearingRelativeToWind =
             desiredBearingRelativeToWind;
-        positiveCloseHauledHeading = NormalizeHeading(
-            windFromHeading + closeHauledHeadingAngle
-        );
-        negativeCloseHauledHeading = NormalizeHeading(
-            windFromHeading - closeHauledHeadingAngle
-        );
+        WindBeatingNavigationMath.CloseHauledCandidates candidates =
+            WindBeatingNavigationMath.GetCloseHauledCandidates(
+                windFromHeading,
+                closeHauledHeadingAngle
+            );
+        positiveCloseHauledHeading = candidates.PositiveHeading;
+        negativeCloseHauledHeading = candidates.NegativeHeading;
     }
 
 
@@ -368,12 +376,13 @@ public class ShipDestinationController : MonoBehaviour
         routeOrigin = transform.position;
         routeDestination = destination;
 
-        Vector3 horizontalRoute = routeDestination - routeOrigin;
-        horizontalRoute.y = 0f;
-        routeDirection = horizontalRoute.sqrMagnitude > 0.0001f
-            ? horizontalRoute.normalized
-            : Vector3.zero;
-        routeRight = Vector3.Cross(Vector3.up, routeDirection);
+        WindBeatingNavigationMath.RouteReference routeReference =
+            WindBeatingNavigationMath.CalculateRouteReference(
+                routeOrigin,
+                routeDestination
+            );
+        routeDirection = routeReference.Direction;
+        routeRight = routeReference.Right;
     }
 
 
@@ -389,8 +398,10 @@ public class ShipDestinationController : MonoBehaviour
         UpdateWindNavigationData();
         UpdateCorridorData();
 
-        if (currentDestinationBearingRelativeToWind
-            >= directResumeThreshold)
+        if (WindBeatingNavigationMath.ShouldResumeDirect(
+            currentDestinationBearingRelativeToWind,
+            directResumeThreshold
+        ))
         {
             navigationMode = NavigationMode.Direct;
             IssueHeadingCommand(desiredBearing, TurnSelectionMode.Auto);
@@ -404,8 +415,12 @@ public class ShipDestinationController : MonoBehaviour
             return;
         }
 
-        if (crossTrackDistance * currentLegCrossTrackSign
-            >= dynamicCorridorHalfWidth * corridorSwitchFactor)
+        if (WindBeatingNavigationMath.ShouldSwitchCloseHauledLeg(
+            crossTrackDistance,
+            currentLegCrossTrackSign,
+            dynamicCorridorHalfWidth,
+            corridorSwitchFactor
+        ))
         {
             SwitchToOppositeUpwindLeg();
         }
@@ -414,26 +429,34 @@ public class ShipDestinationController : MonoBehaviour
 
     private void UpdateCorridorData()
     {
-        dynamicCorridorHalfWidth = Mathf.Clamp(
-            distanceToDestination * corridorDistanceRatio,
-            minimumTackCorridorHalfWidth,
-            maximumTackCorridorHalfWidth
-        );
-
-        Vector3 horizontalOffset = transform.position - routeOrigin;
-        horizontalOffset.y = 0f;
-        crossTrackDistance = Vector3.Dot(horizontalOffset, routeRight);
+        dynamicCorridorHalfWidth =
+            WindBeatingNavigationMath.CalculateDynamicCorridorHalfWidth(
+                distanceToDestination,
+                corridorDistanceRatio,
+                minimumTackCorridorHalfWidth,
+                maximumTackCorridorHalfWidth
+            );
+        crossTrackDistance =
+            WindBeatingNavigationMath.CalculateCrossTrackDistance(
+                transform.position,
+                routeOrigin,
+                routeRight
+            );
     }
 
 
     private void SwitchToOppositeUpwindLeg()
     {
-        float nextLegHeading = Mathf.Abs(Mathf.DeltaAngle(
-            currentLegHeading,
-            positiveCloseHauledHeading
-        )) <= 0.1f
-            ? negativeCloseHauledHeading
-            : positiveCloseHauledHeading;
+        WindBeatingNavigationMath.CloseHauledCandidates candidates =
+            new WindBeatingNavigationMath.CloseHauledCandidates(
+                positiveCloseHauledHeading,
+                negativeCloseHauledHeading
+            );
+        float nextLegHeading =
+            WindBeatingNavigationMath.GetOppositeCloseHauledHeading(
+                currentLegHeading,
+                candidates
+            );
         TurnDirection direction = ResolveTurnDirection(
             currentHeading,
             nextLegHeading,
@@ -441,10 +464,11 @@ public class ShipDestinationController : MonoBehaviour
         );
 
         currentLegHeading = nextLegHeading;
-        currentLegCrossTrackSign = Mathf.Sign(Vector3.Dot(
-            HeadingToDirection(currentLegHeading),
-            routeRight
-        ));
+        currentLegCrossTrackSign =
+            WindBeatingNavigationMath.CalculateLegCrossTrackSign(
+                currentLegHeading,
+                routeRight
+            );
         tackSwitchCount++;
         lastTackSwitchPosition = transform.position;
         IssueHeadingCommand(nextLegHeading, direction);
@@ -457,27 +481,42 @@ public class ShipDestinationController : MonoBehaviour
     {
         float selectedHeading = positiveCloseHauledHeading;
         TurnDirection selectedDirection;
+        WindBeatingNavigationMath.CloseHauledCandidates candidates =
+            new WindBeatingNavigationMath.CloseHauledCandidates(
+                positiveCloseHauledHeading,
+                negativeCloseHauledHeading
+            );
 
         switch (selectionMode)
         {
             case TurnSelectionMode.ForceClockwise:
-                selectedHeading = SelectHeadingForDirectedArc(
-                    positiveCloseHauledHeading,
-                    negativeCloseHauledHeading,
-                    TurnDirection.Clockwise
-                );
+                selectedHeading =
+                    WindBeatingNavigationMath
+                        .SelectCloseHauledHeadingForDirectedArc(
+                            currentHeading,
+                            candidates,
+                            TurnDirection.Clockwise
+                        );
                 selectedDirection = TurnDirection.Clockwise;
                 break;
             case TurnSelectionMode.ForceCounterClockwise:
-                selectedHeading = SelectHeadingForDirectedArc(
-                    positiveCloseHauledHeading,
-                    negativeCloseHauledHeading,
-                    TurnDirection.CounterClockwise
-                );
+                selectedHeading =
+                    WindBeatingNavigationMath
+                        .SelectCloseHauledHeadingForDirectedArc(
+                            currentHeading,
+                            candidates,
+                            TurnDirection.CounterClockwise
+                        );
                 selectedDirection = TurnDirection.CounterClockwise;
                 break;
             default:
-                selectedHeading = SelectHeadingForAutoUpwindLeg();
+                selectedHeading =
+                    WindBeatingNavigationMath
+                        .SelectInitialAutoCloseHauledHeading(
+                            desiredBearing,
+                            currentHeading,
+                            candidates
+                        );
                 selectedDirection = ResolveTurnDirection(
                     currentHeading,
                     selectedHeading,
@@ -487,66 +526,13 @@ public class ShipDestinationController : MonoBehaviour
         }
 
         currentLegHeading = selectedHeading;
-        currentLegCrossTrackSign = Mathf.Sign(Vector3.Dot(
-            HeadingToDirection(currentLegHeading),
-            routeRight
-        ));
+        currentLegCrossTrackSign =
+            WindBeatingNavigationMath.CalculateLegCrossTrackSign(
+                currentLegHeading,
+                routeRight
+            );
         initialUpwindSelectionMode = selectionMode;
         IssueHeadingCommand(selectedHeading, selectedDirection);
-    }
-
-
-    private float SelectHeadingForAutoUpwindLeg()
-    {
-        float positiveAlignment = Mathf.Abs(Mathf.DeltaAngle(
-            desiredBearing,
-            positiveCloseHauledHeading
-        ));
-        float negativeAlignment = Mathf.Abs(Mathf.DeltaAngle(
-            desiredBearing,
-            negativeCloseHauledHeading
-        ));
-
-        if (!Mathf.Approximately(positiveAlignment, negativeAlignment))
-        {
-            return positiveAlignment < negativeAlignment
-                ? positiveCloseHauledHeading
-                : negativeCloseHauledHeading;
-        }
-
-        float positiveTurn = Mathf.Abs(Mathf.DeltaAngle(
-            currentHeading,
-            positiveCloseHauledHeading
-        ));
-        float negativeTurn = Mathf.Abs(Mathf.DeltaAngle(
-            currentHeading,
-            negativeCloseHauledHeading
-        ));
-
-        return positiveTurn <= negativeTurn
-            ? positiveCloseHauledHeading
-            : negativeCloseHauledHeading;
-    }
-
-
-    private float SelectHeadingForDirectedArc(
-        float firstHeading,
-        float secondHeading,
-        TurnDirection direction
-    )
-    {
-        float firstArc = CalculateDirectedArc(
-            currentHeading,
-            firstHeading,
-            direction
-        );
-        float secondArc = CalculateDirectedArc(
-            currentHeading,
-            secondHeading,
-            direction
-        );
-
-        return firstArc <= secondArc ? firstHeading : secondHeading;
     }
 
 
@@ -622,30 +608,6 @@ public class ShipDestinationController : MonoBehaviour
     }
 
 
-    private static float CalculateDirectedArc(
-        float fromHeading,
-        float toHeading,
-        TurnDirection direction
-    )
-    {
-        return direction == TurnDirection.Clockwise
-            ? Mathf.Repeat(toHeading - fromHeading, 360f)
-            : Mathf.Repeat(fromHeading - toHeading, 360f);
-    }
-
-
-    private static Vector3 HeadingToDirection(float heading)
-    {
-        return Quaternion.Euler(0f, heading, 0f) * Vector3.forward;
-    }
-
-
-    private static float NormalizeHeading(float heading)
-    {
-        return Mathf.Repeat(heading, 360f);
-    }
-
-
     private static float GetHeading(Vector3 direction)
     {
         Vector3 horizontalDirection = Vector3.ProjectOnPlane(
@@ -700,7 +662,10 @@ public class ShipDestinationController : MonoBehaviour
         Gizmos.color = Color.cyan;
         Gizmos.DrawLine(
             transform.position,
-            transform.position + HeadingToDirection(currentLegHeading) * 10f
+            transform.position
+                + WindBeatingNavigationMath.GetHeadingDirection(
+                    currentLegHeading
+                ) * 10f
         );
     }
 }

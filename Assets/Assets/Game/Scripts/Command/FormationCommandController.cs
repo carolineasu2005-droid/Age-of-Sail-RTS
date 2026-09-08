@@ -30,6 +30,12 @@ public class FormationCommandController : MonoBehaviour
         Complex
     }
 
+    public enum FormationNavigationMode
+    {
+        Direct,
+        BeatingUpwind
+    }
+
 
     [System.Serializable]
     private class FormationMember
@@ -136,6 +142,30 @@ public class FormationCommandController : MonoBehaviour
 
     [SerializeField]
     [Range(0.01f, 180f)]
+    private float directFormationResumeThreshold = 50f;
+
+    [SerializeField]
+    [Range(0f, 180f)]
+    private float formationCloseHauledHeadingAngle = 50f;
+
+    [SerializeField]
+    [Min(0f)]
+    private float maximumFormationTackCorridorHalfWidth = 15f;
+
+    [SerializeField]
+    [Min(0f)]
+    private float minimumFormationTackCorridorHalfWidth = 6f;
+
+    [SerializeField]
+    [Range(0f, 1f)]
+    private float formationCorridorDistanceRatio = 0.08f;
+
+    [SerializeField]
+    [Range(0.5f, 1f)]
+    private float formationCorridorSwitchFactor = 0.85f;
+
+    [SerializeField]
+    [Range(0.01f, 180f)]
     private float formationHeadingTurnRate = 12f;
 
     [SerializeField]
@@ -203,6 +233,15 @@ public class FormationCommandController : MonoBehaviour
     private float targetFormationHeading;
 
     [SerializeField]
+    private float navigationHeading;
+
+    [SerializeField]
+    private float finalFormationHeading;
+
+    [SerializeField]
+    private bool hasExplicitFinalFormationHeading;
+
+    [SerializeField]
     private Vector3 formationForward;
 
     [SerializeField]
@@ -233,6 +272,54 @@ public class FormationCommandController : MonoBehaviour
 
     [SerializeField]
     private float targetRelativeWindAngle;
+
+    [SerializeField]
+    private FormationNavigationMode formationNavigationMode;
+
+    [SerializeField]
+    private float currentBeatingLegHeading;
+
+    [SerializeField]
+    private float oppositeBeatingLegHeading;
+
+    [SerializeField]
+    private float currentBeatingLegCrossTrackSign;
+
+    [SerializeField]
+    private float formationCorridorHalfWidth;
+
+    [SerializeField]
+    private float formationCorridorCrossTrack;
+
+    [SerializeField]
+    private int formationTackSwitchCount;
+
+    [SerializeField]
+    private bool beatingLegSwitchRequested;
+
+    [SerializeField]
+    private bool automaticBeatingTackRequested;
+
+    [SerializeField]
+    private bool directResumeAvailable;
+
+    [SerializeField]
+    private bool finalAlignmentActive;
+
+    [SerializeField]
+    private bool finalAlignmentCompleted;
+
+    [SerializeField]
+    private Vector3 beatingRouteOrigin;
+
+    [SerializeField]
+    private Vector3 beatingRouteDestination;
+
+    [SerializeField]
+    private Vector3 beatingRouteDirection;
+
+    [SerializeField]
+    private Vector3 beatingRouteRight;
 
     [SerializeField]
     private FormationManeuverState formationManeuverState;
@@ -292,6 +379,13 @@ public class FormationCommandController : MonoBehaviour
 
     public float TargetFormationHeading => targetFormationHeading;
 
+    public float NavigationHeading => navigationHeading;
+
+    public float FinalFormationHeading => finalFormationHeading;
+
+    public bool HasExplicitFinalFormationHeading
+        => hasExplicitFinalFormationHeading;
+
     public Vector3 FormationForward => formationForward;
 
     public Vector3 FormationRight => formationRight;
@@ -304,6 +398,27 @@ public class FormationCommandController : MonoBehaviour
         => directFormationSailingThreshold;
 
     public float TargetRelativeWindAngle => targetRelativeWindAngle;
+
+    public FormationNavigationMode NavigationMode => formationNavigationMode;
+
+    public float CurrentBeatingLegHeading => currentBeatingLegHeading;
+
+    public float OppositeBeatingLegHeading => oppositeBeatingLegHeading;
+
+    public float FormationCorridorHalfWidth => formationCorridorHalfWidth;
+
+    public float FormationCorridorCrossTrack => formationCorridorCrossTrack;
+
+    public int FormationTackSwitchCount => formationTackSwitchCount;
+
+    public bool BeatingLegSwitchRequested => beatingLegSwitchRequested;
+
+    public bool AutomaticBeatingTackRequested
+        => automaticBeatingTackRequested;
+
+    public bool DirectResumeAvailable => directResumeAvailable;
+
+    public bool FinalAlignmentActive => finalAlignmentActive;
 
     public FormationManeuverState ManeuverState => formationManeuverState;
 
@@ -421,6 +536,10 @@ public class FormationCommandController : MonoBehaviour
         }
 
         ClearFormationManeuverState();
+        ClearFormationNavigationState();
+        targetFormationHeading = 0f;
+        finalFormationHeading = 0f;
+        hasExplicitFinalFormationHeading = false;
         formationState = FormationState.None;
     }
 
@@ -624,23 +743,29 @@ public class FormationCommandController : MonoBehaviour
         UpdateDistanceToGroupDestination();
         initialGroupSelectionMode = nextSelectionMode;
         activeNavigationAssistMode = nextNavigationAssistMode;
-        targetFormationHeading = hasExplicitFormationHeading
+        hasExplicitFinalFormationHeading = hasExplicitFormationHeading;
+        finalFormationHeading = hasExplicitFormationHeading
             ? Mathf.Repeat(explicitFormationHeading, 360f)
             : GetHeadingTowards(
                 formationAnchorPosition,
                 groupDestination,
                 formationHeading
             );
+        targetFormationHeading = finalFormationHeading;
 
-        ConfigureFormationManeuver();
+        ConfigureFormationNavigation();
 
-        if (IsTargetBlockedUpwind())
+        if (formationNavigationMode == FormationNavigationMode.BeatingUpwind)
         {
-            ClearFormationMaximumTargetSpeeds();
             ClearFormationManeuverState();
-            isActive = false;
-            formationState = FormationState.BlockedUpwind;
-            return;
+        }
+        else if (hasExplicitFinalFormationHeading)
+        {
+            ClearFormationManeuverState();
+        }
+        else
+        {
+            ConfigureFormationManeuver();
         }
 
         ClearMemberDestinations();
@@ -666,6 +791,16 @@ public class FormationCommandController : MonoBehaviour
 
     private void UpdateActiveFormation()
     {
+        if (formationManeuverState == FormationManeuverState.None)
+        {
+            UpdateFormationNavigation();
+        }
+
+        if (!isActive)
+        {
+            return;
+        }
+
         if (formationManeuverState == FormationManeuverState.Executing)
         {
             UpdateFormationHeadingFromMembers();
@@ -699,7 +834,21 @@ public class FormationCommandController : MonoBehaviour
 
         if (distanceToGroupDestination <= formationArrivalRadius)
         {
-            CompleteFormation();
+            if (hasExplicitFinalFormationHeading && !finalAlignmentActive)
+            {
+                if (!finalAlignmentCompleted)
+                {
+                    BeginFinalFormationAlignment();
+                }
+                else
+                {
+                    CompleteFormation();
+                }
+            }
+            else if (!finalAlignmentActive)
+            {
+                CompleteFormation();
+            }
         }
     }
 
@@ -708,7 +857,7 @@ public class FormationCommandController : MonoBehaviour
     {
         formationHeading = Mathf.MoveTowardsAngle(
             formationHeading,
-            targetFormationHeading,
+            navigationHeading,
             formationHeadingTurnRate * deltaTime
         );
         formationForward = HeadingToDirection(formationHeading);
@@ -721,29 +870,7 @@ public class FormationCommandController : MonoBehaviour
 
     private void ConfigureFormationManeuver()
     {
-        formationManeuverState = FormationManeuverState.None;
-        formationManeuverLocked = false;
-        maneuverTargetHeading = targetFormationHeading;
-        maneuverTurnDirection = ResolveRequestedFormationTurnDirection(
-            formationHeading,
-            maneuverTargetHeading
-        );
-        maneuverValidMemberCount = 0;
-        maneuverCompletedMemberCount = 0;
-        reformingMemberCount = 0;
-
-        ShipManeuverPlanner.ManeuverType classifiedManeuver =
-            ShipManeuverPlanner.ClassifyDirectedArc(
-                formationHeading,
-                maneuverTargetHeading,
-                maneuverTurnDirection,
-                globalWind != null
-                    ? globalWind.WindFromDirection
-                    : Vector3.zero
-            );
-        formationManeuverType = ToFormationManeuverType(
-            classifiedManeuver
-        );
+        ConfigureFormationManeuverForHeading(targetFormationHeading);
     }
 
 
@@ -752,7 +879,8 @@ public class FormationCommandController : MonoBehaviour
         ShipManeuverPlanner.ManeuverType plannerManeuver =
             ToPlannerManeuverType(formationManeuverType);
 
-        if (plannerManeuver != ShipManeuverPlanner.ManeuverType.Tack
+        if (plannerManeuver != ShipManeuverPlanner.ManeuverType.NormalTurn
+            && plannerManeuver != ShipManeuverPlanner.ManeuverType.Tack
             && plannerManeuver != ShipManeuverPlanner.ManeuverType.Wear)
         {
             return;
@@ -798,6 +926,30 @@ public class FormationCommandController : MonoBehaviour
                 plannerManeuver
             );
             member.initialAlignmentCommandHandled = true;
+        }
+
+        foreach (FormationMember member in members)
+        {
+            if (!IsMemberValid(member))
+            {
+                continue;
+            }
+
+            float memberHeading = GetHeading(
+                member.destinationController.transform.forward
+            );
+            bool headingAlreadyAligned = Mathf.Abs(Mathf.DeltaAngle(
+                memberHeading,
+                maneuverTargetHeading
+            )) <= slotHeadingCommandThreshold;
+
+            if (automaticBeatingTackRequested
+                && !member.maneuverPlanner.IsActive
+                && !headingAlreadyAligned)
+            {
+                FailFormationManeuver();
+                return;
+            }
         }
     }
 
@@ -924,6 +1076,17 @@ public class FormationCommandController : MonoBehaviour
 
         formationManeuverState = FormationManeuverState.None;
         formationManeuverLocked = false;
+
+        if (automaticBeatingTackRequested)
+        {
+            CommitAutomaticBeatingLegSwitch();
+        }
+
+        if (finalAlignmentActive)
+        {
+            finalAlignmentActive = false;
+            finalAlignmentCompleted = true;
+        }
     }
 
 
@@ -1004,6 +1167,18 @@ public class FormationCommandController : MonoBehaviour
 
     private void MoveFormationAnchor(float deltaTime)
     {
+        if (formationNavigationMode == FormationNavigationMode.BeatingUpwind)
+        {
+            float anchorHeading = formationManeuverState
+                == FormationManeuverState.Executing
+                ? formationHeading
+                : navigationHeading;
+            formationAnchorPosition += HeadingToDirection(anchorHeading)
+                * anchorMoveSpeed * deltaTime;
+            UpdateDistanceToGroupDestination();
+            return;
+        }
+
         Vector3 horizontalDestination = groupDestination;
         horizontalDestination.y = formationAnchorPosition.y;
         formationAnchorPosition = Vector3.MoveTowards(
@@ -1428,22 +1603,396 @@ public class FormationCommandController : MonoBehaviour
     }
 
 
-    private bool IsTargetBlockedUpwind()
+    private void ConfigureFormationNavigation()
     {
-        if (globalWind == null)
+        ClearFormationNavigationState();
+
+        float destinationBearing =
+            WindBeatingNavigationMath.GetHorizontalBearing(
+                formationAnchorPosition,
+                groupDestination,
+                formationHeading
+            );
+        navigationHeading = destinationBearing;
+
+        if (activeNavigationAssistMode != WindNavigationAssistMode.Assisted
+            || globalWind == null)
         {
             targetRelativeWindAngle = 0f;
-            return false;
+            return;
         }
 
         float windFromHeading = GetHeading(globalWind.WindFromDirection);
-        targetRelativeWindAngle = Mathf.Abs(Mathf.DeltaAngle(
-            targetFormationHeading,
-            windFromHeading
-        ));
+        targetRelativeWindAngle =
+            WindBeatingNavigationMath.GetAbsoluteBearingRelativeToWind(
+                destinationBearing,
+                windFromHeading
+            );
 
-        return activeNavigationAssistMode == WindNavigationAssistMode.Assisted
-            && targetRelativeWindAngle < directFormationSailingThreshold;
+        if (!WindBeatingNavigationMath.ShouldEnterBeating(
+            targetRelativeWindAngle,
+            directFormationSailingThreshold
+        ))
+        {
+            return;
+        }
+
+        WindBeatingNavigationMath.CloseHauledCandidates candidates =
+            WindBeatingNavigationMath.GetCloseHauledCandidates(
+                windFromHeading,
+                formationCloseHauledHeadingAngle
+            );
+        currentBeatingLegHeading = SelectInitialFormationBeatingLeg(
+            destinationBearing,
+            candidates
+        );
+        oppositeBeatingLegHeading =
+            WindBeatingNavigationMath.GetOppositeCloseHauledHeading(
+                currentBeatingLegHeading,
+                candidates
+            );
+        WindBeatingNavigationMath.RouteReference routeReference =
+            WindBeatingNavigationMath.CalculateRouteReference(
+                formationAnchorPosition,
+                groupDestination
+            );
+        beatingRouteOrigin = formationAnchorPosition;
+        beatingRouteDestination = groupDestination;
+        beatingRouteDirection = routeReference.Direction;
+        beatingRouteRight = routeReference.Right;
+        currentBeatingLegCrossTrackSign =
+            WindBeatingNavigationMath.CalculateLegCrossTrackSign(
+                currentBeatingLegHeading,
+                beatingRouteRight
+            );
+        navigationHeading = currentBeatingLegHeading;
+        formationNavigationMode = FormationNavigationMode.BeatingUpwind;
+    }
+
+
+    private void UpdateFormationNavigation()
+    {
+        if (formationNavigationMode != FormationNavigationMode.BeatingUpwind)
+        {
+            navigationHeading = GetDirectFormationNavigationHeading();
+            directResumeAvailable = false;
+            return;
+        }
+
+        if (activeNavigationAssistMode != WindNavigationAssistMode.Assisted
+            || globalWind == null)
+        {
+            ExitBeatingNavigationToDirect(false);
+            return;
+        }
+
+        float destinationBearing =
+            WindBeatingNavigationMath.GetHorizontalBearing(
+                formationAnchorPosition,
+                groupDestination,
+                formationHeading
+            );
+        float windFromHeading = GetHeading(globalWind.WindFromDirection);
+        targetRelativeWindAngle =
+            WindBeatingNavigationMath.GetAbsoluteBearingRelativeToWind(
+                destinationBearing,
+                windFromHeading
+            );
+        UpdateFormationCorridorData();
+
+        directResumeAvailable = WindBeatingNavigationMath.ShouldResumeDirect(
+            targetRelativeWindAngle,
+            directFormationResumeThreshold
+        );
+
+        if (directResumeAvailable)
+        {
+            ExitBeatingNavigationToDirect(true);
+            return;
+        }
+
+        navigationHeading = currentBeatingLegHeading;
+
+        if (!beatingLegSwitchRequested
+            && WindBeatingNavigationMath.ShouldSwitchCloseHauledLeg(
+                formationCorridorCrossTrack,
+                currentBeatingLegCrossTrackSign,
+                formationCorridorHalfWidth,
+                formationCorridorSwitchFactor
+            ))
+        {
+            beatingLegSwitchRequested = true;
+            BeginAutomaticBeatingTack();
+        }
+    }
+
+
+    private void BeginAutomaticBeatingTack()
+    {
+        if (activeNavigationAssistMode != WindNavigationAssistMode.Assisted
+            || formationNavigationMode
+                != FormationNavigationMode.BeatingUpwind
+            || formationManeuverState != FormationManeuverState.None
+            || !beatingLegSwitchRequested)
+        {
+            return;
+        }
+
+        if (!TryGetAutomaticBeatingTackDirection(
+            out TurnDirection tackDirection
+        ))
+        {
+            FailFormationManeuver();
+            return;
+        }
+
+        automaticBeatingTackRequested = true;
+        formationManeuverType = FormationManeuverType.Tack;
+        maneuverTargetHeading = oppositeBeatingLegHeading;
+        maneuverTurnDirection = tackDirection;
+        navigationHeading = maneuverTargetHeading;
+        StartCoordinatedManeuver();
+    }
+
+
+    private bool TryGetAutomaticBeatingTackDirection(
+        out TurnDirection tackDirection
+    )
+    {
+        tackDirection = TurnDirection.Clockwise;
+
+        if (globalWind == null)
+        {
+            return false;
+        }
+
+        ShipManeuverPlanner.ManeuverType clockwiseManeuver =
+            ShipManeuverPlanner.ClassifyDirectedArc(
+                formationHeading,
+                oppositeBeatingLegHeading,
+                TurnDirection.Clockwise,
+                globalWind.WindFromDirection
+            );
+        if (clockwiseManeuver == ShipManeuverPlanner.ManeuverType.Tack)
+        {
+            return true;
+        }
+
+        ShipManeuverPlanner.ManeuverType counterClockwiseManeuver =
+            ShipManeuverPlanner.ClassifyDirectedArc(
+                formationHeading,
+                oppositeBeatingLegHeading,
+                TurnDirection.CounterClockwise,
+                globalWind.WindFromDirection
+            );
+        if (counterClockwiseManeuver
+            != ShipManeuverPlanner.ManeuverType.Tack)
+        {
+            return false;
+        }
+
+        tackDirection = TurnDirection.CounterClockwise;
+        return true;
+    }
+
+
+    private void CommitAutomaticBeatingLegSwitch()
+    {
+        float completedLegHeading = currentBeatingLegHeading;
+        currentBeatingLegHeading = oppositeBeatingLegHeading;
+        oppositeBeatingLegHeading = completedLegHeading;
+        currentBeatingLegCrossTrackSign =
+            WindBeatingNavigationMath.CalculateLegCrossTrackSign(
+                currentBeatingLegHeading,
+                beatingRouteRight
+            );
+        navigationHeading = currentBeatingLegHeading;
+        beatingLegSwitchRequested = false;
+        automaticBeatingTackRequested = false;
+        formationTackSwitchCount++;
+    }
+
+
+    private void ExitBeatingNavigationToDirect(bool shouldCoordinateManeuver)
+    {
+        ClearBeatingRouteState();
+        formationNavigationMode = FormationNavigationMode.Direct;
+        navigationHeading = GetDirectFormationNavigationHeading();
+
+        if (!shouldCoordinateManeuver)
+        {
+            return;
+        }
+
+        ConfigureFormationManeuverForHeading(navigationHeading);
+
+        if (formationManeuverType == FormationManeuverType.Complex)
+        {
+            FailFormationManeuver();
+            return;
+        }
+
+        if (formationManeuverType == FormationManeuverType.Normal
+            || formationManeuverType == FormationManeuverType.Tack
+            || formationManeuverType == FormationManeuverType.Wear)
+        {
+            StartCoordinatedManeuver();
+        }
+    }
+
+
+    private void BeginFinalFormationAlignment()
+    {
+        finalAlignmentActive = true;
+        navigationHeading = finalFormationHeading;
+        ConfigureFormationManeuverForHeading(finalFormationHeading);
+
+        if (formationManeuverType == FormationManeuverType.None)
+        {
+            finalAlignmentActive = false;
+            finalAlignmentCompleted = true;
+            CompleteFormation();
+            return;
+        }
+
+        if (formationManeuverType == FormationManeuverType.Complex)
+        {
+            FailFormationManeuver();
+            return;
+        }
+
+        StartCoordinatedManeuver();
+    }
+
+
+    private void ConfigureFormationManeuverForHeading(float targetHeading)
+    {
+        formationManeuverState = FormationManeuverState.None;
+        formationManeuverLocked = false;
+        maneuverTargetHeading = Mathf.Repeat(targetHeading, 360f);
+        maneuverTurnDirection = ResolveRequestedFormationTurnDirection(
+            formationHeading,
+            maneuverTargetHeading
+        );
+        maneuverValidMemberCount = 0;
+        maneuverCompletedMemberCount = 0;
+        reformingMemberCount = 0;
+
+        ShipManeuverPlanner.ManeuverType classifiedManeuver =
+            ShipManeuverPlanner.ClassifyDirectedArc(
+                formationHeading,
+                maneuverTargetHeading,
+                maneuverTurnDirection,
+                globalWind != null
+                    ? globalWind.WindFromDirection
+                    : Vector3.zero
+            );
+        formationManeuverType = ToFormationManeuverType(
+            classifiedManeuver
+        );
+
+        if (formationManeuverType == FormationManeuverType.None
+            && Mathf.Abs(Mathf.DeltaAngle(
+                formationHeading,
+                maneuverTargetHeading
+            )) > slotHeadingCommandThreshold)
+        {
+            formationManeuverType = FormationManeuverType.Normal;
+        }
+    }
+
+
+    private void UpdateFormationCorridorData()
+    {
+        formationCorridorHalfWidth =
+            WindBeatingNavigationMath.CalculateDynamicCorridorHalfWidth(
+                distanceToGroupDestination,
+                formationCorridorDistanceRatio,
+                minimumFormationTackCorridorHalfWidth,
+                maximumFormationTackCorridorHalfWidth
+            );
+        formationCorridorCrossTrack =
+            WindBeatingNavigationMath.CalculateCrossTrackDistance(
+                formationAnchorPosition,
+                beatingRouteOrigin,
+                beatingRouteRight
+            );
+    }
+
+
+    private float GetDirectFormationNavigationHeading()
+    {
+        return WindBeatingNavigationMath.GetHorizontalBearing(
+            formationAnchorPosition,
+            groupDestination,
+            formationHeading
+        );
+    }
+
+
+    private float SelectInitialFormationBeatingLeg(
+        float destinationBearing,
+        WindBeatingNavigationMath.CloseHauledCandidates candidates
+    )
+    {
+        if (initialGroupSelectionMode
+            == ShipDestinationController.TurnSelectionMode.ForceClockwise)
+        {
+            return WindBeatingNavigationMath
+                .SelectCloseHauledHeadingForDirectedArc(
+                    formationHeading,
+                    candidates,
+                    TurnDirection.Clockwise
+                );
+        }
+
+        if (initialGroupSelectionMode
+            == ShipDestinationController.TurnSelectionMode
+                .ForceCounterClockwise)
+        {
+            return WindBeatingNavigationMath
+                .SelectCloseHauledHeadingForDirectedArc(
+                    formationHeading,
+                    candidates,
+                    TurnDirection.CounterClockwise
+                );
+        }
+
+        return WindBeatingNavigationMath
+            .SelectInitialAutoCloseHauledHeading(
+                destinationBearing,
+                formationHeading,
+                candidates
+            );
+    }
+
+
+    private void ClearFormationNavigationState()
+    {
+        formationNavigationMode = FormationNavigationMode.Direct;
+        navigationHeading = 0f;
+        targetRelativeWindAngle = 0f;
+        directResumeAvailable = false;
+        finalAlignmentActive = false;
+        finalAlignmentCompleted = false;
+        formationTackSwitchCount = 0;
+        ClearBeatingRouteState();
+    }
+
+
+    private void ClearBeatingRouteState()
+    {
+        currentBeatingLegHeading = 0f;
+        oppositeBeatingLegHeading = 0f;
+        currentBeatingLegCrossTrackSign = 0f;
+        formationCorridorHalfWidth = 0f;
+        formationCorridorCrossTrack = 0f;
+        beatingLegSwitchRequested = false;
+        automaticBeatingTackRequested = false;
+        beatingRouteOrigin = Vector3.zero;
+        beatingRouteDestination = Vector3.zero;
+        beatingRouteDirection = Vector3.zero;
+        beatingRouteRight = Vector3.zero;
     }
 
 
@@ -1594,6 +2143,7 @@ public class FormationCommandController : MonoBehaviour
     {
         ClearFormationMaximumTargetSpeeds();
         ClearFormationManeuverState();
+        ClearFormationNavigationState();
         members.Clear();
         memberCount = 0;
         isActive = false;
@@ -1616,6 +2166,15 @@ public class FormationCommandController : MonoBehaviour
 
     private void FailFormationManeuver()
     {
+        foreach (FormationMember member in members)
+        {
+            if (member != null && member.maneuverPlanner != null
+                && member.maneuverPlanner.IsActive)
+            {
+                member.maneuverPlanner.CancelCurrentManeuver();
+            }
+        }
+
         formationManeuverState = FormationManeuverState.Failed;
         formationManeuverLocked = false;
         isActive = false;

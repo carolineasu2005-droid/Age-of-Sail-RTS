@@ -162,6 +162,37 @@ public class SelectionManagerPlayModeTests
     }
 
 
+    [UnityTest]
+    public IEnumerator SelectionMembershipChange_ClearsArmedLineAheadTemplate()
+    {
+        GameObject commandObject = CreateObject("Line Ahead Command Input");
+        ShipSelectionManager selection =
+            commandObject.AddComponent<ShipSelectionManager>();
+        commandObject.AddComponent<ShipCommandDispatcher>();
+        ShipPlayerCommandInput input =
+            commandObject.AddComponent<ShipPlayerCommandInput>();
+        ShipDestinationController first = CreateShip("First", Vector3.zero);
+        ShipDestinationController second = CreateShip("Second", Vector3.right);
+        ShipDestinationController third = CreateShip("Third", Vector3.forward);
+
+        yield return null;
+
+        selection.AddSelection(first);
+        selection.AddSelection(second);
+        Assert.That(selection.SelectedCount, Is.EqualTo(2));
+
+        input.ToggleLineAheadTemplate();
+        Assert.That(input.PendingTemplate,
+            Is.EqualTo(ShipPlayerCommandInput.PendingFormationTemplate.LineAhead));
+
+        selection.AddSelection(third);
+        yield return null;
+
+        Assert.That(input.PendingTemplate,
+            Is.EqualTo(ShipPlayerCommandInput.PendingFormationTemplate.None));
+    }
+
+
     private ShipSelectionManager CreateSelectionManager()
     {
         return CreateObject("Selection Manager")

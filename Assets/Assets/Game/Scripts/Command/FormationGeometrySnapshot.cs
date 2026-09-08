@@ -156,6 +156,65 @@ public sealed class FormationGeometrySnapshot
     }
 
 
+    public static FormationGeometrySnapshot CreateFromLocalSlots(
+        Vector3 formationCenter,
+        float formationHeading,
+        IReadOnlyList<FormationGeometryMember> localSlotMembers
+    )
+    {
+        if (localSlotMembers == null || localSlotMembers.Count == 0)
+        {
+            throw new System.ArgumentException(
+                "Formation layout requires at least one member.",
+                nameof(localSlotMembers)
+            );
+        }
+
+        Vector3 formationForward = HeadingToDirection(formationHeading);
+        Vector3 formationRight = Vector3.Cross(
+            Vector3.up,
+            formationForward
+        ).normalized;
+        float boundsMinX = float.PositiveInfinity;
+        float boundsMaxX = float.NegativeInfinity;
+        float boundsMinZ = float.PositiveInfinity;
+        float boundsMaxZ = float.NegativeInfinity;
+        HashSet<ShipDestinationController> uniqueShips =
+            new HashSet<ShipDestinationController>();
+        List<FormationGeometryMember> members =
+            new List<FormationGeometryMember>(localSlotMembers.Count);
+
+        foreach (FormationGeometryMember member in localSlotMembers)
+        {
+            if (member.Ship == null || !uniqueShips.Add(member.Ship))
+            {
+                throw new System.ArgumentException(
+                    "Formation layout requires unique non-null members.",
+                    nameof(localSlotMembers)
+                );
+            }
+
+            boundsMinX = Mathf.Min(boundsMinX, member.LocalX);
+            boundsMaxX = Mathf.Max(boundsMaxX, member.LocalX);
+            boundsMinZ = Mathf.Min(boundsMinZ, member.LocalZ);
+            boundsMaxZ = Mathf.Max(boundsMaxZ, member.LocalZ);
+            members.Add(member);
+        }
+
+        return new FormationGeometrySnapshot(
+            formationCenter,
+            Mathf.Repeat(formationHeading, 360f),
+            formationForward,
+            formationRight,
+            boundsMinX,
+            boundsMaxX,
+            boundsMinZ,
+            boundsMaxZ,
+            members
+        );
+    }
+
+
     public static Vector3 GetSlotWorldPosition(
         Vector3 formationCenter,
         float formationHeading,

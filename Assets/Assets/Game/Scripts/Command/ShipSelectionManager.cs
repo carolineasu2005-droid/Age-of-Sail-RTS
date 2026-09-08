@@ -33,6 +33,8 @@ public class ShipSelectionManager : MonoBehaviour
 
     private readonly HashSet<ShipDestinationController> uniqueShips = new();
 
+    public event System.Action SelectionMembershipChanged;
+
 
     private struct ScreenSelectionCandidate
     {
@@ -92,6 +94,9 @@ public class ShipSelectionManager : MonoBehaviour
 
     public void SelectSingle(ShipDestinationController ship)
     {
+        bool membershipChanged = selectedShips.Count != 1
+            || selectedShips[0] != ship;
+
         if (ship == null)
         {
             ClearSelection();
@@ -101,6 +106,7 @@ public class ShipSelectionManager : MonoBehaviour
         selectedShips.Clear();
         selectedShips.Add(ship);
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(membershipChanged);
     }
 
 
@@ -112,6 +118,7 @@ public class ShipSelectionManager : MonoBehaviour
         }
 
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(true);
 
         if (selectedShips.Contains(ship))
         {
@@ -135,12 +142,15 @@ public class ShipSelectionManager : MonoBehaviour
 
         RefreshSelectionData();
 
-        if (!selectedShips.Contains(ship))
+        bool membershipChanged = !selectedShips.Contains(ship);
+
+        if (membershipChanged)
         {
             selectedShips.Add(ship);
         }
 
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(membershipChanged);
     }
 
 
@@ -151,15 +161,18 @@ public class ShipSelectionManager : MonoBehaviour
             return;
         }
 
-        selectedShips.Remove(ship);
+        bool membershipChanged = selectedShips.Remove(ship);
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(membershipChanged);
     }
 
 
     public void ClearSelection()
     {
+        bool membershipChanged = selectedShips.Count > 0;
         selectedShips.Clear();
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(membershipChanged);
     }
 
 
@@ -175,6 +188,8 @@ public class ShipSelectionManager : MonoBehaviour
         }
 
         RefreshSelectionData();
+        List<ShipDestinationController> previousSelection =
+            new List<ShipDestinationController>(selectedShips);
 
         List<ScreenSelectionCandidate> matchingCandidates =
             new List<ScreenSelectionCandidate>();
@@ -235,6 +250,7 @@ public class ShipSelectionManager : MonoBehaviour
         }
 
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(!HasSameMembership(previousSelection));
         return matchingCandidates.Count;
     }
 
@@ -348,6 +364,37 @@ public class ShipSelectionManager : MonoBehaviour
         primarySelectedShip = selectedCount > 0
             ? selectedShips[0]
             : null;
+    }
+
+
+    private bool HasSameMembership(
+        IReadOnlyList<ShipDestinationController> previousSelection
+    )
+    {
+        if (previousSelection == null
+            || previousSelection.Count != selectedShips.Count)
+        {
+            return false;
+        }
+
+        foreach (ShipDestinationController ship in previousSelection)
+        {
+            if (!selectedShips.Contains(ship))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    private void NotifySelectionMembershipChanged(bool membershipChanged)
+    {
+        if (membershipChanged)
+        {
+            SelectionMembershipChanged?.Invoke();
+        }
     }
 
 

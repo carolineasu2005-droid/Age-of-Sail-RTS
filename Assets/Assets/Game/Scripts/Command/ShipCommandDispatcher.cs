@@ -227,6 +227,42 @@ public class ShipCommandDispatcher : MonoBehaviour
     }
 
 
+    public void DispatchFormationDestination(
+        Vector3 worldDestination,
+        FormationGeometrySnapshot geometrySnapshot,
+        ShipDestinationController.TurnSelectionMode selectionMode,
+        WindNavigationAssistMode navigationAssistMode
+    )
+    {
+        dispatchSequence++;
+        DispatchSequenceChanged?.Invoke(dispatchSequence);
+        lastWorldDestination = worldDestination;
+        lastSelectionMode = selectionMode;
+        lastNavigationAssistMode = navigationAssistMode;
+        lastSingleShip = null;
+
+        if (geometrySnapshot == null || geometrySnapshot.Members.Count < 2)
+        {
+            lastSelectedShipCount = 0;
+            lastDispatchResult = DispatchResult.NoSelection;
+            return;
+        }
+
+        ClearPendingGroupCommand();
+        groupCommandPending = true;
+        pendingGroupDestination = worldDestination;
+        pendingGroupSelectionMode = selectionMode;
+        pendingGroupNavigationAssistMode = navigationAssistMode;
+        pendingGroupHasExplicitFormationHeading = false;
+        pendingGroupExplicitFormationHeading = 0f;
+        pendingGroupGeometrySnapshot = geometrySnapshot;
+        pendingGroupShipCount = geometrySnapshot.Members.Count;
+        pendingGroupDispatchSequence = dispatchSequence;
+        lastSelectedShipCount = pendingGroupShipCount;
+        lastDispatchResult = DispatchResult.RequiresFormation;
+    }
+
+
     public void ClearPendingGroupCommand()
     {
         groupCommandPending = false;

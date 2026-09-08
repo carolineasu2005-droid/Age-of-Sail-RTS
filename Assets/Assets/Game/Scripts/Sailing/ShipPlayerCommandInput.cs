@@ -3,6 +3,12 @@ using UnityEngine.InputSystem;
 
 public class ShipPlayerCommandInput : MonoBehaviour
 {
+    public enum PendingFormationTemplate
+    {
+        None,
+        LineAhead
+    }
+
     [Header("References")]
 
     [SerializeField]
@@ -140,9 +146,14 @@ public class ShipPlayerCommandInput : MonoBehaviour
     [SerializeField]
     private ShipDestinationController.TurnSelectionMode lastSelectionMode;
 
+    [SerializeField]
+    private PendingFormationTemplate pendingFormationTemplate;
+
     private FormationGeometrySnapshot rightMouseDownGeometrySnapshot;
 
     private FormationPlacementPreviewRenderer formationPlacementPreviewRenderer;
+
+    public PendingFormationTemplate PendingTemplate => pendingFormationTemplate;
 
 
     private void Awake()
@@ -168,6 +179,17 @@ public class ShipPlayerCommandInput : MonoBehaviour
                 FormationCommandController
             >();
         }
+
+    }
+
+
+    private void OnEnable()
+    {
+        if (selectionManager != null)
+        {
+            selectionManager.SelectionMembershipChanged +=
+                ClearPendingFormationTemplate;
+        }
     }
 
 
@@ -189,6 +211,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
             && Mouse.current.rightButton.wasPressedThisFrame;
         rightMouseReleasedThisFrame = Mouse.current != null
             && Mouse.current.rightButton.wasReleasedThisFrame;
+
+        if (Keyboard.current != null && Keyboard.current.lKey.wasPressedThisFrame)
+        {
+            ToggleLineAheadTemplate();
+        }
 
         if (leftMouseDetectedThisFrame)
         {
@@ -464,6 +491,18 @@ public class ShipPlayerCommandInput : MonoBehaviour
                 )
             && geometrySnapshot.Members.Count >= 2)
         {
+            if (pendingFormationTemplate == PendingFormationTemplate.LineAhead)
+            {
+                FormationMemberOrder memberOrder =
+                    new FormationMemberOrder(geometrySnapshot);
+                geometrySnapshot =
+                    FormationLayoutGenerator.CreateStandardLineAhead(
+                        memberOrder,
+                        geometrySnapshot.FormationCenter,
+                        geometrySnapshot.FormationHeading
+                    );
+            }
+
             rightMouseDownGeometrySnapshot = geometrySnapshot;
             rightMouseDownFormationSnapshotCaptured = true;
         }
@@ -613,6 +652,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
             lastSelectionMode,
             windNavigationAssistMode
         );
+        ConsumePendingFormationTemplateIfGroupCommandCommitted();
     }
 
 
@@ -621,6 +661,20 @@ public class ShipPlayerCommandInput : MonoBehaviour
         lastClickValid = true;
         lastWorldDestination = rightMouseDownWorldPosition;
         lastSelectionMode = GetSelectionMode();
+        if (pendingFormationTemplate == PendingFormationTemplate.LineAhead
+            && rightMouseDownGeometrySnapshot != null
+            && rightMouseDownGeometrySnapshot.Members.Count >= 2)
+        {
+            commandDispatcher.DispatchFormationDestination(
+                lastWorldDestination,
+                rightMouseDownGeometrySnapshot,
+                lastSelectionMode,
+                windNavigationAssistMode
+            );
+            ConsumePendingFormationTemplateIfGroupCommandCommitted();
+            return;
+        }
+
         commandDispatcher.DispatchDestination(
             lastWorldDestination,
             lastSelectionMode,
@@ -774,6 +828,44 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private void OnDisable()
     {
         CancelDestinationGesture();
+
+        if (selectionManager != null)
+        {
+            selectionManager.SelectionMembershipChanged -=
+                ClearPendingFormationTemplate;
+        }
+    }
+
+
+    public void ToggleLineAheadTemplate()
+    {
+        if (pendingFormationTemplate == PendingFormationTemplate.LineAhead)
+        {
+            ClearPendingFormationTemplate();
+            return;
+        }
+
+        if (selectionManager != null && selectionManager.SelectedCount >= 2)
+        {
+            pendingFormationTemplate = PendingFormationTemplate.LineAhead;
+        }
+    }
+
+
+    private void ConsumePendingFormationTemplateIfGroupCommandCommitted()
+    {
+        if (commandDispatcher != null
+            && commandDispatcher.LastDispatchResult
+                == ShipCommandDispatcher.DispatchResult.RequiresFormation)
+        {
+            ClearPendingFormationTemplate();
+        }
+    }
+
+
+    private void ClearPendingFormationTemplate()
+    {
+        pendingFormationTemplate = PendingFormationTemplate.None;
     }
 
 

@@ -8,7 +8,8 @@ public class ShipCommandDispatcher : MonoBehaviour
         None,
         NoSelection,
         SingleShip,
-        RequiresFormation
+        RequiresFormation,
+        StopSelectedShips
     }
 
 
@@ -16,6 +17,9 @@ public class ShipCommandDispatcher : MonoBehaviour
 
     [SerializeField]
     private ShipSelectionManager selectionManager;
+
+    [SerializeField]
+    private FormationCommandController formationCommandController;
 
 
     [Header("Runtime Debug")]
@@ -119,6 +123,13 @@ public class ShipCommandDispatcher : MonoBehaviour
         {
             selectionManager = GetComponent<ShipSelectionManager>();
         }
+
+        if (formationCommandController == null)
+        {
+            formationCommandController = GetComponent<
+                FormationCommandController
+            >();
+        }
     }
 
 
@@ -164,6 +175,7 @@ public class ShipCommandDispatcher : MonoBehaviour
             }
 
             ClearPendingGroupCommand();
+            ClearPlayerStop(selectedShip);
             selectedShip.SetDestination(
                 worldDestination,
                 selectionMode,
@@ -174,6 +186,7 @@ public class ShipCommandDispatcher : MonoBehaviour
             return;
         }
 
+        ClearPlayerStops(selectedShips);
         groupCommandPending = true;
         pendingGroupDestination = worldDestination;
         pendingGroupSelectionMode = selectionMode;
@@ -210,6 +223,7 @@ public class ShipCommandDispatcher : MonoBehaviour
         }
 
         ClearPendingGroupCommand();
+        ClearPlayerStops(geometrySnapshot);
         groupCommandPending = true;
         pendingGroupDestination = formationCenter;
         pendingGroupSelectionMode = selectionMode;
@@ -249,6 +263,7 @@ public class ShipCommandDispatcher : MonoBehaviour
         }
 
         ClearPendingGroupCommand();
+        ClearPlayerStops(geometrySnapshot);
         groupCommandPending = true;
         pendingGroupDestination = worldDestination;
         pendingGroupSelectionMode = selectionMode;
@@ -276,5 +291,160 @@ public class ShipCommandDispatcher : MonoBehaviour
         pendingGroupGeometrySnapshot = null;
         pendingGroupShipCount = 0;
         pendingGroupDispatchSequence = 0;
+    }
+
+
+    public void DispatchStopSelectedShips()
+    {
+        if (selectionManager == null)
+        {
+            lastSelectedShipCount = 0;
+            lastDispatchResult = DispatchResult.NoSelection;
+            return;
+        }
+
+        IReadOnlyList<ShipDestinationController> selectedShips =
+            selectionManager.SelectedShips;
+        lastSelectedShipCount = selectedShips.Count;
+
+        if (lastSelectedShipCount == 0)
+        {
+            lastDispatchResult = DispatchResult.NoSelection;
+            return;
+        }
+
+        FormationCommandController formation =
+            GetFormationCommandController();
+        if (formation != null && ContainsActiveFormationMember(
+            formation,
+            selectedShips
+        ))
+        {
+            formation.CancelFormation();
+        }
+
+        ClearPendingGroupCommand();
+
+        foreach (ShipDestinationController selectedShip in selectedShips)
+        {
+            ApplyPlayerStop(selectedShip);
+        }
+
+        lastSingleShip = lastSelectedShipCount == 1
+            ? selectedShips[0]
+            : null;
+        lastDispatchResult = DispatchResult.StopSelectedShips;
+    }
+
+
+    private FormationCommandController GetFormationCommandController()
+    {
+        if (formationCommandController == null)
+        {
+            formationCommandController = GetComponent<
+                FormationCommandController
+            >();
+        }
+
+        return formationCommandController;
+    }
+
+
+    private static bool ContainsActiveFormationMember(
+        FormationCommandController formation,
+        IReadOnlyList<ShipDestinationController> selectedShips
+    )
+    {
+        foreach (ShipDestinationController selectedShip in selectedShips)
+        {
+            if (formation.ContainsActiveMember(selectedShip))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    private static void ClearPlayerStops(
+        IReadOnlyList<ShipDestinationController> ships
+    )
+    {
+        foreach (ShipDestinationController ship in ships)
+        {
+            ClearPlayerStop(ship);
+        }
+    }
+
+
+    private static void ClearPlayerStops(
+        FormationGeometrySnapshot geometrySnapshot
+    )
+    {
+        foreach (FormationGeometryMember member in geometrySnapshot.Members)
+        {
+            ClearPlayerStop(member.Ship);
+        }
+    }
+
+
+    private static void ClearPlayerStop(ShipDestinationController ship)
+    {
+        if (ship == null)
+        {
+            return;
+        }
+
+        ShipSailingSpeed sailingSpeed = ship.GetComponent<ShipSailingSpeed>();
+        if (sailingSpeed != null)
+        {
+            sailingSpeed.ClearPlayerStopSpeedCap();
+        }
+    }
+
+
+    private static void ApplyPlayerStop(ShipDestinationController ship)
+    {
+        if (ship == null)
+        {
+            return;
+        }
+
+        ship.ClearDestination();
+
+        ShipManeuverPlanner maneuverPlanner = ship.GetComponent<
+            ShipManeuverPlanner
+        >();
+        if (maneuverPlanner != null)
+        {
+            maneuverPlanner.CancelCurrentManeuver();
+        }
+
+        ShipTacking shipTacking = ship.GetComponent<ShipTacking>();
+        if (shipTacking != null)
+        {
+            shipTacking.CancelTack();
+        }
+
+        ShipWearing shipWearing = ship.GetComponent<ShipWearing>();
+        if (shipWearing != null)
+        {
+            shipWearing.CancelWear();
+        }
+
+        ShipHeadingController headingController = ship.GetComponent<
+            ShipHeadingController
+        >();
+        if (headingController != null)
+        {
+            headingController.CancelHeadingCommand();
+        }
+
+        ShipSailingSpeed sailingSpeed = ship.GetComponent<ShipSailingSpeed>();
+        if (sailingSpeed != null)
+        {
+            sailingSpeed.SetPlayerStopSpeedCap(0f);
+        }
     }
 }

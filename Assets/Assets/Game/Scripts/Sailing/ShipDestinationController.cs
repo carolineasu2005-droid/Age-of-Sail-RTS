@@ -155,6 +155,10 @@ public class ShipDestinationController : MonoBehaviour
     [SerializeField]
     private bool navigationBlocked;
 
+    public bool HasDestination => hasDestination;
+
+    public NavigationMode CurrentNavigationMode => navigationMode;
+
     private void Awake()
     {
         if (maneuverPlanner == null)

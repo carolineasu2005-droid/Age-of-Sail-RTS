@@ -217,6 +217,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
             ToggleLineAheadTemplate();
         }
 
+        if (Keyboard.current != null && Keyboard.current.sKey.wasPressedThisFrame)
+        {
+            StopSelectedShips();
+        }
+
         if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
         {
             ToggleHoveredFormationLead();
@@ -858,6 +863,17 @@ public class ShipPlayerCommandInput : MonoBehaviour
         if (selectionManager != null && selectionManager.SelectedCount >= 2)
         {
             pendingFormationTemplate = PendingFormationTemplate.LineAhead;
+        }
+    }
+
+
+    public void StopSelectedShips()
+    {
+        ClearPendingFormationTemplate();
+
+        if (commandDispatcher != null)
+        {
+            commandDispatcher.DispatchStopSelectedShips();
         }
     }
 

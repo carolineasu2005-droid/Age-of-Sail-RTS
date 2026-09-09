@@ -65,6 +65,15 @@ public class FormationCommandController : MonoBehaviour
         internal float distanceToSlot;
 
         [SerializeField]
+        internal float forwardError;
+
+        [SerializeField]
+        internal float desiredFormationSpeed;
+
+        [SerializeField]
+        internal float availableTargetSpeed;
+
+        [SerializeField]
         internal float desiredMemberHeading;
 
         [SerializeField]
@@ -171,6 +180,18 @@ public class FormationCommandController : MonoBehaviour
     [SerializeField]
     [Range(0.01f, 1f)]
     private float formationCruiseFactor = 0.9f;
+
+    [SerializeField]
+    [Min(0f)]
+    private float longitudinalSpeedDeadband = 4f;
+
+    [SerializeField]
+    [Min(0.01f)]
+    private float laggingFullCatchUpDistance = 40f;
+
+    [SerializeField]
+    [Min(0.01f)]
+    private float aheadFullSlowDistance = 40f;
 
     [SerializeField]
     [Min(0.01f)]
@@ -442,6 +463,12 @@ public class FormationCommandController : MonoBehaviour
 
     public float FormationCruiseFactor => formationCruiseFactor;
 
+    public float LongitudinalSpeedDeadband => longitudinalSpeedDeadband;
+
+    public float LaggingFullCatchUpDistance => laggingFullCatchUpDistance;
+
+    public float AheadFullSlowDistance => aheadFullSlowDistance;
+
     public float DirectSlotCorrectionAngle => directSlotCorrectionAngle;
 
     public float ManualSlotCorrectionAngle => manualSlotCorrectionAngle;
@@ -449,6 +476,26 @@ public class FormationCommandController : MonoBehaviour
     public int ConsumedDispatchSequence => consumedDispatchSequence;
 
     public int CurrentDispatcherSequence => currentDispatcherSequence;
+
+
+    public bool ContainsActiveMember(ShipDestinationController ship)
+    {
+        if (!isActive || ship == null)
+        {
+            return false;
+        }
+
+        foreach (FormationMember member in members)
+        {
+            if (IsMemberValid(member)
+                && member.destinationController == ship)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public ShipDestinationController.TurnSelectionMode
         InitialGroupSelectionMode => initialGroupSelectionMode;
@@ -814,6 +861,8 @@ public class FormationCommandController : MonoBehaviour
         MoveFormationAnchor(Time.deltaTime);
         UpdateCurrentSlotWorldPositions();
 
+        UpdateLongitudinalStationKeeping();
+
         if (formationManeuverState == FormationManeuverState.Executing)
         {
             UpdateCoordinatedManeuverExecution();
@@ -888,6 +937,7 @@ public class FormationCommandController : MonoBehaviour
 
         formationManeuverState = FormationManeuverState.Executing;
         formationManeuverLocked = true;
+        ClearFormationMaximumTargetSpeeds();
         maneuverValidMemberCount = 0;
         maneuverCompletedMemberCount = 0;
         reformingMemberCount = 0;
@@ -1153,15 +1203,6 @@ public class FormationCommandController : MonoBehaviour
             )
         );
 
-        foreach (FormationMember member in members)
-        {
-            if (IsMemberValid(member) && member.sailingSpeed != null)
-            {
-                member.sailingSpeed.SetFormationMaximumTargetSpeed(
-                    sharedFormationTargetSpeed
-                );
-            }
-        }
     }
 
 
@@ -1211,6 +1252,135 @@ public class FormationCommandController : MonoBehaviour
                 + formationRight * member.localSlotX
                 + formationForward * member.localSlotZ;
         }
+    }
+
+
+    private void UpdateLongitudinalStationKeeping()
+    {
+        if (!ShouldApplyLongitudinalStationKeeping(formationManeuverState))
+        {
+            ClearFormationMaximumTargetSpeeds();
+            return;
+        }
+
+        foreach (FormationMember member in members)
+        {
+            if (!IsMemberValid(member) || member.sailingSpeed == null)
+            {
+                continue;
+            }
+
+            member.forwardError = CalculateFormationForwardError(
+                member.currentSlotWorldPosition,
+                member.destinationController.transform.position,
+                formationForward
+            );
+            member.availableTargetSpeed = Mathf.Max(
+                0f,
+                member.sailingSpeed.AvailableTargetSpeed
+            );
+            member.desiredFormationSpeed = CalculateDesiredFormationSpeed(
+                member.forwardError,
+                sharedFormationTargetSpeed,
+                member.availableTargetSpeed,
+                longitudinalSpeedDeadband,
+                laggingFullCatchUpDistance,
+                aheadFullSlowDistance
+            );
+            member.sailingSpeed.SetFormationMaximumTargetSpeed(
+                member.desiredFormationSpeed
+            );
+        }
+    }
+
+
+    public static bool ShouldApplyLongitudinalStationKeeping(
+        FormationManeuverState maneuverState
+    )
+    {
+        return maneuverState != FormationManeuverState.Executing;
+    }
+
+
+    public static float CalculateFormationForwardError(
+        Vector3 slotWorldPosition,
+        Vector3 shipWorldPosition,
+        Vector3 formationForward
+    )
+    {
+        return Vector3.Dot(
+            slotWorldPosition - shipWorldPosition,
+            formationForward
+        );
+    }
+
+
+    public static float CalculateDesiredFormationSpeed(
+        float forwardError,
+        float formationReferenceSpeed,
+        float availableTargetSpeed,
+        float deadband,
+        float laggingFullCatchUpDistance,
+        float aheadFullSlowDistance
+    )
+    {
+        float availableSpeed = Mathf.Max(0f, availableTargetSpeed);
+        float referenceSpeed = Mathf.Clamp(
+            formationReferenceSpeed,
+            0f,
+            availableSpeed
+        );
+        float absoluteDeadband = Mathf.Max(0f, deadband);
+
+        if (Mathf.Abs(forwardError) <= absoluteDeadband)
+        {
+            return referenceSpeed;
+        }
+
+        if (forwardError > absoluteDeadband)
+        {
+            float catchUpProgress = CalculateDistanceProgress(
+                forwardError,
+                absoluteDeadband,
+                laggingFullCatchUpDistance
+            );
+            return Mathf.Clamp(
+                Mathf.Lerp(referenceSpeed, availableSpeed, catchUpProgress),
+                0f,
+                availableSpeed
+            );
+        }
+
+        float slowProgress = CalculateDistanceProgress(
+            -forwardError,
+            absoluteDeadband,
+            aheadFullSlowDistance
+        );
+        return Mathf.Clamp(
+            Mathf.Lerp(referenceSpeed, 0f, slowProgress),
+            0f,
+            availableSpeed
+        );
+    }
+
+
+    private static float CalculateDistanceProgress(
+        float absoluteForwardError,
+        float deadband,
+        float fullResponseDistance
+    )
+    {
+        float fullDistance = Mathf.Max(deadband, fullResponseDistance);
+        if (fullDistance <= deadband)
+        {
+            return 1f;
+        }
+
+        return Mathf.InverseLerp(
+            deadband,
+            fullDistance,
+            absoluteForwardError
+        );
     }
 
 

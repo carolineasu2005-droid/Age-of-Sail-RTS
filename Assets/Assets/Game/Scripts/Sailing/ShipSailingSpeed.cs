@@ -76,6 +76,12 @@ public class ShipSailingSpeed : MonoBehaviour
     private float formationMaximumTargetSpeed;
 
     [SerializeField]
+    private bool playerStopSpeedCapActive;
+
+    [SerializeField]
+    private float playerStopSpeedCap;
+
+    [SerializeField]
     private float currentSpeed;
 
     [SerializeField]
@@ -128,7 +134,20 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float PolarTargetSpeed => polarTargetSpeed;
 
+    public float AvailableTargetSpeed => polarTargetSpeed;
+
     public float EffectiveTargetSpeed => effectiveTargetSpeed;
+
+    public bool FormationSpeedCapActive => formationMaximumTargetSpeedActive;
+
+    public float FormationSpeedCap => formationMaximumTargetSpeed;
+
+    public bool PlayerStopSpeedCapActive => playerStopSpeedCapActive;
+
+    public float PlayerStopSpeedCap => playerStopSpeedCap;
+
+    public bool IsPlayerStopped => playerStopSpeedCapActive
+        && playerStopSpeedCap <= 0f;
 
     public float BaseMaxSpeed => baseMaxSpeed;
 
@@ -189,6 +208,57 @@ public class ShipSailingSpeed : MonoBehaviour
         formationMaximumTargetSpeed = 0f;
     }
 
+    public void SetPlayerStopSpeedCap(float maximumTargetSpeed)
+    {
+        playerStopSpeedCap = Mathf.Max(0f, maximumTargetSpeed);
+        playerStopSpeedCapActive = true;
+    }
+
+    public void ClearPlayerStopSpeedCap()
+    {
+        playerStopSpeedCapActive = false;
+        playerStopSpeedCap = 0f;
+    }
+
+    public static float ComposeEffectiveTargetSpeed(
+        float availableTargetSpeed,
+        bool maneuverMinimumActive,
+        float maneuverMinimumTargetSpeed,
+        bool formationSpeedCapActive,
+        float formationSpeedCap,
+        bool playerStopSpeedCapActive,
+        float playerStopSpeedCap
+    )
+    {
+        float effectiveSpeed = Mathf.Max(0f, availableTargetSpeed);
+
+        if (maneuverMinimumActive)
+        {
+            effectiveSpeed = Mathf.Max(
+                effectiveSpeed,
+                Mathf.Max(0f, maneuverMinimumTargetSpeed)
+            );
+        }
+
+        if (formationSpeedCapActive)
+        {
+            effectiveSpeed = Mathf.Min(
+                effectiveSpeed,
+                Mathf.Max(0f, formationSpeedCap)
+            );
+        }
+
+        if (playerStopSpeedCapActive)
+        {
+            effectiveSpeed = Mathf.Min(
+                effectiveSpeed,
+                Mathf.Max(0f, playerStopSpeedCap)
+            );
+        }
+
+        return effectiveSpeed;
+    }
+
     private void Awake()
     {
         if (shipLeeway == null)
@@ -233,23 +303,15 @@ public class ShipSailingSpeed : MonoBehaviour
             * polarEfficiency
             * globalWind.windStrength;
         polarTargetSpeed = targetSpeed;
-        effectiveTargetSpeed = polarTargetSpeed;
-
-        if (maneuverMinimumTargetSpeedActive)
-        {
-            effectiveTargetSpeed = Mathf.Max(
-                effectiveTargetSpeed,
-                maneuverMinimumTargetSpeed
-            );
-        }
-
-        if (formationMaximumTargetSpeedActive)
-        {
-            effectiveTargetSpeed = Mathf.Min(
-                effectiveTargetSpeed,
-                formationMaximumTargetSpeed
-            );
-        }
+        effectiveTargetSpeed = ComposeEffectiveTargetSpeed(
+            polarTargetSpeed,
+            maneuverMinimumTargetSpeedActive,
+            maneuverMinimumTargetSpeed,
+            formationMaximumTargetSpeedActive,
+            formationMaximumTargetSpeed,
+            playerStopSpeedCapActive,
+            playerStopSpeedCap
+        );
 
         isInNoGoZone =
             relativeWindAngleAbsolute <= sailPolarProfile.noGoAngle;

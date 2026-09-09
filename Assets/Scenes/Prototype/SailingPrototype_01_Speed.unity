@@ -734,6 +734,7 @@ MonoBehaviour:
   lastMouseScreenPosition: {x: 0, y: 0}
   lastWorldDestination: {x: 0, y: 0, z: 0}
   lastSelectionMode: 0
+  pendingFormationTemplate: 0
 --- !u!114 &1123039777
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -750,6 +751,8 @@ MonoBehaviour:
   zoomSpeed: 80
   minimumHeight: 15
   maximumHeight: 120
+  edgeScrollThresholdPixels: 12
+  navigationPlaneY: 0
   focusTarget: {fileID: 0}
 --- !u!114 &1123039778
 MonoBehaviour:
@@ -885,6 +888,7 @@ MonoBehaviour:
   selectedShips: []
   selectedCount: 0
   primarySelectedShip: {fileID: 0}
+  designatedFormationLead: {fileID: 0}
   lastPickedShip: {fileID: 0}
   lastPickScreenPosition: {x: 0, y: 0}
   lastPickSuccessful: 0
@@ -901,6 +905,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShipCommandDispatcher
   selectionManager: {fileID: 1123039782}
+  formationCommandController: {fileID: 0}
   dispatchSequence: 0
   lastDispatchResult: 0
   lastWorldDestination: {x: 0, y: 0, z: 0}
@@ -940,6 +945,9 @@ MonoBehaviour:
   formationCorridorSwitchFactor: 0.85
   formationHeadingTurnRate: 12
   formationCruiseFactor: 0.9
+  longitudinalSpeedDeadband: 4
+  laggingFullCatchUpDistance: 40
+  aheadFullSlowDistance: 40
   slotPositionDeadband: 3
   slotHeadingCommandThreshold: 4
   directSlotCorrectionAngle: 30
@@ -1027,7 +1035,7 @@ PrefabInstance:
       objectReference: {fileID: 350266504}
     - target: {fileID: 5977199149085479063, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: m_VersionIndex
-      value: 39
+      value: 42
       objectReference: {fileID: 0}
     - target: {fileID: 7980532100417072468, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       propertyPath: globalWind
@@ -1139,7 +1147,7 @@ PrefabInstance:
       objectReference: {fileID: 607055583}
     - target: {fileID: 1324973022301360879, guid: dbbf9c71896aad94a917e381d8a8657f, type: 3}
       propertyPath: m_VersionIndex
-      value: 45
+      value: 48
       objectReference: {fileID: 0}
     - target: {fileID: 3483314543192300081, guid: dbbf9c71896aad94a917e381d8a8657f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1228,7 +1236,7 @@ PrefabInstance:
       objectReference: {fileID: 795802191}
     - target: {fileID: 1354815805549890684, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_VersionIndex
-      value: 39
+      value: 42
       objectReference: {fileID: 0}
     - target: {fileID: 4291764013390553459, guid: 7d68ac0dd0366284fb6874f9680798ca, type: 3}
       propertyPath: m_LocalPosition.x

@@ -23,6 +23,45 @@ public sealed class FormationMemberOrder
     }
 
 
+    public static FormationMemberOrder CreateAutomatic(
+        FormationGeometrySnapshot geometrySnapshot
+    )
+    {
+        return new FormationMemberOrder(geometrySnapshot);
+    }
+
+
+    public static FormationMemberOrder CreateWithDesignatedLead(
+        FormationGeometrySnapshot geometrySnapshot,
+        ShipDestinationController designatedLead
+    )
+    {
+        FormationMemberOrder automaticOrder = CreateAutomatic(geometrySnapshot);
+
+        if (designatedLead == null
+            || automaticOrder.IndexOf(designatedLead) < 0)
+        {
+            return automaticOrder;
+        }
+
+        List<ShipDestinationController> members =
+            new List<ShipDestinationController>(automaticOrder.Count)
+            {
+                designatedLead
+            };
+
+        foreach (ShipDestinationController member in automaticOrder.OrderedMembers)
+        {
+            if (member != designatedLead)
+            {
+                members.Add(member);
+            }
+        }
+
+        return new FormationMemberOrder(members);
+    }
+
+
     public FormationMemberOrder(
         IReadOnlyList<ShipDestinationController> membersInOrder
     )

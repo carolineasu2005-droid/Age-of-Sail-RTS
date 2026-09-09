@@ -217,6 +217,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
             ToggleLineAheadTemplate();
         }
 
+        if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
+        {
+            ToggleHoveredFormationLead();
+        }
+
         if (leftMouseDetectedThisFrame)
         {
             BeginSelectionGesture();
@@ -494,7 +499,12 @@ public class ShipPlayerCommandInput : MonoBehaviour
             if (pendingFormationTemplate == PendingFormationTemplate.LineAhead)
             {
                 FormationMemberOrder memberOrder =
-                    new FormationMemberOrder(geometrySnapshot);
+                    FormationMemberOrder.CreateWithDesignatedLead(
+                        geometrySnapshot,
+                        selectionManager != null
+                            ? selectionManager.DesignatedFormationLead
+                            : null
+                    );
                 geometrySnapshot =
                     FormationLayoutGenerator.CreateStandardLineAhead(
                         memberOrder,
@@ -866,6 +876,30 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private void ClearPendingFormationTemplate()
     {
         pendingFormationTemplate = PendingFormationTemplate.None;
+    }
+
+
+    private void ToggleHoveredFormationLead()
+    {
+        if (selectionManager == null
+            || commandCamera == null
+            || Mouse.current == null
+            || !selectionManager.TryPickShip(
+                commandCamera,
+                Mouse.current.position.ReadValue(),
+                out ShipDestinationController hoveredShip
+            ))
+        {
+            return;
+        }
+
+        if (selectionManager.DesignatedFormationLead == hoveredShip)
+        {
+            selectionManager.ClearDesignatedFormationLead();
+            return;
+        }
+
+        selectionManager.TrySetDesignatedFormationLead(hoveredShip);
     }
 
 

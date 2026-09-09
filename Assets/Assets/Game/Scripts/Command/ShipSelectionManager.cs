@@ -23,6 +23,9 @@ public class ShipSelectionManager : MonoBehaviour
     private ShipDestinationController primarySelectedShip;
 
     [SerializeField]
+    private ShipDestinationController designatedFormationLead;
+
+    [SerializeField]
     private ShipDestinationController lastPickedShip;
 
     [SerializeField]
@@ -80,6 +83,18 @@ public class ShipSelectionManager : MonoBehaviour
     }
 
 
+    public ShipDestinationController DesignatedFormationLead
+    {
+        get
+        {
+            RefreshSelectionData();
+            return designatedFormationLead;
+        }
+    }
+
+    public bool HasDesignatedFormationLead => DesignatedFormationLead != null;
+
+
     private void Awake()
     {
         RefreshSelectionData();
@@ -118,7 +133,6 @@ public class ShipSelectionManager : MonoBehaviour
         }
 
         RefreshSelectionData();
-        NotifySelectionMembershipChanged(true);
 
         if (selectedShips.Contains(ship))
         {
@@ -130,6 +144,7 @@ public class ShipSelectionManager : MonoBehaviour
         }
 
         RefreshSelectionData();
+        NotifySelectionMembershipChanged(true);
     }
 
 
@@ -173,6 +188,31 @@ public class ShipSelectionManager : MonoBehaviour
         selectedShips.Clear();
         RefreshSelectionData();
         NotifySelectionMembershipChanged(membershipChanged);
+    }
+
+
+    public bool TrySetDesignatedFormationLead(
+        ShipDestinationController member
+    )
+    {
+        RefreshSelectionData();
+
+        if (selectedShips.Count < 2
+            || member == null
+            || !member.isActiveAndEnabled
+            || !selectedShips.Contains(member))
+        {
+            return false;
+        }
+
+        designatedFormationLead = member;
+        return true;
+    }
+
+
+    public void ClearDesignatedFormationLead()
+    {
+        designatedFormationLead = null;
     }
 
 
@@ -364,6 +404,13 @@ public class ShipSelectionManager : MonoBehaviour
         primarySelectedShip = selectedCount > 0
             ? selectedShips[0]
             : null;
+
+        if (designatedFormationLead == null
+            || !designatedFormationLead.isActiveAndEnabled
+            || !selectedShips.Contains(designatedFormationLead))
+        {
+            designatedFormationLead = null;
+        }
     }
 
 
@@ -393,6 +440,7 @@ public class ShipSelectionManager : MonoBehaviour
     {
         if (membershipChanged)
         {
+            ClearDesignatedFormationLead();
             SelectionMembershipChanged?.Invoke();
         }
     }

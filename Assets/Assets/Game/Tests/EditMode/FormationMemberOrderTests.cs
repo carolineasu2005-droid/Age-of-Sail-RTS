@@ -96,6 +96,86 @@ public class FormationMemberOrderTests
     }
 
 
+    [Test]
+    public void CreateWithDesignatedLead_AbsentOrInvalidLeadUsesAutomaticOrder()
+    {
+        ShipDestinationController front = CreateShip("Front", new Vector3(0f, 0f, 6f));
+        ShipDestinationController middle = CreateShip("Middle", Vector3.zero);
+        ShipDestinationController rear = CreateShip("Rear", new Vector3(0f, 0f, -4f));
+        ShipDestinationController outsider = CreateShip("Outsider", Vector3.right);
+        FormationGeometrySnapshot snapshot = Capture(new[] { rear, middle, front });
+
+        FormationMemberOrder automatic = FormationMemberOrder.CreateAutomatic(snapshot);
+        FormationMemberOrder absent = FormationMemberOrder.CreateWithDesignatedLead(
+            snapshot, null);
+        FormationMemberOrder invalid = FormationMemberOrder.CreateWithDesignatedLead(
+            snapshot, outsider);
+
+        Assert.That(absent.OrderedMembers, Is.EqualTo(automatic.OrderedMembers));
+        Assert.That(invalid.OrderedMembers, Is.EqualTo(automatic.OrderedMembers));
+    }
+
+
+    [Test]
+    public void CreateWithDesignatedLead_FrontmostMemberPreservesAutomaticOrder()
+    {
+        ShipDestinationController front = CreateShip("Front", new Vector3(0f, 0f, 6f));
+        ShipDestinationController middle = CreateShip("Middle", Vector3.zero);
+        ShipDestinationController rear = CreateShip("Rear", new Vector3(0f, 0f, -4f));
+        FormationGeometrySnapshot snapshot = Capture(new[] { rear, middle, front });
+
+        FormationMemberOrder order = FormationMemberOrder.CreateWithDesignatedLead(
+            snapshot, front);
+
+        Assert.That(order.OrderedMembers, Is.EqualTo(new[] { front, middle, rear }));
+        Assert.That(order.Lead, Is.SameAs(front));
+    }
+
+
+    [Test]
+    public void CreateWithDesignatedLead_MiddleMemberMovesToLeadAndKeepsRelativeOrder()
+    {
+        ShipDestinationController front = CreateShip("Light", new Vector3(0f, 0f, 6f));
+        ShipDestinationController designatedMiddle = CreateShip(
+            "Medium", Vector3.zero);
+        ShipDestinationController rearPrimary = CreateShip(
+            "Heavy", new Vector3(0f, 0f, -4f));
+        GameObject selectionObject = new GameObject("Selection Manager");
+        createdObjects.Add(selectionObject);
+        ShipSelectionManager selection =
+            selectionObject.AddComponent<ShipSelectionManager>();
+        selection.SelectSingle(rearPrimary);
+        FormationGeometrySnapshot snapshot = Capture(
+            new[] { rearPrimary, designatedMiddle, front });
+
+        FormationMemberOrder order = FormationMemberOrder.CreateWithDesignatedLead(
+            snapshot, designatedMiddle);
+
+        Assert.That(selection.PrimarySelectedShip, Is.SameAs(rearPrimary));
+        Assert.That(order.OrderedMembers,
+            Is.EqualTo(new[] { designatedMiddle, front, rearPrimary }));
+        Assert.That(order.Lead, Is.SameAs(designatedMiddle));
+    }
+
+
+    [Test]
+    public void CreateWithDesignatedLead_RearmostMemberMovesToLeadAndRemainsStable()
+    {
+        ShipDestinationController front = CreateShip("Light", new Vector3(0f, 0f, 6f));
+        ShipDestinationController middle = CreateShip("Medium", Vector3.zero);
+        ShipDestinationController rear = CreateShip("Heavy", new Vector3(0f, 0f, -4f));
+        FormationGeometrySnapshot snapshot = Capture(new[] { rear, middle, front });
+
+        FormationMemberOrder order = FormationMemberOrder.CreateWithDesignatedLead(
+            snapshot, rear);
+        front.transform.position = new Vector3(0f, 0f, -30f);
+        rear.transform.position = new Vector3(0f, 0f, 30f);
+
+        Assert.That(order.OrderedMembers, Is.EqualTo(new[] { rear, front, middle }));
+        Assert.That(order.Lead, Is.SameAs(rear));
+    }
+
+
     private FormationMemberOrder CreateOrder(
         params ShipDestinationController[] ships
     )

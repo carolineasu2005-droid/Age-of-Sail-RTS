@@ -69,6 +69,9 @@ public class ShipManeuverPlanner : MonoBehaviour
     [SerializeField]
     private ManeuverType currentManeuver;
 
+    [SerializeField]
+    private int commandSequence;
+
 
     [Header("Debug Commands")]
 
@@ -88,6 +91,25 @@ public class ShipManeuverPlanner : MonoBehaviour
     public bool IsActive => isActive;
 
     public ManeuverType CurrentManeuver => currentManeuver;
+
+    public float TargetHeading => targetHeading;
+
+    public TurnDirection PlannedTurnDirection => turnDirection;
+
+    public int CommandSequence => commandSequence;
+
+    public bool CanExecuteCoordinatedManeuver(ManeuverType requestedManeuver)
+    {
+        return requestedManeuver switch
+        {
+            ManeuverType.NormalTurn => headingController != null,
+            ManeuverType.Tack => shipTacking != null
+                && shipTacking.CanStartTack,
+            ManeuverType.Wear => shipWearing != null
+                && shipWearing.CanStartWear,
+            _ => false
+        };
+    }
 
     private void Awake()
     {
@@ -127,9 +149,9 @@ public class ShipManeuverPlanner : MonoBehaviour
             CancelCurrentManeuver();
         }
 
-        if (isActive && (headingController == null || !headingController.IsActive))
+        if (isActive)
         {
-            isActive = false;
+            isActive = IsCurrentManeuverOwnerActive();
         }
     }
 
@@ -273,6 +295,7 @@ public class ShipManeuverPlanner : MonoBehaviour
             CancelCurrentManeuver();
         }
 
+        commandSequence++;
         ClassifyHeadingCommand(requestedTargetHeading, requestedDirection);
         currentManeuver = classifiedManeuver;
         isActive = false;
@@ -290,14 +313,14 @@ public class ShipManeuverPlanner : MonoBehaviour
                 if (shipTacking != null && headingController != null)
                 {
                     shipTacking.StartTack(targetHeading, turnDirection);
-                    isActive = headingController.IsActive;
+                    isActive = shipTacking.IsActive;
                 }
                 break;
             case ManeuverType.Wear:
                 if (shipWearing != null && headingController != null)
                 {
                     shipWearing.StartWear(targetHeading, turnDirection);
-                    isActive = headingController.IsActive;
+                    isActive = shipWearing.IsActive;
                 }
                 break;
         }
@@ -315,6 +338,7 @@ public class ShipManeuverPlanner : MonoBehaviour
             CancelCurrentManeuver();
         }
 
+        commandSequence++;
         currentHeading = NormalizeHeading(transform.eulerAngles.y);
         targetHeading = NormalizeHeading(requestedTargetHeading);
         turnDirection = requestedDirection;
@@ -343,17 +367,66 @@ public class ShipManeuverPlanner : MonoBehaviour
                 if (shipTacking != null && headingController != null)
                 {
                     shipTacking.StartTack(targetHeading, turnDirection);
-                    isActive = headingController.IsActive;
+                    isActive = shipTacking.IsActive;
                 }
                 break;
             case ManeuverType.Wear:
                 if (shipWearing != null && headingController != null)
                 {
                     shipWearing.StartWear(targetHeading, turnDirection);
-                    isActive = headingController.IsActive;
+                    isActive = shipWearing.IsActive;
                 }
                 break;
         }
+    }
+
+
+    internal bool RetargetActiveNormalTurn(
+        float requestedTargetHeading,
+        TurnDirection requestedDirection
+    )
+    {
+        if (!isActive
+            || currentManeuver != ManeuverType.NormalTurn
+            || headingController == null
+            || !headingController.IsActive)
+        {
+            return false;
+        }
+
+        float nextTargetHeading = NormalizeHeading(requestedTargetHeading);
+        if (!headingController.RetargetActiveHeading(
+            nextTargetHeading,
+            requestedDirection
+        ))
+        {
+            return false;
+        }
+
+        currentHeading = NormalizeHeading(transform.eulerAngles.y);
+        targetHeading = nextTargetHeading;
+        turnDirection = requestedDirection;
+        commandedArc = CalculateDirectedDistance(
+            currentHeading,
+            targetHeading,
+            turnDirection
+        );
+        classifiedManeuver = ManeuverType.NormalTurn;
+        isActive = headingController.IsActive;
+        return true;
+    }
+
+
+    private bool IsCurrentManeuverOwnerActive()
+    {
+        return currentManeuver switch
+        {
+            ManeuverType.NormalTurn => headingController != null
+                && headingController.IsActive,
+            ManeuverType.Tack => shipTacking != null && shipTacking.IsActive,
+            ManeuverType.Wear => shipWearing != null && shipWearing.IsActive,
+            _ => false
+        };
     }
 
 

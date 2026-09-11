@@ -61,6 +61,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         WindNavigationAssistMode.Assisted;
 
     [SerializeField]
+    private FormationManeuverStyle pendingGroupRequestedManeuverStyle;
+
+    [SerializeField]
     private bool pendingGroupHasExplicitFormationHeading;
 
     [SerializeField]
@@ -102,6 +105,9 @@ public class ShipCommandDispatcher : MonoBehaviour
 
     public WindNavigationAssistMode PendingGroupNavigationAssistMode
         => pendingGroupNavigationAssistMode;
+
+    public FormationManeuverStyle PendingGroupRequestedManeuverStyle
+        => pendingGroupRequestedManeuverStyle;
 
     public bool PendingGroupHasExplicitFormationHeading
         => pendingGroupHasExplicitFormationHeading;
@@ -191,6 +197,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         pendingGroupDestination = worldDestination;
         pendingGroupSelectionMode = selectionMode;
         pendingGroupNavigationAssistMode = navigationAssistMode;
+        pendingGroupRequestedManeuverStyle = selectionManager != null
+            ? selectionManager.RequestedFormationManeuverStyle
+            : FormationManeuverStyle.Together;
         pendingGroupHasExplicitFormationHeading = false;
         pendingGroupExplicitFormationHeading = 0f;
         pendingGroupGeometrySnapshot = null;
@@ -228,6 +237,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         pendingGroupDestination = formationCenter;
         pendingGroupSelectionMode = selectionMode;
         pendingGroupNavigationAssistMode = navigationAssistMode;
+        pendingGroupRequestedManeuverStyle = selectionManager != null
+            ? selectionManager.RequestedFormationManeuverStyle
+            : FormationManeuverStyle.Together;
         pendingGroupHasExplicitFormationHeading = true;
         pendingGroupExplicitFormationHeading = Mathf.Repeat(
             formationHeading,
@@ -268,6 +280,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         pendingGroupDestination = worldDestination;
         pendingGroupSelectionMode = selectionMode;
         pendingGroupNavigationAssistMode = navigationAssistMode;
+        pendingGroupRequestedManeuverStyle = selectionManager != null
+            ? selectionManager.RequestedFormationManeuverStyle
+            : FormationManeuverStyle.Together;
         pendingGroupHasExplicitFormationHeading = false;
         pendingGroupExplicitFormationHeading = 0f;
         pendingGroupGeometrySnapshot = geometrySnapshot;
@@ -286,6 +301,7 @@ public class ShipCommandDispatcher : MonoBehaviour
             ShipDestinationController.TurnSelectionMode.Auto;
         pendingGroupNavigationAssistMode =
             WindNavigationAssistMode.Assisted;
+        pendingGroupRequestedManeuverStyle = FormationManeuverStyle.Together;
         pendingGroupHasExplicitFormationHeading = false;
         pendingGroupExplicitFormationHeading = 0f;
         pendingGroupGeometrySnapshot = null;

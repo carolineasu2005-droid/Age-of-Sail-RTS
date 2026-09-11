@@ -35,6 +35,40 @@ public class FormationLongitudinalSpeedControlTests
 
 
     [Test]
+    public void ReformingHeading_AheadMemberUsesBoundedLateralCorrection()
+    {
+        const float formationHeading = 310f;
+        float desiredHeading = FormationCommandController
+            .CalculateReformingDesiredHeading(
+                formationHeading,
+                -25f,
+                18f,
+                3f,
+                30f
+            );
+        float longitudinalOnlyHeading = FormationCommandController
+            .CalculateReformingDesiredHeading(
+                formationHeading,
+                -25f,
+                0f,
+                3f,
+                30f
+            );
+
+        Assert.That(Mathf.DeltaAngle(formationHeading, desiredHeading),
+            Is.EqualTo(30f).Within(0.001f));
+        Assert.That(longitudinalOnlyHeading,
+            Is.EqualTo(formationHeading).Within(0.001f));
+        Assert.That(ShipManeuverPlanner.ClassifyDirectedArc(
+            formationHeading,
+            desiredHeading,
+            TurnDirection.Clockwise,
+            Vector3.forward
+        ), Is.EqualTo(ShipManeuverPlanner.ManeuverType.NormalTurn));
+    }
+
+
+    [Test]
     public void DesiredFormationSpeed_AlignedMemberUsesReferenceSpeed()
     {
         float desiredSpeed = Calculate(0f);
@@ -149,6 +183,32 @@ public class FormationLongitudinalSpeedControlTests
             );
 
         Assert.That(applies, Is.True);
+    }
+
+
+    [Test]
+    public void AnchorMoveSpeed_ReformingIgnoresSlowedMemberWhileNormalMovementRetainsMinimum()
+    {
+        const float formationReferenceSpeed = 3.6f;
+        const float stationKeepingSlowedMemberSpeed = 1.4f;
+
+        float reformingSpeed = FormationCommandController
+            .CalculateFormationAnchorMoveSpeed(
+                FormationCommandController.FormationManeuverState.Reforming,
+                formationReferenceSpeed,
+                stationKeepingSlowedMemberSpeed
+            );
+        float normalSpeed = FormationCommandController
+            .CalculateFormationAnchorMoveSpeed(
+                FormationCommandController.FormationManeuverState.None,
+                formationReferenceSpeed,
+                stationKeepingSlowedMemberSpeed
+            );
+
+        Assert.That(reformingSpeed,
+            Is.EqualTo(formationReferenceSpeed).Within(0.001f));
+        Assert.That(normalSpeed,
+            Is.EqualTo(stationKeepingSlowedMemberSpeed).Within(0.001f));
     }
 
 

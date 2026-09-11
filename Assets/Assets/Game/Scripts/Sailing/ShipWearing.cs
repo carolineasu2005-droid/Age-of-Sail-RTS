@@ -97,6 +97,19 @@ public class ShipWearing : MonoBehaviour
     [SerializeField]
     private bool debugCancelWear;
 
+    public bool IsActive => isActive;
+
+    public bool IsCompleted => state == WearState.Completed;
+
+    public bool HasFailed => state == WearState.Failed;
+
+    public string StateName => state.ToString();
+
+    public float ElapsedTime => totalWearTime;
+
+    public bool CanStartWear => shipSailingSpeed != null
+        && headingController != null;
+
     private void Awake()
     {
         if (shipSailingSpeed == null)

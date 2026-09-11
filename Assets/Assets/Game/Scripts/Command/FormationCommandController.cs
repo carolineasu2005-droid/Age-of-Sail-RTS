@@ -210,6 +210,10 @@ public class FormationCommandController : MonoBehaviour
     private float manualSlotCorrectionAngle = 12f;
 
     [SerializeField]
+    [Min(0f)]
+    private float successionLateralTolerance = 10f;
+
+    [SerializeField]
     [Min(0.01f)]
     private float formationAlignmentDistance = 5f;
 
@@ -355,6 +359,24 @@ public class FormationCommandController : MonoBehaviour
     private TurnDirection maneuverTurnDirection;
 
     [SerializeField]
+    private FormationManeuverStyle requestedManeuverStyle;
+
+    [SerializeField]
+    private FormationManeuverStyle effectiveManeuverStyle;
+
+    [SerializeField]
+    private bool successionCompatibleAtManeuverTrigger;
+
+    [SerializeField]
+    private bool hasManeuverGate;
+
+    [SerializeField]
+    private bool successionManeuverActive;
+
+    [SerializeField]
+    private List<FormationSuccessionMemberState> successionMemberStates = new();
+
+    [SerializeField]
     private int maneuverValidMemberCount;
 
     [SerializeField]
@@ -376,6 +398,10 @@ public class FormationCommandController : MonoBehaviour
     private List<FormationMember> members = new();
 
     private readonly HashSet<ShipDestinationController> uniqueShips = new();
+
+    private FormationMemberOrder formationMemberOrder;
+
+    private FormationManeuverGate lastManeuverGate;
 
 
     public FormationState State => formationState;
@@ -469,9 +495,38 @@ public class FormationCommandController : MonoBehaviour
 
     public float AheadFullSlowDistance => aheadFullSlowDistance;
 
+    public float SlotPositionDeadband => slotPositionDeadband;
+
     public float DirectSlotCorrectionAngle => directSlotCorrectionAngle;
 
     public float ManualSlotCorrectionAngle => manualSlotCorrectionAngle;
+
+    public float SuccessionLateralTolerance => successionLateralTolerance;
+
+    public FormationManeuverStyle RequestedManeuverStyle
+        => requestedManeuverStyle;
+
+    public FormationManeuverStyle EffectiveManeuverStyle
+        => effectiveManeuverStyle;
+
+    public bool SuccessionCompatibleAtManeuverTrigger
+        => successionCompatibleAtManeuverTrigger;
+
+    public bool HasManeuverGate => hasManeuverGate;
+
+    public FormationManeuverGate LastManeuverGate => lastManeuverGate;
+
+    public bool SuccessionManeuverActive => successionManeuverActive;
+
+    public bool NormalSuccessionActive => successionManeuverActive
+        && lastManeuverGate.ManeuverType
+            == ShipManeuverPlanner.ManeuverType.NormalTurn;
+
+    public IReadOnlyList<FormationSuccessionMemberState>
+        SuccessionMemberStates => successionMemberStates;
+
+    public FormationMemberOrder ActiveFormationMemberOrder
+        => formationMemberOrder;
 
     public int ConsumedDispatchSequence => consumedDispatchSequence;
 
@@ -658,6 +713,12 @@ public class FormationCommandController : MonoBehaviour
         formationRight = geometrySnapshot.FormationRight;
         formationHeading = geometrySnapshot.FormationHeading;
         targetFormationHeading = formationHeading;
+        formationMemberOrder = FormationMemberOrder.CreateWithDesignatedLead(
+            geometrySnapshot,
+            selectionManager != null
+                ? selectionManager.DesignatedFormationLead
+                : null
+        );
 
         members.Clear();
 
@@ -748,6 +809,8 @@ public class FormationCommandController : MonoBehaviour
             commandDispatcher.PendingGroupSelectionMode;
         WindNavigationAssistMode nextNavigationAssistMode =
             commandDispatcher.PendingGroupNavigationAssistMode;
+        FormationManeuverStyle nextRequestedManeuverStyle =
+            commandDispatcher.PendingGroupRequestedManeuverStyle;
         bool hasExplicitFormationHeading =
             commandDispatcher.PendingGroupHasExplicitFormationHeading;
         float explicitFormationHeading =
@@ -790,6 +853,7 @@ public class FormationCommandController : MonoBehaviour
         UpdateDistanceToGroupDestination();
         initialGroupSelectionMode = nextSelectionMode;
         activeNavigationAssistMode = nextNavigationAssistMode;
+        requestedManeuverStyle = nextRequestedManeuverStyle;
         hasExplicitFinalFormationHeading = hasExplicitFormationHeading;
         finalFormationHeading = hasExplicitFormationHeading
             ? Mathf.Repeat(explicitFormationHeading, 360f)
@@ -850,7 +914,14 @@ public class FormationCommandController : MonoBehaviour
 
         if (formationManeuverState == FormationManeuverState.Executing)
         {
-            UpdateFormationHeadingFromMembers();
+            if (successionManeuverActive)
+            {
+                UpdateFormationHeadingForSuccession();
+            }
+            else
+            {
+                UpdateFormationHeadingFromMembers();
+            }
         }
         else
         {
@@ -923,6 +994,72 @@ public class FormationCommandController : MonoBehaviour
     }
 
 
+    private void CaptureManeuverGate(
+        ShipManeuverPlanner.ManeuverType plannerManeuver
+    )
+    {
+        FormationMemberOrder memberOrder = formationMemberOrder;
+        if (memberOrder == null || memberOrder.Count != members.Count)
+        {
+            memberOrder = CreateCurrentMemberOrder();
+            formationMemberOrder = memberOrder;
+        }
+
+        ShipDestinationController lead = memberOrder != null
+            ? memberOrder.Lead
+            : null;
+        Vector3 gatePoint = lead != null
+            ? lead.transform.position
+            : formationAnchorPosition;
+        successionCompatibleAtManeuverTrigger =
+            formationManeuverState != FormationManeuverState.Reforming
+            && !formationManeuverLocked
+            && FormationSuccessionCompatibility.IsCompatible(
+                memberOrder,
+                formationForward,
+                successionLateralTolerance
+            );
+        effectiveManeuverStyle = IsSuccessionSupportedManeuver(plannerManeuver)
+            ? FormationSuccessionCompatibility.ResolveEffectiveStyle(
+                requestedManeuverStyle,
+                successionCompatibleAtManeuverTrigger
+            )
+            : FormationManeuverStyle.Together;
+        lastManeuverGate = new FormationManeuverGate(
+            gatePoint,
+            formationHeading,
+            formationForward,
+            maneuverTargetHeading,
+            maneuverTurnDirection,
+            plannerManeuver,
+            memberOrder,
+            requestedManeuverStyle,
+            sharedFormationTargetSpeed,
+            consumedDispatchSequence
+        );
+        hasManeuverGate = true;
+    }
+
+
+    private FormationMemberOrder CreateCurrentMemberOrder()
+    {
+        List<ShipDestinationController> orderedMembers =
+            new List<ShipDestinationController>(members.Count);
+
+        foreach (FormationMember member in members)
+        {
+            if (IsMemberValid(member))
+            {
+                orderedMembers.Add(member.destinationController);
+            }
+        }
+
+        return orderedMembers.Count > 0
+            ? new FormationMemberOrder(orderedMembers)
+            : null;
+    }
+
+
     private void StartCoordinatedManeuver()
     {
         ShipManeuverPlanner.ManeuverType plannerManeuver =
@@ -932,6 +1069,20 @@ public class FormationCommandController : MonoBehaviour
             && plannerManeuver != ShipManeuverPlanner.ManeuverType.Tack
             && plannerManeuver != ShipManeuverPlanner.ManeuverType.Wear)
         {
+            return;
+        }
+
+        if (IsSuccessionSupportedManeuver(plannerManeuver)
+            && requestedManeuverStyle == FormationManeuverStyle.InSuccession)
+        {
+            UpdateSharedFormationSpeed();
+        }
+
+        CaptureManeuverGate(plannerManeuver);
+
+        if (ShouldExecuteSuccessionManeuver(plannerManeuver))
+        {
+            StartSuccessionManeuver();
             return;
         }
 
@@ -1006,6 +1157,12 @@ public class FormationCommandController : MonoBehaviour
 
     private void UpdateCoordinatedManeuverExecution()
     {
+        if (successionManeuverActive)
+        {
+            UpdateSuccessionManeuverExecution();
+            return;
+        }
+
         maneuverValidMemberCount = 0;
         maneuverCompletedMemberCount = 0;
 
@@ -1023,16 +1180,22 @@ public class FormationCommandController : MonoBehaviour
             }
 
             maneuverValidMemberCount++;
+            if (HasMemberManeuverFailed(member))
+            {
+                FailFormationManeuver();
+                return;
+            }
+
             float memberHeading = GetHeading(
                 member.destinationController.transform.forward
             );
-            bool plannerFinished = !member.maneuverPlanner.IsActive;
+            bool maneuverComplete = IsMemberManeuverComplete(member);
             bool headingAligned = Mathf.Abs(Mathf.DeltaAngle(
                 memberHeading,
                 maneuverTargetHeading
             )) <= slotHeadingCommandThreshold;
 
-            if (plannerFinished && headingAligned)
+            if (maneuverComplete && headingAligned)
             {
                 maneuverCompletedMemberCount++;
             }
@@ -1049,9 +1212,456 @@ public class FormationCommandController : MonoBehaviour
             return;
         }
 
+        RebaseFormationAnchorFromMembers();
         formationManeuverState = FormationManeuverState.Reforming;
         formationManeuverLocked = false;
         reformingMemberCount = maneuverValidMemberCount;
+    }
+
+
+    private static bool IsSuccessionSupportedManeuver(
+        ShipManeuverPlanner.ManeuverType plannerManeuver
+    )
+    {
+        return plannerManeuver == ShipManeuverPlanner.ManeuverType.NormalTurn
+            || plannerManeuver == ShipManeuverPlanner.ManeuverType.Tack
+            || plannerManeuver == ShipManeuverPlanner.ManeuverType.Wear;
+    }
+
+
+    private bool ShouldExecuteSuccessionManeuver(
+        ShipManeuverPlanner.ManeuverType plannerManeuver
+    )
+    {
+        return IsSuccessionSupportedManeuver(plannerManeuver)
+            && effectiveManeuverStyle == FormationManeuverStyle.InSuccession;
+    }
+
+
+    private void StartSuccessionManeuver()
+    {
+        FormationMemberOrder memberOrder = lastManeuverGate.MemberOrder;
+        if (!CanStartSuccessionManeuver(memberOrder))
+        {
+            FailFormationManeuver();
+            return;
+        }
+
+        formationManeuverState = FormationManeuverState.Executing;
+        formationManeuverLocked = true;
+        successionManeuverActive = true;
+        maneuverValidMemberCount = 0;
+        maneuverCompletedMemberCount = 0;
+        reformingMemberCount = 0;
+        successionMemberStates.Clear();
+
+        for (int index = 0; index < memberOrder.Count; index++)
+        {
+            ShipDestinationController ship = memberOrder.GetMember(index);
+            TryGetFormationMember(ship, out FormationMember member);
+
+            member.maneuverPlanner.CancelCurrentManeuver();
+            member.initialAlignmentCommandHandled = true;
+            successionMemberStates.Add(FormationSuccessionMemberState.Waiting);
+            maneuverValidMemberCount++;
+        }
+
+        if (maneuverValidMemberCount == 0)
+        {
+            FailFormationManeuver();
+            return;
+        }
+
+        StartEligibleSuccessionMembers();
+        ApplySuccessionReferenceSpeedCaps();
+    }
+
+
+    private bool CanStartSuccessionManeuver(FormationMemberOrder memberOrder)
+    {
+        if (memberOrder == null || memberOrder.Count == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < memberOrder.Count; index++)
+        {
+            ShipDestinationController ship = memberOrder.GetMember(index);
+            if (!TryGetFormationMember(ship, out FormationMember member)
+                || !IsSuccessionMemberUsable(member)
+                || member.maneuverPlanner == null
+                || !member.maneuverPlanner.CanExecuteCoordinatedManeuver(
+                    lastManeuverGate.ManeuverType
+                ))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    private void UpdateSuccessionManeuverExecution()
+    {
+        maneuverValidMemberCount = 0;
+        maneuverCompletedMemberCount = 0;
+
+        FormationMemberOrder memberOrder = lastManeuverGate.MemberOrder;
+        if (memberOrder == null
+            || successionMemberStates.Count != memberOrder.Count)
+        {
+            FailFormationManeuver();
+            return;
+        }
+
+        for (int index = 0; index < memberOrder.Count; index++)
+        {
+            ShipDestinationController ship = memberOrder.GetMember(index);
+            if (!TryGetFormationMember(ship, out FormationMember member)
+                || !IsSuccessionMemberUsable(member)
+                || member.maneuverPlanner == null)
+            {
+                successionMemberStates[index] =
+                    FormationSuccessionMemberState.Completed;
+                continue;
+            }
+
+            maneuverValidMemberCount++;
+
+            switch (successionMemberStates[index])
+            {
+                case FormationSuccessionMemberState.Waiting:
+                    MaintainWaitingSuccessionMember(member);
+                    break;
+                case FormationSuccessionMemberState.Maneuvering:
+                    if (HasMemberManeuverFailed(member))
+                    {
+                        FailFormationManeuver();
+                        return;
+                    }
+
+                    if (IsMemberManeuverComplete(member))
+                    {
+                        successionMemberStates[index] =
+                            FormationSuccessionMemberState.Completed;
+                    }
+                    break;
+                case FormationSuccessionMemberState.Completed:
+                    MaintainCompletedSuccessionMember(member);
+                    maneuverCompletedMemberCount++;
+                    break;
+            }
+        }
+
+        StartEligibleSuccessionMembers();
+        ApplySuccessionReferenceSpeedCaps();
+        maneuverCompletedMemberCount = CountCompletedSuccessionMembers();
+
+        if (!AreAllSuccessionMembersCompleted())
+        {
+            return;
+        }
+
+        RebaseFormationAnchorFromMembers();
+        successionManeuverActive = false;
+        formationManeuverState = FormationManeuverState.Reforming;
+        formationManeuverLocked = false;
+        reformingMemberCount = maneuverValidMemberCount;
+    }
+
+
+    private void StartEligibleSuccessionMembers()
+    {
+        while (true)
+        {
+            int nextIndex = FormationSuccessionMath.GetNextEligibleMemberIndex(
+                successionMemberStates
+            );
+            if (nextIndex < 0)
+            {
+                return;
+            }
+
+            if (nextIndex > 0)
+            {
+                FormationMemberOrder memberOrder = lastManeuverGate.MemberOrder;
+                ShipDestinationController ship = memberOrder.GetMember(nextIndex);
+                if (!FormationSuccessionMath.HasReachedGate(
+                    ship.transform.position,
+                    lastManeuverGate
+                ))
+                {
+                    return;
+                }
+            }
+
+            StartSuccessionMember(nextIndex);
+        }
+    }
+
+
+    private void StartSuccessionMember(int memberIndex)
+    {
+        ShipDestinationController ship = lastManeuverGate.MemberOrder.GetMember(
+            memberIndex
+        );
+        if (!TryGetFormationMember(ship, out FormationMember member)
+            || !IsSuccessionMemberUsable(member)
+            || member.maneuverPlanner == null)
+        {
+            successionMemberStates[memberIndex] =
+                FormationSuccessionMemberState.Completed;
+            return;
+        }
+
+        member.maneuverPlanner.ExecuteCoordinatedManeuverCommand(
+            lastManeuverGate.TargetHeading,
+            lastManeuverGate.TurnDirection,
+            lastManeuverGate.ManeuverType
+        );
+        member.initialAlignmentCommandHandled = true;
+        successionMemberStates[memberIndex] =
+            IsMemberManeuverComplete(member)
+                ? FormationSuccessionMemberState.Completed
+                : FormationSuccessionMemberState.Maneuvering;
+    }
+
+
+    private void MaintainWaitingSuccessionMember(FormationMember member)
+    {
+        MaintainSuccessionHeading(
+            member,
+            lastManeuverGate.IncomingFormationHeading
+        );
+    }
+
+
+    private void MaintainCompletedSuccessionMember(FormationMember member)
+    {
+        MaintainSuccessionHeading(member, lastManeuverGate.TargetHeading);
+    }
+
+
+    private void MaintainSuccessionHeading(
+        FormationMember member,
+        float targetHeading
+    )
+    {
+        if (member.maneuverPlanner == null || member.maneuverPlanner.IsActive)
+        {
+            return;
+        }
+
+        float currentHeading = GetHeading(
+            member.destinationController.transform.forward
+        );
+        if (Mathf.Abs(Mathf.DeltaAngle(currentHeading, targetHeading))
+            <= slotHeadingCommandThreshold)
+        {
+            return;
+        }
+
+        member.maneuverPlanner.ExecuteCoordinatedManeuverCommand(
+            targetHeading,
+            ResolveAutoTurnDirection(currentHeading, targetHeading),
+            ShipManeuverPlanner.ManeuverType.NormalTurn
+        );
+    }
+
+
+    private bool IsMemberManeuverComplete(FormationMember member)
+    {
+        switch (lastManeuverGate.ManeuverType)
+        {
+            case ShipManeuverPlanner.ManeuverType.Tack:
+            {
+                ShipTacking tacking = member.destinationController.GetComponent<
+                    ShipTacking
+                >();
+                return tacking != null && tacking.IsCompleted;
+            }
+            case ShipManeuverPlanner.ManeuverType.Wear:
+            {
+                ShipWearing wearing = member.destinationController.GetComponent<
+                    ShipWearing
+                >();
+                return wearing != null && wearing.IsCompleted;
+            }
+        }
+
+        if (member.maneuverPlanner == null || member.maneuverPlanner.IsActive)
+        {
+            return false;
+        }
+
+        float memberHeading = GetHeading(
+            member.destinationController.transform.forward
+        );
+        return Mathf.Abs(Mathf.DeltaAngle(
+            memberHeading,
+            lastManeuverGate.TargetHeading
+        )) <= slotHeadingCommandThreshold;
+    }
+
+
+    private bool HasMemberManeuverFailed(FormationMember member)
+    {
+        switch (lastManeuverGate.ManeuverType)
+        {
+            case ShipManeuverPlanner.ManeuverType.Tack:
+            {
+                ShipTacking tacking = member.destinationController.GetComponent<
+                    ShipTacking
+                >();
+                return tacking == null || tacking.HasFailed;
+            }
+            case ShipManeuverPlanner.ManeuverType.Wear:
+            {
+                ShipWearing wearing = member.destinationController.GetComponent<
+                    ShipWearing
+                >();
+                return wearing == null || wearing.HasFailed;
+            }
+            default:
+                return false;
+        }
+    }
+
+
+    private bool AreAllSuccessionMembersCompleted()
+    {
+        foreach (FormationSuccessionMemberState state in successionMemberStates)
+        {
+            if (state != FormationSuccessionMemberState.Completed)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    private int CountCompletedSuccessionMembers()
+    {
+        int completedCount = 0;
+
+        foreach (FormationSuccessionMemberState state in successionMemberStates)
+        {
+            if (state == FormationSuccessionMemberState.Completed)
+            {
+                completedCount++;
+            }
+        }
+
+        return completedCount;
+    }
+
+
+    private void ApplySuccessionReferenceSpeedCaps()
+    {
+        foreach (FormationMember member in members)
+        {
+            if (!IsSuccessionMemberUsable(member)
+                || member.sailingSpeed == null)
+            {
+                continue;
+            }
+
+            int memberIndex = lastManeuverGate.MemberOrder != null
+                ? lastManeuverGate.MemberOrder.IndexOf(
+                    member.destinationController
+                )
+                : -1;
+            bool activeSpecialManeuver = memberIndex >= 0
+                && memberIndex < successionMemberStates.Count
+                && successionMemberStates[memberIndex]
+                    == FormationSuccessionMemberState.Maneuvering
+                && (lastManeuverGate.ManeuverType
+                    == ShipManeuverPlanner.ManeuverType.Tack
+                    || lastManeuverGate.ManeuverType
+                        == ShipManeuverPlanner.ManeuverType.Wear);
+            if (activeSpecialManeuver)
+            {
+                member.sailingSpeed.ClearFormationMaximumTargetSpeed();
+                continue;
+            }
+
+            float cap = Mathf.Min(
+                lastManeuverGate.FormationReferenceSpeed,
+                Mathf.Max(0f, member.sailingSpeed.AvailableTargetSpeed)
+            );
+            member.sailingSpeed.SetFormationMaximumTargetSpeed(cap);
+        }
+    }
+
+
+    private bool TryGetFormationMember(
+        ShipDestinationController ship,
+        out FormationMember formationMember
+    )
+    {
+        foreach (FormationMember member in members)
+        {
+            if (member.destinationController == ship)
+            {
+                formationMember = member;
+                return true;
+            }
+        }
+
+        formationMember = null;
+        return false;
+    }
+
+
+    private static bool IsSuccessionMemberUsable(
+        FormationMember member
+    )
+    {
+        return IsMemberValid(member)
+            && member.destinationController.isActiveAndEnabled;
+    }
+
+
+    private void RebaseFormationAnchorFromMembers()
+    {
+        Vector3 impliedAnchorSum = Vector3.zero;
+        int validMemberCount = 0;
+
+        foreach (FormationMember member in members)
+        {
+            if (!IsSuccessionMemberUsable(member))
+            {
+                continue;
+            }
+
+            Vector3 impliedAnchor = member.destinationController.transform
+                .position - formationRight * member.localSlotX
+                - formationForward * member.localSlotZ;
+            impliedAnchorSum += impliedAnchor;
+            validMemberCount++;
+        }
+
+        if (validMemberCount == 0)
+        {
+            return;
+        }
+
+        formationAnchorPosition = impliedAnchorSum / validMemberCount;
+        formationBoundsCenter = formationAnchorPosition;
+    }
+
+
+    private void UpdateFormationHeadingForSuccession()
+    {
+        formationHeading = lastManeuverGate.TargetHeading;
+        formationForward = HeadingToDirection(lastManeuverGate.TargetHeading);
+        formationRight = Vector3.Cross(
+            Vector3.up,
+            formationForward
+        ).normalized;
     }
 
 
@@ -1159,7 +1769,7 @@ public class FormationCommandController : MonoBehaviour
 
             float polarTargetSpeed = Mathf.Max(
                 0f,
-                member.sailingSpeed.PolarTargetSpeed
+                member.sailingSpeed.GetWindLimitedTargetSpeed()
             );
             float currentSpeed = Mathf.Max(
                 0f,
@@ -1195,12 +1805,10 @@ public class FormationCommandController : MonoBehaviour
             minimumPolarTargetSpeed * formationCruiseFactor
         );
         slowestCurrentMemberSpeed = minimumCurrentSpeed;
-        anchorMoveSpeed = Mathf.Max(
-            0f,
-            Mathf.Min(
-                sharedFormationTargetSpeed,
-                slowestCurrentMemberSpeed
-            )
+        anchorMoveSpeed = CalculateFormationAnchorMoveSpeed(
+            formationManeuverState,
+            sharedFormationTargetSpeed,
+            slowestCurrentMemberSpeed
         );
 
     }
@@ -1257,6 +1865,12 @@ public class FormationCommandController : MonoBehaviour
 
     private void UpdateLongitudinalStationKeeping()
     {
+        if (successionManeuverActive)
+        {
+            ApplySuccessionReferenceSpeedCaps();
+            return;
+        }
+
         if (!ShouldApplyLongitudinalStationKeeping(formationManeuverState))
         {
             ClearFormationMaximumTargetSpeeds();
@@ -1302,6 +1916,22 @@ public class FormationCommandController : MonoBehaviour
     }
 
 
+    public static float CalculateFormationAnchorMoveSpeed(
+        FormationManeuverState maneuverState,
+        float formationReferenceSpeed,
+        float slowestMemberSpeed
+    )
+    {
+        float referenceSpeed = Mathf.Max(0f, formationReferenceSpeed);
+        if (maneuverState == FormationManeuverState.Reforming)
+        {
+            return referenceSpeed;
+        }
+
+        return Mathf.Min(referenceSpeed, Mathf.Max(0f, slowestMemberSpeed));
+    }
+
+
     public static float CalculateFormationForwardError(
         Vector3 slotWorldPosition,
         Vector3 shipWorldPosition,
@@ -1311,6 +1941,41 @@ public class FormationCommandController : MonoBehaviour
         return Vector3.Dot(
             slotWorldPosition - shipWorldPosition,
             formationForward
+        );
+    }
+
+
+    public static float CalculateReformingDesiredHeading(
+        float formationHeading,
+        float forwardError,
+        float lateralError,
+        float lateralDeadband,
+        float maximumCorrectionAngle
+    )
+    {
+        float normalizedFormationHeading = Mathf.Repeat(
+            formationHeading,
+            360f
+        );
+        if (Mathf.Abs(lateralError) <= Mathf.Max(0f, lateralDeadband))
+        {
+            return normalizedFormationHeading;
+        }
+
+        float forwardRecoveryDistance = Mathf.Max(0f, forwardError);
+        float lateralCorrectionAngle = Mathf.Atan2(
+            lateralError,
+            forwardRecoveryDistance
+        ) * Mathf.Rad2Deg;
+        float correctionLimit = Mathf.Max(0f, maximumCorrectionAngle);
+
+        return Mathf.Repeat(
+            normalizedFormationHeading + Mathf.Clamp(
+                lateralCorrectionAngle,
+                -correctionLimit,
+                correctionLimit
+            ),
+            360f
         );
     }
 
@@ -1410,8 +2075,40 @@ public class FormationCommandController : MonoBehaviour
             member.desiredMemberHeading = desiredMemberHeading;
             member.headingError = headingError;
 
-            if (member.maneuverPlanner == null
-                || member.maneuverPlanner.IsActive)
+            if (member.maneuverPlanner == null)
+            {
+                continue;
+            }
+
+            if (formationManeuverState == FormationManeuverState.Reforming
+                && activeNavigationAssistMode
+                    == WindNavigationAssistMode.Assisted
+                && member.maneuverPlanner.IsActive
+                && member.maneuverPlanner.CurrentManeuver
+                    == ShipManeuverPlanner.ManeuverType.NormalTurn)
+            {
+                float targetHeadingChange = Mathf.Abs(Mathf.DeltaAngle(
+                    member.maneuverPlanner.TargetHeading,
+                    desiredMemberHeading
+                ));
+                if (targetHeadingChange > slotHeadingCommandThreshold)
+                {
+                    TurnDirection retargetDirection =
+                        ResolveFormationTurnDirection(
+                            currentShipHeading,
+                            desiredMemberHeading,
+                            false
+                        );
+                    member.maneuverPlanner.RetargetActiveNormalTurn(
+                        desiredMemberHeading,
+                        retargetDirection
+                    );
+                }
+
+                continue;
+            }
+
+            if (member.maneuverPlanner.IsActive)
             {
                 continue;
             }
@@ -1495,6 +2192,25 @@ public class FormationCommandController : MonoBehaviour
             member.automaticSpecialManeuverSuppressed = false;
             member.automaticSpecialManeuverSuppressionMode =
                 WindNavigationAssistMode.Assisted;
+
+            if (formationManeuverState == FormationManeuverState.Reforming)
+            {
+                float forwardError = Vector3.Dot(
+                    slotOffset,
+                    formationForward
+                );
+                float lateralError = Vector3.Dot(
+                    slotOffset,
+                    formationRight
+                );
+                return CalculateReformingDesiredHeading(
+                    formationHeading,
+                    forwardError,
+                    lateralError,
+                    slotPositionDeadband,
+                    directSlotCorrectionAngle
+                );
+            }
 
             return member.distanceToSlot > slotPositionDeadband
                 ? rawSlotBearing
@@ -2331,6 +3047,8 @@ public class FormationCommandController : MonoBehaviour
         maneuverCompletedMemberCount = 0;
         formationManeuverLocked = false;
         reformingMemberCount = 0;
+        successionManeuverActive = false;
+        successionMemberStates.Clear();
     }
 
 
@@ -2347,6 +3065,8 @@ public class FormationCommandController : MonoBehaviour
 
         formationManeuverState = FormationManeuverState.Failed;
         formationManeuverLocked = false;
+        successionManeuverActive = false;
+        successionMemberStates.Clear();
         isActive = false;
         ClearFormationMaximumTargetSpeeds();
         formationState = FormationState.Failed;

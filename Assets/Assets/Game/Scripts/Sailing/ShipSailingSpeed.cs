@@ -136,6 +136,25 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float AvailableTargetSpeed => polarTargetSpeed;
 
+    public float GetWindLimitedTargetSpeed()
+    {
+        if (globalWind == null || sailPolarProfile == null)
+        {
+            return 0f;
+        }
+
+        float relativeWindAngle = Mathf.Abs(Vector3.SignedAngle(
+            transform.forward,
+            globalWind.WindFromDirection,
+            Vector3.up
+        ));
+        return Mathf.Max(
+            0f,
+            baseMaxSpeed * sailPolarProfile.Evaluate(relativeWindAngle)
+                * globalWind.windStrength
+        );
+    }
+
     public float EffectiveTargetSpeed => effectiveTargetSpeed;
 
     public bool FormationSpeedCapActive => formationMaximumTargetSpeedActive;

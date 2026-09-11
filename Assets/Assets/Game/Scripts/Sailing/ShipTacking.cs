@@ -132,6 +132,20 @@ public class ShipTacking : MonoBehaviour
     [SerializeField]
     private bool debugCancelTack;
 
+    public bool IsActive => isActive;
+
+    public bool IsCompleted => state == TackState.Completed;
+
+    public bool HasFailed => state == TackState.Failed;
+
+    public string StateName => state.ToString();
+
+    public float ElapsedTime => tackElapsedTime;
+
+    public bool CanStartTack => shipSailingSpeed != null
+        && shipTurning != null
+        && headingController != null;
+
     public void ApplyMovementProfile(ShipMovementProfile movementProfile)
     {
         if (movementProfile == null)

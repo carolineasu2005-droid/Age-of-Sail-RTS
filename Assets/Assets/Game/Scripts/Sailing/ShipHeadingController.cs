@@ -173,6 +173,61 @@ public class ShipHeadingController : MonoBehaviour
     }
 
 
+    internal bool RetargetActiveHeading(
+        float targetHeading,
+        TurnDirection direction
+    )
+    {
+        if (!isActive)
+        {
+            return false;
+        }
+
+        float nextTargetHeading = NormalizeHeading(targetHeading);
+        float nextCurrentHeading = NormalizeHeading(transform.eulerAngles.y);
+        float nextRemainingTurnAngle = direction == TurnDirection.Clockwise
+            ? Mathf.Repeat(nextTargetHeading - nextCurrentHeading, 360f)
+            : Mathf.Repeat(nextCurrentHeading - nextTargetHeading, 360f);
+        bool directionChanged = turnDirection != direction;
+
+        this.targetHeading = nextTargetHeading;
+        turnDirection = direction;
+        currentHeading = nextCurrentHeading;
+        actualHeadingError = Mathf.Abs(Mathf.DeltaAngle(
+            currentHeading,
+            this.targetHeading
+        ));
+
+        if (actualHeadingError <= headingTolerance)
+        {
+            commandedArc = accumulatedTurnAngle;
+            remainingTurnAngle = 0f;
+            rudderCommandOutput = 0f;
+            isActive = false;
+            if (shipTurning != null)
+            {
+                shipTurning.SetRudderCommand(0f);
+            }
+
+            return true;
+        }
+
+        if (directionChanged)
+        {
+            previousHeading = currentHeading;
+            accumulatedTurnAngle = 0f;
+            commandedArc = nextRemainingTurnAngle;
+        }
+        else
+        {
+            commandedArc = accumulatedTurnAngle + nextRemainingTurnAngle;
+        }
+
+        remainingTurnAngle = nextRemainingTurnAngle;
+        return true;
+    }
+
+
     public void CancelHeadingCommand()
     {
         isActive = false;

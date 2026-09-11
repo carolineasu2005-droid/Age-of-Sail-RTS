@@ -26,6 +26,9 @@ public class ShipSelectionManager : MonoBehaviour
     private ShipDestinationController designatedFormationLead;
 
     [SerializeField]
+    private FormationManeuverStyle requestedFormationManeuverStyle;
+
+    [SerializeField]
     private ShipDestinationController lastPickedShip;
 
     [SerializeField]
@@ -93,6 +96,9 @@ public class ShipSelectionManager : MonoBehaviour
     }
 
     public bool HasDesignatedFormationLead => DesignatedFormationLead != null;
+
+    public FormationManeuverStyle RequestedFormationManeuverStyle
+        => requestedFormationManeuverStyle;
 
 
     private void Awake()
@@ -213,6 +219,23 @@ public class ShipSelectionManager : MonoBehaviour
     public void ClearDesignatedFormationLead()
     {
         designatedFormationLead = null;
+    }
+
+
+    public void ToggleRequestedFormationManeuverStyle()
+    {
+        RefreshSelectionData();
+
+        if (selectedShips.Count < 2)
+        {
+            return;
+        }
+
+        requestedFormationManeuverStyle =
+            requestedFormationManeuverStyle
+                == FormationManeuverStyle.Together
+                ? FormationManeuverStyle.InSuccession
+                : FormationManeuverStyle.Together;
     }
 
 
@@ -441,6 +464,7 @@ public class ShipSelectionManager : MonoBehaviour
         if (membershipChanged)
         {
             ClearDesignatedFormationLead();
+            requestedFormationManeuverStyle = FormationManeuverStyle.Together;
             SelectionMembershipChanged?.Invoke();
         }
     }

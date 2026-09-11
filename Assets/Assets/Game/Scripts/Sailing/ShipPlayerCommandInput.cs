@@ -227,6 +227,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
             ToggleHoveredFormationLead();
         }
 
+        if (Keyboard.current != null && Keyboard.current.xKey.wasPressedThisFrame)
+        {
+            ToggleRequestedFormationManeuverStyle();
+        }
+
         if (leftMouseDetectedThisFrame)
         {
             BeginSelectionGesture();
@@ -874,6 +879,15 @@ public class ShipPlayerCommandInput : MonoBehaviour
         if (commandDispatcher != null)
         {
             commandDispatcher.DispatchStopSelectedShips();
+        }
+    }
+
+
+    public void ToggleRequestedFormationManeuverStyle()
+    {
+        if (selectionManager != null)
+        {
+            selectionManager.ToggleRequestedFormationManeuverStyle();
         }
     }
 

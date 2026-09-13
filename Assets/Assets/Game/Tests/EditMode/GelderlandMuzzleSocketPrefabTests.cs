@@ -150,7 +150,7 @@ public class GelderlandMuzzleSocketPrefabTests
             );
         }
 
-        Assert.That(prefab.transform.Find("CombatGeometry"), Is.Null);
+        Assert.That(prefab.transform.Find("CombatGeometry"), Is.Not.Null);
         Assert.That(prefab.transform.Find("Exposure"), Is.Null);
     }
 

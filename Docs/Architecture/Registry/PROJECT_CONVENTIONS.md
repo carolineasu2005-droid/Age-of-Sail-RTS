@@ -95,3 +95,27 @@ field definitions, and status semantics are defined in
 | Do Not Interpret As | The Formal Ship Root, Gameplay Root, Movement Root, Ship Entity Transform, navigation position, formation position, or Combat angle authority. |
 | Replacement | N/A |
 | Evidence | `VisualRoot` exists as a child of the Root in `PF_Proxy_Light_v01`, `PF_Proxy_Medium_v01`, and `PF_Proxy_Heavy_v01`. |
+
+## PRJ-CONV-005 — Combat Geometry Physics Queries
+
+| Field | Value |
+|---|---|
+| ID | `PRJ-CONV-005` |
+| Symbol / Contract Name | Combat Geometry Physics Query Boundary |
+| Kind | Convention |
+| Owner | Combat Art / Combat Gameplay architecture |
+| Purpose / Meaning | Gameplay Combat hull volumes use the dedicated Unity Layer named **`CombatGeometry` at index `8`**. These volumes are query-only Trigger colliders. Combat physics callers must filter with a `CombatGeometry` LayerMask and explicitly use `QueryTriggerInteraction.Collide` or an equivalent explicit trigger-query policy. |
+| Access | Project-wide Unity physics query convention; layer configuration is serialized in `ProjectSettings/TagManager.asset`. |
+| Type | Unity Layer name/index, Trigger collider, LayerMask, and trigger-query policy |
+| Unit | Collider dimensions/positions `m`; layer/filter values `Scalar / N/A` |
+| Coordinate Space | Collider geometry authored in `Ship Root Local Space`; physics queries execute in `World Space`. |
+| Source of Truth | Authored Combat Geometry Collider volumes on validated Combat ship prefabs plus the `CombatGeometry` entry at layer index `8` in `ProjectSettings/TagManager.asset`. Render Mesh, `Renderer.bounds`, `Mesh.bounds`, generic `CollisionRoot/ShipCollider`, and `DebugRoot` are not Combat hit geometry Sources of Truth. |
+| Writable By | Project architecture controls the layer name/index and query policy. Combat Art prefab authoring controls region collider calibration and Trigger configuration. Runtime Combat consumers query read-only and must not mutate Movement or generic collision geometry. |
+| Known Consumers | `PF_Ship_Gelderland_Combat_v01`, `ShipCombatGeometry`, Combat Geometry prefab/physics tests, `ShipCombatGeometryGizmos`. |
+| Planned Consumers | Projectile hit queries, Combat Line of Fire, Combat Debug, Hit Context, Target Exposure, validator. |
+| Lifecycle / Update Timing | Static project and prefab configuration. Trigger geometry follows its authoritative parent Ship Root pose; queries evaluate on demand after normal physics transform synchronization. |
+| Side Effects | Explicit filtered queries can report Combat hull Trigger hits without making the volumes physical collision-force participants. |
+| Status | `Active` |
+| Do Not Interpret As | Permission for Movement, Formation, Selection, Camera, or ordinary ship collision to use this layer as spatial truth; permission to depend on global `Physics.queriesHitTriggers`; or a general-purpose collision layer. |
+| Replacement | N/A |
+| Evidence | `ProjectSettings/TagManager.asset` layer index `8`; Gelderland `CombatGeometry/MainHull/{Bow,Midship,Stern}` Trigger BoxColliders; focused EditMode and PlayMode tests using a layer mask and `QueryTriggerInteraction.Collide`. |

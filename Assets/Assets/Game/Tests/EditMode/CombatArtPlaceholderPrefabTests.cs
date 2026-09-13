@@ -137,11 +137,10 @@ public class CombatArtPlaceholderPrefabTests
 
 
     [Test]
-    public void CombatPlaceholder_DoesNotContainDeferredGeometryOrExposure()
+    public void CombatPlaceholder_DoesNotContainDeferredExposure()
     {
         GameObject prefab = LoadCombatPrefab();
 
-        Assert.That(prefab.transform.Find("CombatGeometry"), Is.Null);
         Assert.That(prefab.transform.Find("Exposure"), Is.Null);
     }
 

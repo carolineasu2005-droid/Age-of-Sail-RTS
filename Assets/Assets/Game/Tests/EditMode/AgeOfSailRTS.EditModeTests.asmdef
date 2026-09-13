@@ -2,6 +2,7 @@
   "name": "AgeOfSailRTS.EditModeTests",
   "references": [
     "AgeOfSailRTS.Runtime",
+    "AgeOfSailRTS.Editor",
     "Unity.InputSystem"
   ],
   "includePlatforms": [

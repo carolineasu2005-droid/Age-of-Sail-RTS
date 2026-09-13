@@ -112,7 +112,7 @@ field definitions, and status semantics are defined in
 | Source of Truth | Authored Combat Geometry Collider volumes on validated Combat ship prefabs plus the `CombatGeometry` entry at layer index `8` in `ProjectSettings/TagManager.asset`. Render Mesh, `Renderer.bounds`, `Mesh.bounds`, generic `CollisionRoot/ShipCollider`, and `DebugRoot` are not Combat hit geometry Sources of Truth. |
 | Writable By | Project architecture controls the layer name/index and query policy. Combat Art prefab authoring controls region collider calibration and Trigger configuration. Runtime Combat consumers query read-only and must not mutate Movement or generic collision geometry. |
 | Known Consumers | `PF_Ship_Gelderland_Combat_v01`, `ShipCombatGeometry`, Combat Geometry prefab/physics tests, `ShipCombatGeometryGizmos`. |
-| Planned Consumers | Projectile hit queries, Combat Line of Fire, Combat Debug, Hit Context, Target Exposure, validator. |
+| Planned Consumers | Projectile hit queries, Combat Line of Fire, Combat Debug, Hit Context, validator. |
 | Lifecycle / Update Timing | Static project and prefab configuration. Trigger geometry follows its authoritative parent Ship Root pose; queries evaluate on demand after normal physics transform synchronization. |
 | Side Effects | Explicit filtered queries can report Combat hull Trigger hits without making the volumes physical collision-force participants. |
 | Status | `Active` |

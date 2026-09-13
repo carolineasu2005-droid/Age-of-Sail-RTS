@@ -137,7 +137,7 @@ public class CombatArtPlaceholderPrefabTests
 
 
     [Test]
-    public void CombatPlaceholder_DoesNotContainDeferredExposure()
+    public void CombatPlaceholder_DoesNotCreateExposureRuntimeHierarchy()
     {
         GameObject prefab = LoadCombatPrefab();
 

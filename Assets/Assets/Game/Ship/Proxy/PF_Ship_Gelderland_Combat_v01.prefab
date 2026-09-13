@@ -1561,6 +1561,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       insertIndex: -1
       addedObject: {fileID: 910000000000000017}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 910000000000000018}
   m_SourcePrefab: {fileID: 100100000, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
 --- !u!4 &494498070062832346 stripped
 Transform:
@@ -1622,6 +1625,19 @@ MonoBehaviour:
   bowRegion: {fileID: 910000000000000008}
   midshipRegion: {fileID: 910000000000000012}
   sternRegion: {fileID: 910000000000000016}
+--- !u!114 &910000000000000018
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729339577121133683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be574a2c14b349a3b2a83fb6cb1959c1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipExposureReference
+  shipArtDefinition: {fileID: 7658625203641291422}
 --- !u!4 &6891163026523442319 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}

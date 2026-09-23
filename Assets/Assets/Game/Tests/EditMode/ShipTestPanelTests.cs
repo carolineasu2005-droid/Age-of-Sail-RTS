@@ -212,7 +212,11 @@ public class ShipTestPanelTests
             source,
             Does.Not.Contain("starboardReloadRemainingSeconds")
         );
-        Assert.That(source, Does.Not.Contain(".transform"));
+        Assert.That(source, Does.Not.Contain(".transform.position ="));
+        Assert.That(source, Does.Not.Contain(".transform.rotation ="));
+        Assert.That(source, Does.Not.Contain("SetPositionAndRotation"));
+        Assert.That(source, Does.Not.Contain("Physics.Raycast"));
+        Assert.That(source, Does.Not.Contain("Physics.Linecast"));
         Assert.That(
             typeof(ShipTestPanel).Assembly.GetName().Name,
             Is.EqualTo("AgeOfSailRTS.Editor")

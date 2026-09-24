@@ -44,11 +44,10 @@ public class ShipCombatStateTests
 
 
     [Test]
-    public void NewOwner_HasDisabledModesAndNoManualTarget()
+    public void NewOwner_HasAutoFireDisabledAndNoManualTarget()
     {
         Assert.That(combatState.AutoFireEnabled, Is.False);
         Assert.That(combatState.ManualTarget, Is.Null);
-        Assert.That(combatState.BlindFireEnabled, Is.False);
     }
 
 
@@ -82,15 +81,23 @@ public class ShipCombatStateTests
 
 
     [Test]
-    public void BlindFire_ChangesOnlyThroughCombatCommand()
+    public void BlindFire_HasNoLongLivedModeStateOrToggleCommand()
     {
-        combatState.SetBlindFireEnabled(true);
-
-        Assert.That(combatState.BlindFireEnabled, Is.True);
-
-        combatState.SetBlindFireEnabled(false);
-
-        Assert.That(combatState.BlindFireEnabled, Is.False);
+        Assert.That(
+            typeof(ShipCombatState).GetProperty("BlindFireEnabled"),
+            Is.Null
+        );
+        Assert.That(
+            typeof(ShipCombatState).GetMethod("SetBlindFireEnabled"),
+            Is.Null
+        );
+        Assert.That(
+            typeof(ShipCombatState).GetField(
+                "blindFireEnabled",
+                PrivateInstance
+            ),
+            Is.Null
+        );
     }
 
 
@@ -98,20 +105,17 @@ public class ShipCombatStateTests
     public void Phase3AStates_ApplyAutoManualArbitrationOnly()
     {
         combatState.SetAutoFireEnabled(true);
-        combatState.SetBlindFireEnabled(true);
         Assert.That(
             combatState.AssignManualTarget(targetShipRoot),
             Is.True
         );
 
         Assert.That(combatState.AutoFireEnabled, Is.False);
-        Assert.That(combatState.BlindFireEnabled, Is.True);
         Assert.That(combatState.ManualTarget, Is.SameAs(targetShipRoot));
 
         combatState.ClearManualTarget();
 
         Assert.That(combatState.AutoFireEnabled, Is.False);
-        Assert.That(combatState.BlindFireEnabled, Is.True);
         Assert.That(combatState.ManualTarget, Is.Null);
     }
 
@@ -378,7 +382,6 @@ public class ShipCombatStateTests
         {
             "AutoFireEnabled",
             "ManualTarget",
-            "BlindFireEnabled",
             "BroadsideReloadDurationSeconds",
             "PortBroadsideState",
             "PortReloadRemainingSeconds",
@@ -408,7 +411,7 @@ public class ShipCombatStateTests
         FieldInfo[] stateFields = typeof(ShipCombatState).GetFields(
             PrivateInstance | BindingFlags.DeclaredOnly
         );
-        Assert.That(stateFields, Has.Length.EqualTo(8));
+        Assert.That(stateFields, Has.Length.EqualTo(7));
         Assert.That(stateFields.All(field => field.IsPrivate), Is.True);
 
         FieldInfo[] serializedFields = stateFields
@@ -450,7 +453,6 @@ public class ShipCombatStateTests
 
         combatState.SetAutoFireEnabled(true);
         combatState.AssignManualTarget(targetShipRoot);
-        combatState.SetBlindFireEnabled(true);
         combatState.ClearManualTarget();
         SetReloadDuration(6f);
         Assert.That(
@@ -510,7 +512,6 @@ public class ShipCombatStateTests
 
         combatState.SetAutoFireEnabled(true);
         combatState.AssignManualTarget(targetShipRoot);
-        combatState.SetBlindFireEnabled(true);
         combatState.ClearManualTarget();
 
         Assert.That(artDefinition.VisualRoot, Is.SameAs(references[0]));

@@ -28,8 +28,6 @@ public sealed class ShipCombatState : MonoBehaviour
 
     private GameObject manualTarget;
 
-    private bool blindFireEnabled;
-
     private BroadsideReloadState portBroadsideState =
         BroadsideReloadState.Ready;
 
@@ -44,8 +42,6 @@ public sealed class ShipCombatState : MonoBehaviour
     public bool AutoFireEnabled => autoFireEnabled;
 
     public GameObject ManualTarget => manualTarget;
-
-    public bool BlindFireEnabled => blindFireEnabled;
 
     public float BroadsideReloadDurationSeconds =>
         GetValidatedReloadDurationSeconds();
@@ -102,12 +98,6 @@ public sealed class ShipCombatState : MonoBehaviour
     public void ClearManualTarget()
     {
         manualTarget = null;
-    }
-
-
-    public void SetBlindFireEnabled(bool enabled)
-    {
-        blindFireEnabled = enabled;
     }
 
 

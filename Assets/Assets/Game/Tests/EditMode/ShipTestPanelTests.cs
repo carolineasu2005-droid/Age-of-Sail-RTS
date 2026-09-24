@@ -169,15 +169,14 @@ public class ShipTestPanelTests
 
 
     [Test]
-    public void BlindFireAction_DelegatesToCombatCommand()
+    public void PanelSource_HasNoObsoleteBlindFireModeToggle()
     {
-        InvokePrivateStatic<object>("ToggleBlindFire", combatState);
+        string source = ReadPanelSource();
 
-        Assert.That(combatState.BlindFireEnabled, Is.True);
-
-        InvokePrivateStatic<object>("ToggleBlindFire", combatState);
-
-        Assert.That(combatState.BlindFireEnabled, Is.False);
+        Assert.That(source, Does.Not.Contain("Toggle Blind Fire"));
+        Assert.That(source, Does.Not.Contain("ToggleBlindFire"));
+        Assert.That(source, Does.Not.Contain("BlindFireEnabled"));
+        Assert.That(source, Does.Not.Contain("SetBlindFireEnabled"));
     }
 
 
@@ -194,7 +193,6 @@ public class ShipTestPanelTests
         Vector3 scale = shipRoot.transform.localScale;
 
         InvokePrivateStatic<object>("ToggleAutoFire", combatState);
-        InvokePrivateStatic<object>("ToggleBlindFire", combatState);
         InvokePrivateStatic<bool>(
             "TryDebugFire",
             combatState,

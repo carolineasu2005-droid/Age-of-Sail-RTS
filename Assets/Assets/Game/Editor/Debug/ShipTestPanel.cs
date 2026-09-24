@@ -9,6 +9,7 @@ public sealed class ShipTestPanel : EditorWindow
         "Tools/RTS Debug/Ship Test Panel";
     private const float ArcLineWidth = 3f;
     private const float TargetLineWidth = 4f;
+    private const float BlindFireLineWidth = 5f;
 
     private static readonly Color PortArcColor =
         new Color(0.25f, 0.65f, 1f);
@@ -24,6 +25,10 @@ public sealed class ShipTestPanel : EditorWindow
         new Color(1f, 0.2f, 0.2f);
     private static readonly Color ManualTargetLineColor =
         new Color(1f, 0.25f, 0.85f);
+    private static readonly Color AcceptedBlindFireColor =
+        new Color(0.2f, 1f, 0.45f);
+    private static readonly Color RejectedBlindFireColor =
+        new Color(1f, 0.25f, 0.2f);
     [System.Serializable]
     private sealed class AutoTargetDebugCandidate
     {
@@ -33,6 +38,9 @@ public sealed class ShipTestPanel : EditorWindow
 
     [SerializeField]
     private GameObject targetShipRoot;
+
+    [SerializeField]
+    private ShipPlayerCommandInput playerCommandInput;
 
     [SerializeField]
     private GameObject eligibilityTargetShipRoot;
@@ -83,6 +91,14 @@ public sealed class ShipTestPanel : EditorWindow
             "Ship Test Panel",
             EditorStyles.boldLabel
         );
+
+        playerCommandInput =
+            (ShipPlayerCommandInput)EditorGUILayout.ObjectField(
+                "Player Command Input",
+                playerCommandInput,
+                typeof(ShipPlayerCommandInput),
+                true
+            );
 
         GameObject selectedShooter =
             (GameObject)EditorGUILayout.ObjectField(
@@ -148,11 +164,88 @@ public sealed class ShipTestPanel : EditorWindow
             }
 
             EditorGUILayout.Space();
+            DrawBlindFireSection();
+
+            EditorGUILayout.Space();
             DrawAutoTargetSection();
 
             EditorGUILayout.Space();
             DrawFireEligibilitySection();
         }
+    }
+
+
+    private void DrawBlindFireSection()
+    {
+        EditorGUILayout.LabelField(
+            "BLIND FIRE",
+            EditorStyles.boldLabel
+        );
+
+        if (playerCommandInput == null)
+        {
+            EditorGUILayout.HelpBox(
+                "Assign the scene's ShipPlayerCommandInput. No temporary "
+                    + "keyboard binding is registered for Phase 4.",
+                MessageType.Info
+            );
+            return;
+        }
+
+        GameObject selectedShooter =
+            playerCommandInput.SelectedBlindFireShooterRoot;
+        EditorGUILayout.LabelField(
+            "Selected Shooter",
+            selectedShooter != null ? selectedShooter.name : "None"
+        );
+        EditorGUILayout.LabelField(
+            "Debug Shooter",
+            targetShipRoot != null ? targetShipRoot.name : "None"
+        );
+        EditorGUILayout.LabelField(
+            "Armed",
+            FormatYesNo(playerCommandInput.BlindFireArmed)
+        );
+
+        if (playerCommandInput.BlindFireArmed)
+        {
+            if (GUILayout.Button("Cancel Blind Fire"))
+            {
+                playerCommandInput.CancelBlindFire();
+                lastCommandResult = "Blind Fire arming cancelled.";
+            }
+        }
+        else if (GUILayout.Button("Arm Blind Fire (Next Right Click)"))
+        {
+            if (playerCommandInput.TryArmBlindFire())
+            {
+                targetShipRoot =
+                    playerCommandInput.SelectedBlindFireShooterRoot;
+                lastCommandResult = "Blind Fire armed for one valid "
+                    + "world/sea right click.";
+            }
+            else
+            {
+                lastCommandResult = "Blind Fire could not arm: select "
+                    + "exactly one active Combat ship.";
+            }
+
+            SceneView.RepaintAll();
+        }
+
+        BlindFirePlayerCommandResult result =
+            playerCommandInput.LastBlindFireCommandResult;
+
+        if (!result.Attempted)
+        {
+            EditorGUILayout.LabelField("Last Attempt", "None");
+            return;
+        }
+
+        EditorGUILayout.HelpBox(
+            BuildBlindFireSummary(result),
+            result.Accepted ? MessageType.Info : MessageType.Warning
+        );
     }
 
 
@@ -179,18 +272,6 @@ public sealed class ShipTestPanel : EditorWindow
             ? combatState.ManualTarget.name
             : "None";
         EditorGUILayout.LabelField("Manual Target", manualTargetName);
-
-        EditorGUILayout.LabelField(
-            "Blind Fire",
-            FormatOnOff(combatState.BlindFireEnabled)
-        );
-
-        if (GUILayout.Button("Toggle Blind Fire"))
-        {
-            ToggleBlindFire(combatState);
-            lastCommandResult = $"Blind Fire is now "
-                + $"{FormatOnOff(combatState.BlindFireEnabled)}.";
-        }
 
         EditorGUILayout.Space();
         DrawBroadside(
@@ -501,8 +582,14 @@ public sealed class ShipTestPanel : EditorWindow
     {
         if (sceneView == null
             || Event.current == null
-            || Event.current.type != EventType.Repaint
-            || targetShipRoot == null)
+            || Event.current.type != EventType.Repaint)
+        {
+            return;
+        }
+
+        DrawBlindFireVisualization();
+
+        if (targetShipRoot == null)
         {
             return;
         }
@@ -548,6 +635,38 @@ public sealed class ShipTestPanel : EditorWindow
         Handles.Label(
             labelPosition + Vector3.up * 2f,
             BuildEligibilitySummary(eligibilityTargetShipRoot, result)
+        );
+        Handles.color = previousColor;
+    }
+
+
+    private void DrawBlindFireVisualization()
+    {
+        if (playerCommandInput == null)
+        {
+            return;
+        }
+
+        BlindFirePlayerCommandResult result =
+            playerCommandInput.LastBlindFireCommandResult;
+
+        if (!result.Attempted || result.ShooterShipRoot == null)
+        {
+            return;
+        }
+
+        Color previousColor = Handles.color;
+        Handles.color = result.Accepted
+            ? AcceptedBlindFireColor
+            : RejectedBlindFireColor;
+        Handles.DrawAAPolyLine(
+            BlindFireLineWidth,
+            result.ShooterShipRoot.transform.position,
+            result.WorldAimPoint
+        );
+        Handles.Label(
+            result.WorldAimPoint + Vector3.up * 2f,
+            BuildBlindFireSummary(result)
         );
         Handles.color = previousColor;
     }
@@ -943,6 +1062,155 @@ public sealed class ShipTestPanel : EditorWindow
     }
 
 
+    private static string BuildBlindFireSummary(
+        BlindFirePlayerCommandResult command
+    )
+    {
+        StringBuilder summary = new StringBuilder();
+        summary.AppendLine("Blind Fire");
+        summary.Append("Shooter: ").AppendLine(
+            command.ShooterShipRoot != null
+                ? command.ShooterShipRoot.name
+                : "NONE"
+        );
+        summary.Append("Requested Point: ")
+            .AppendLine(command.WorldAimPoint.ToString("F1"));
+
+        if (!command.EligibilityAvailable)
+        {
+            summary.AppendLine("Eligibility: UNAVAILABLE");
+            summary.Append("Accepted: NO\nReasons: ")
+                .Append(FormatPlayerCommandFailures(
+                    command.FailureReasons
+                ));
+            return summary.ToString();
+        }
+
+        BlindFireEligibilityResult result = command.Eligibility;
+        summary.Append("Resolved Direction: ")
+            .AppendLine(result.Aim.WorldAimDirection.ToString("F3"));
+        summary.Append("Side: ").AppendLine(
+            result.Side.HasValue
+                ? result.Side.Value.ToString().ToUpperInvariant()
+                : "NONE"
+        );
+        summary.Append("Arc: ").AppendLine(
+            FormatPassFail(result.InBroadsideArc)
+        );
+
+        if (result.Aim.AimPointDistanceMeters.HasValue)
+        {
+            summary.Append("Distance: ")
+                .Append(result.Aim.AimPointDistanceMeters.Value.ToString(
+                    "F1"
+                ))
+                .AppendLine(" m");
+        }
+
+        summary.Append("Maximum: ").AppendLine(
+            result.WithinMaximumRange.HasValue
+                ? FormatPassFail(result.WithinMaximumRange.Value)
+                : "N/A"
+        );
+        summary.Append("Reload: ").AppendLine(
+            result.ReloadReady ? "READY" : "NOT READY"
+        );
+        summary.Append("Lifecycle: ").AppendLine(
+            result.LifecycleAllowsFire
+                ? "AVAILABLE (BRIDGE)"
+                : "BLOCKED"
+        );
+        summary.Append("CAN BLIND FIRE: ").AppendLine(
+            FormatYesNo(result.CanBlindFire)
+        );
+        summary.Append("Execution: ").AppendLine(
+            command.Accepted ? "ACCEPTED" : "REJECTED"
+        );
+
+        if (!command.Accepted)
+        {
+            summary.Append("Reasons: ")
+                .Append(FormatBlindFireFailures(command));
+        }
+
+        return summary.ToString();
+    }
+
+
+    private static string FormatBlindFireFailures(
+        BlindFirePlayerCommandResult command
+    )
+    {
+        StringBuilder reasons = new StringBuilder();
+        AppendBlindFireEligibilityFailures(
+            reasons,
+            command.Eligibility.FailureReasons
+        );
+        AppendBlindFireExecutionFailures(
+            reasons,
+            command.Execution.FailureReasons
+        );
+
+        if (reasons.Length == 0)
+        {
+            reasons.Append(FormatPlayerCommandFailures(
+                command.FailureReasons
+            ));
+        }
+
+        return reasons.ToString();
+    }
+
+
+    private static void AppendBlindFireEligibilityFailures(
+        StringBuilder reasons,
+        BlindFireEligibilityFailure failures
+    )
+    {
+        AppendFailure(reasons, failures,
+            BlindFireEligibilityFailure.InvalidAim, "INVALID_AIM");
+        AppendFailure(reasons, failures,
+            BlindFireEligibilityFailure.NoBroadsideArc, "OUT_OF_ARC");
+        AppendFailure(reasons, failures,
+            BlindFireEligibilityFailure.BeyondMaximumRange,
+            "BEYOND_MAXIMUM_RANGE");
+        AppendFailure(reasons, failures,
+            BlindFireEligibilityFailure.BroadsideReloading, "RELOADING");
+        AppendFailure(reasons, failures,
+            BlindFireEligibilityFailure.LifecycleDisallowsFire,
+            "LIFECYCLE_BLOCKED");
+    }
+
+
+    private static void AppendBlindFireExecutionFailures(
+        StringBuilder reasons,
+        BlindFireExecutionFailure failures
+    )
+    {
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.InvalidAim, "INVALID_AIM");
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.EligibilityUnavailable,
+            "ELIGIBILITY_UNAVAILABLE");
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.EligibilityRejected,
+            "ELIGIBILITY_REJECTED");
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.BroadsideCommitFailed,
+            "COMMIT_FAILED");
+    }
+
+
+    private static string FormatPlayerCommandFailures(
+        BlindFirePlayerCommandFailure failures
+    )
+    {
+        return failures == BlindFirePlayerCommandFailure.None
+            ? "NONE"
+            : failures.ToString().ToUpperInvariant();
+    }
+
+
     private static string FormatFailureReasons(
         FireEligibilityFailure failures
     )
@@ -1014,6 +1282,52 @@ public sealed class ShipTestPanel : EditorWindow
     }
 
 
+    private static void AppendFailure(
+        StringBuilder reasons,
+        BlindFireEligibilityFailure failures,
+        BlindFireEligibilityFailure candidate,
+        string label
+    )
+    {
+        if ((failures & candidate) == 0)
+        {
+            return;
+        }
+
+        AppendFailureLabel(reasons, label);
+    }
+
+
+    private static void AppendFailure(
+        StringBuilder reasons,
+        BlindFireExecutionFailure failures,
+        BlindFireExecutionFailure candidate,
+        string label
+    )
+    {
+        if ((failures & candidate) == 0)
+        {
+            return;
+        }
+
+        AppendFailureLabel(reasons, label);
+    }
+
+
+    private static void AppendFailureLabel(
+        StringBuilder reasons,
+        string label
+    )
+    {
+        if (reasons.Length > 0)
+        {
+            reasons.Append('\n');
+        }
+
+        reasons.Append(label);
+    }
+
+
     private static string FormatBlocked(FireEligibilityResult result)
     {
         if (!result.Blocked)
@@ -1030,12 +1344,6 @@ public sealed class ShipTestPanel : EditorWindow
     private static void ToggleAutoFire(ShipCombatState combatState)
     {
         combatState.SetAutoFireEnabled(!combatState.AutoFireEnabled);
-    }
-
-
-    private static void ToggleBlindFire(ShipCombatState combatState)
-    {
-        combatState.SetBlindFireEnabled(!combatState.BlindFireEnabled);
     }
 
 

@@ -187,7 +187,6 @@ public class ShipAutoTargetScorerTests
         targetRoot.transform.position = Vector3.right * 150f;
         AutoTargetScoreResult before = EvaluateScore();
 
-        shooterState.SetBlindFireEnabled(true);
         shooterState.SetAutoFireEnabled(true);
         shooterState.TryCommitBroadsideFire(CombatSide.Port);
         AutoTargetScoreResult after = EvaluateScore();

@@ -149,11 +149,37 @@ public class ShipPlayerCommandInput : MonoBehaviour
     [SerializeField]
     private PendingFormationTemplate pendingFormationTemplate;
 
+    [SerializeField]
+    private bool blindFireArmed;
+
     private FormationGeometrySnapshot rightMouseDownGeometrySnapshot;
 
     private FormationPlacementPreviewRenderer formationPlacementPreviewRenderer;
 
+    private bool blindFireClickPending;
+
+    private BlindFirePlayerCommandResult lastBlindFireCommandResult;
+
     public PendingFormationTemplate PendingTemplate => pendingFormationTemplate;
+
+    public bool BlindFireArmed => blindFireArmed;
+
+    public GameObject SelectedBlindFireShooterRoot
+    {
+        get
+        {
+            return TryGetSingleSelectedBlindFireOwner(
+                out GameObject shooterShipRoot,
+                out ShipFireEligibility _,
+                out ShipBlindFireCommand _
+            )
+                ? shooterShipRoot
+                : null;
+        }
+    }
+
+    public BlindFirePlayerCommandResult LastBlindFireCommandResult =>
+        lastBlindFireCommandResult;
 
 
     private void Awake()
@@ -188,7 +214,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
         if (selectionManager != null)
         {
             selectionManager.SelectionMembershipChanged +=
-                ClearPendingFormationTemplate;
+                HandleSelectionMembershipChanged;
         }
     }
 
@@ -476,11 +502,13 @@ public class ShipPlayerCommandInput : MonoBehaviour
         formationPlacementPreviewActive = false;
         rightMouseDownFormationSnapshotCaptured = false;
         rightMouseDownGeometrySnapshot = null;
+        blindFireClickPending = false;
         hasLastValidPreviewHeading = false;
         previewGhostMeshCount = 0;
         HideFormationPlacementPreview();
 
-        if (commandCamera == null || commandDispatcher == null)
+        if (commandCamera == null
+            || (!blindFireArmed && commandDispatcher == null))
         {
             return;
         }
@@ -498,6 +526,12 @@ public class ShipPlayerCommandInput : MonoBehaviour
         rightMouseCurrentScreenPosition = rightMouseDownScreenPosition;
         rightMouseDownWorldPosition = mouseDownWorldPosition;
         rightMouseCurrentWorldPosition = mouseDownWorldPosition;
+
+        if (blindFireArmed)
+        {
+            blindFireClickPending = true;
+            return;
+        }
 
         if (formationCommandController != null
             && formationCommandController
@@ -532,6 +566,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private void UpdateDestinationGesture(Vector2 screenPosition)
     {
         rightMouseCurrentScreenPosition = screenPosition;
+
+        if (blindFireClickPending)
+        {
+            return;
+        }
 
         if (formationPlacementPreviewActive)
         {
@@ -573,7 +612,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return;
         }
 
-        if (formationPlacementPreviewActive)
+        if (blindFireClickPending)
+        {
+            CommitBlindFireClick();
+        }
+        else if (formationPlacementPreviewActive)
         {
             CommitFormationPlacement();
         }
@@ -585,6 +628,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
         rightPlacementGestureActive = false;
         rightMouseDownFormationSnapshotCaptured = false;
         rightMouseDownGeometrySnapshot = null;
+        blindFireClickPending = false;
         formationPlacementPreviewActive = false;
         HideFormationPlacementPreview();
     }
@@ -678,6 +722,12 @@ public class ShipPlayerCommandInput : MonoBehaviour
 
     private void CommitNormalDestinationClick()
     {
+        if (blindFireArmed)
+        {
+            CommitBlindFireClick();
+            return;
+        }
+
         if (TryAssignManualTargetAtScreenPosition(
             rightMouseDownScreenPosition
         ))
@@ -766,6 +816,159 @@ public class ShipPlayerCommandInput : MonoBehaviour
         }
 
         return shooterCombatState.AssignManualTarget(targetShipRoot);
+    }
+
+
+    public bool TryArmBlindFire()
+    {
+        if (selectionGestureActive
+            || rightPlacementGestureActive
+            || !TryGetSingleSelectedBlindFireOwner(
+                out GameObject _,
+                out ShipFireEligibility _,
+                out ShipBlindFireCommand _
+            ))
+        {
+            blindFireArmed = false;
+            return false;
+        }
+
+        blindFireArmed = true;
+        return true;
+    }
+
+
+    public void CancelBlindFire()
+    {
+        blindFireArmed = false;
+    }
+
+
+    public bool TryExecuteBlindFireAtWorldPoint(
+        Vector3 worldAimPoint,
+        out BlindFirePlayerCommandResult result
+    )
+    {
+        result = default;
+        blindFireArmed = false;
+
+        if (!TryGetSingleSelectedBlindFireOwner(
+            out GameObject shooterShipRoot,
+            out ShipFireEligibility fireEligibility,
+            out ShipBlindFireCommand blindFireCommand
+        ))
+        {
+            result = new BlindFirePlayerCommandResult(
+                true,
+                null,
+                worldAimPoint,
+                false,
+                default,
+                default,
+                BlindFirePlayerCommandFailure.SelectionInvalid
+            );
+            lastBlindFireCommandResult = result;
+            return false;
+        }
+
+        if (!fireEligibility.TryEvaluateBlindFireAtPoint(
+            worldAimPoint,
+            out BlindFireEligibilityResult aimEligibility
+        ))
+        {
+            result = new BlindFirePlayerCommandResult(
+                true,
+                shooterShipRoot,
+                worldAimPoint,
+                false,
+                default,
+                default,
+                BlindFirePlayerCommandFailure.EligibilityUnavailable
+            );
+            lastBlindFireCommandResult = result;
+            return false;
+        }
+
+        bool accepted = blindFireCommand.TryExecuteBlindFire(
+            aimEligibility.Aim,
+            out BlindFireExecutionResult execution
+        );
+        BlindFireEligibilityResult authoritativeEligibility =
+            execution.Eligibility.ValidAim
+                || execution.Eligibility.FailureReasons
+                    != BlindFireEligibilityFailure.None
+            ? execution.Eligibility
+            : aimEligibility;
+        result = new BlindFirePlayerCommandResult(
+            true,
+            shooterShipRoot,
+            worldAimPoint,
+            true,
+            authoritativeEligibility,
+            execution,
+            accepted
+                ? BlindFirePlayerCommandFailure.None
+                : BlindFirePlayerCommandFailure.ExecutionRejected
+        );
+        lastBlindFireCommandResult = result;
+        return accepted;
+    }
+
+
+    private void CommitBlindFireClick()
+    {
+        blindFireArmed = false;
+        TryExecuteBlindFireAtWorldPoint(
+            rightMouseDownWorldPosition,
+            out BlindFirePlayerCommandResult _
+        );
+    }
+
+
+    private bool TryGetSingleSelectedBlindFireOwner(
+        out GameObject shooterShipRoot,
+        out ShipFireEligibility fireEligibility,
+        out ShipBlindFireCommand blindFireCommand
+    )
+    {
+        shooterShipRoot = null;
+        fireEligibility = null;
+        blindFireCommand = null;
+
+        if (selectionManager == null
+            || selectionManager.SelectedCount != 1)
+        {
+            return false;
+        }
+
+        ShipDestinationController selectedShip =
+            selectionManager.PrimarySelectedShip;
+
+        if (selectedShip == null || !selectedShip.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        ShipCombatState combatState =
+            selectedShip.GetComponent<ShipCombatState>();
+        fireEligibility =
+            selectedShip.GetComponent<ShipFireEligibility>();
+
+        if (combatState == null
+            || !combatState.isActiveAndEnabled
+            || fireEligibility == null
+            || !fireEligibility.isActiveAndEnabled)
+        {
+            fireEligibility = null;
+            return false;
+        }
+
+        shooterShipRoot = selectedShip.gameObject;
+        blindFireCommand = new ShipBlindFireCommand(
+            fireEligibility,
+            combatState
+        );
+        return true;
     }
 
 
@@ -918,6 +1121,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private void CancelDestinationGesture()
     {
         rightPlacementGestureActive = false;
+        blindFireClickPending = false;
         rightMouseDownFormationSnapshotCaptured = false;
         rightMouseDownGeometrySnapshot = null;
         formationPlacementPreviewActive = false;
@@ -943,8 +1147,10 @@ public class ShipPlayerCommandInput : MonoBehaviour
         if (selectionManager != null)
         {
             selectionManager.SelectionMembershipChanged -=
-                ClearPendingFormationTemplate;
+                HandleSelectionMembershipChanged;
         }
+
+        blindFireArmed = false;
     }
 
 
@@ -997,6 +1203,13 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private void ClearPendingFormationTemplate()
     {
         pendingFormationTemplate = PendingFormationTemplate.None;
+    }
+
+
+    private void HandleSelectionMembershipChanged()
+    {
+        ClearPendingFormationTemplate();
+        blindFireArmed = false;
     }
 
 

@@ -5,21 +5,17 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class ShipFireEligibility : MonoBehaviour
 {
-    private const float MaximumBroadsideArcDegrees = 160f;
-    private const float MaximumSideArcLimitDegrees = 90f;
-    private const float MinimumHorizontalDirectionSqrMagnitude = 0.000001f;
-    private const float BoundaryToleranceDegrees = 0.0001f;
     private const int CombatGeometryLayer = 8;
     private const int CombatGeometryMask = 1 << CombatGeometryLayer;
 
     [Header("Broadside Arc")]
 
     [SerializeField]
-    [Range(0f, MaximumSideArcLimitDegrees)]
+    [Range(0f, ShipBroadsideGeometry.MaximumSideArcLimitDegrees)]
     private float forwardArcLimitDegrees = 80f;
 
     [SerializeField]
-    [Range(0f, MaximumSideArcLimitDegrees)]
+    [Range(0f, ShipBroadsideGeometry.MaximumSideArcLimitDegrees)]
     private float aftArcLimitDegrees = 70f;
 
     [Header("Range")]
@@ -120,6 +116,127 @@ public sealed class ShipFireEligibility : MonoBehaviour
     }
 
 
+    public bool TryEvaluateBlindFireAtPoint(
+        Vector3 worldAimPoint,
+        out BlindFireEligibilityResult result
+    )
+    {
+        result = default;
+
+        if (!HasValidConfiguration()
+            || !TryGetBlindFireDependencies(out ShipCombatState combatState))
+        {
+            return false;
+        }
+
+        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire();
+
+        if (!IsFinite(worldAimPoint))
+        {
+            result = CreateInvalidBlindFireResult(
+                default,
+                null,
+                lifecycleAllowsFire
+            );
+            return true;
+        }
+
+        Vector3 offsetWorld = worldAimPoint - transform.position;
+        float distanceMeters = offsetWorld.magnitude;
+
+        if (!IsFinite(distanceMeters))
+        {
+            result = CreateInvalidBlindFireResult(
+                default,
+                null,
+                lifecycleAllowsFire
+            );
+            return true;
+        }
+
+        bool withinMaximumRange = distanceMeters <= maximumRangeMeters;
+
+        if (!TryEvaluateBroadsideGeometry(
+            offsetWorld,
+            out BroadsideGeometryResult geometry
+        ))
+        {
+            BlindFireAim invalidAim = new BlindFireAim(
+                false,
+                Vector3.zero,
+                worldAimPoint,
+                distanceMeters
+            );
+            result = CreateInvalidBlindFireResult(
+                invalidAim,
+                withinMaximumRange,
+                lifecycleAllowsFire
+            );
+            return true;
+        }
+
+        BlindFireAim aim = new BlindFireAim(
+            true,
+            geometry.WorldDirection,
+            worldAimPoint,
+            distanceMeters
+        );
+        result = CreateBlindFireResult(
+            aim,
+            geometry,
+            withinMaximumRange,
+            combatState,
+            lifecycleAllowsFire
+        );
+        return true;
+    }
+
+
+    public bool TryEvaluateBlindFireDirection(
+        Vector3 worldAimDirection,
+        out BlindFireEligibilityResult result
+    )
+    {
+        result = default;
+
+        if (!HasValidConfiguration()
+            || !TryGetBlindFireDependencies(out ShipCombatState combatState))
+        {
+            return false;
+        }
+
+        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire();
+
+        if (!TryEvaluateBroadsideGeometry(
+            worldAimDirection,
+            out BroadsideGeometryResult geometry
+        ))
+        {
+            result = CreateInvalidBlindFireResult(
+                default,
+                null,
+                lifecycleAllowsFire
+            );
+            return true;
+        }
+
+        BlindFireAim aim = new BlindFireAim(
+            true,
+            geometry.WorldDirection,
+            null,
+            null
+        );
+        result = CreateBlindFireResult(
+            aim,
+            geometry,
+            null,
+            combatState,
+            lifecycleAllowsFire
+        );
+        return true;
+    }
+
+
     private bool TryEvaluateGeometry(
         Vector3 targetWorldPosition,
         out FireEligibilityResult result
@@ -143,45 +260,19 @@ public sealed class ShipFireEligibility : MonoBehaviour
             return false;
         }
 
-        Vector3 horizontalDirectionWorld = targetOffsetWorld;
-        horizontalDirectionWorld.y = 0f;
-
-        if (horizontalDirectionWorld.sqrMagnitude
-            <= MinimumHorizontalDirectionSqrMagnitude)
+        if (!TryEvaluateBroadsideGeometry(
+            targetOffsetWorld,
+            out BroadsideGeometryResult geometry
+        ))
         {
             return false;
-        }
-
-        horizontalDirectionWorld.Normalize();
-        Vector3 targetDirectionLocal =
-            transform.InverseTransformDirection(horizontalDirectionWorld);
-        float targetLocalBearingDegrees = Mathf.Atan2(
-            targetDirectionLocal.x,
-            targetDirectionLocal.z
-        ) * Mathf.Rad2Deg;
-
-        if (!IsFinite(targetLocalBearingDegrees))
-        {
-            return false;
-        }
-
-        bool inBroadsideArc = IsInBroadsideArc(
-            targetLocalBearingDegrees
-        );
-        CombatSide? side = null;
-
-        if (inBroadsideArc)
-        {
-            side = targetLocalBearingDegrees < 0f
-                ? CombatSide.Port
-                : CombatSide.Starboard;
         }
 
         result = new FireEligibilityResult(
             false,
-            side,
-            inBroadsideArc,
-            targetLocalBearingDegrees,
+            geometry.Side,
+            geometry.InBroadsideArc,
+            geometry.LocalBearingDegrees,
             distanceMeters,
             distanceMeters <= maximumRangeMeters,
             distanceMeters <= effectiveRangeMeters,
@@ -195,6 +286,34 @@ public sealed class ShipFireEligibility : MonoBehaviour
             FireEligibilityFailure.None
         );
         return true;
+    }
+
+
+    private bool TryEvaluateBroadsideGeometry(
+        Vector3 worldDirection,
+        out BroadsideGeometryResult result
+    )
+    {
+        return ShipBroadsideGeometry.TryEvaluate(
+            transform,
+            worldDirection,
+            forwardArcLimitDegrees,
+            aftArcLimitDegrees,
+            out result
+        );
+    }
+
+
+    private bool TryGetBlindFireDependencies(
+        out ShipCombatState combatState
+    )
+    {
+        combatState = GetComponent<ShipCombatState>();
+
+        return combatState != null
+            && IsFinite(transform.position)
+            && IsFinite(transform.forward)
+            && IsFinite(transform.right);
     }
 
 
@@ -273,6 +392,90 @@ public sealed class ShipFireEligibility : MonoBehaviour
         // Phase 7 will replace this bridge with the registered lifecycle
         // Source of Truth. Foundation ships currently have no lifecycle state.
         return true;
+    }
+
+
+    private static BlindFireEligibilityResult CreateBlindFireResult(
+        BlindFireAim aim,
+        BroadsideGeometryResult geometry,
+        bool? withinMaximumRange,
+        ShipCombatState combatState,
+        bool lifecycleAllowsFire
+    )
+    {
+        bool reloadReady = geometry.Side.HasValue
+            && IsBroadsideReady(combatState, geometry.Side.Value);
+        BlindFireEligibilityFailure failureReasons =
+            BlindFireEligibilityFailure.None;
+
+        if (!geometry.Side.HasValue || !geometry.InBroadsideArc)
+        {
+            failureReasons |=
+                BlindFireEligibilityFailure.NoBroadsideArc;
+        }
+
+        if (withinMaximumRange == false)
+        {
+            failureReasons |=
+                BlindFireEligibilityFailure.BeyondMaximumRange;
+        }
+
+        if (geometry.Side.HasValue && !reloadReady)
+        {
+            failureReasons |=
+                BlindFireEligibilityFailure.BroadsideReloading;
+        }
+
+        if (!lifecycleAllowsFire)
+        {
+            failureReasons |=
+                BlindFireEligibilityFailure.LifecycleDisallowsFire;
+        }
+
+        return new BlindFireEligibilityResult(
+            aim,
+            geometry.Side,
+            geometry.InBroadsideArc,
+            geometry.LocalBearingDegrees,
+            withinMaximumRange,
+            reloadReady,
+            lifecycleAllowsFire,
+            failureReasons
+        );
+    }
+
+
+    private static BlindFireEligibilityResult CreateInvalidBlindFireResult(
+        BlindFireAim aim,
+        bool? withinMaximumRange,
+        bool lifecycleAllowsFire
+    )
+    {
+        BlindFireEligibilityFailure failureReasons =
+            BlindFireEligibilityFailure.InvalidAim;
+
+        if (withinMaximumRange == false)
+        {
+            failureReasons |=
+                BlindFireEligibilityFailure.BeyondMaximumRange;
+        }
+
+        if (!lifecycleAllowsFire)
+        {
+            failureReasons |=
+                BlindFireEligibilityFailure.LifecycleDisallowsFire;
+        }
+
+        return new BlindFireEligibilityResult(
+            aim,
+            null,
+            false,
+            0f,
+            withinMaximumRange,
+            false,
+            lifecycleAllowsFire,
+            failureReasons
+        );
     }
 
 
@@ -417,52 +620,22 @@ public sealed class ShipFireEligibility : MonoBehaviour
     }
 
 
-    private bool IsInBroadsideArc(float targetLocalBearingDegrees)
-    {
-        float absoluteBearingDegrees = Mathf.Abs(
-            targetLocalBearingDegrees
-        );
-
-        if (absoluteBearingDegrees <= BoundaryToleranceDegrees
-            || 180f - absoluteBearingDegrees
-                <= BoundaryToleranceDegrees)
-        {
-            return false;
-        }
-
-        float forwardBoundaryDegrees =
-            90f - forwardArcLimitDegrees;
-        float aftBoundaryDegrees = 90f + aftArcLimitDegrees;
-
-        return absoluteBearingDegrees
-                >= forwardBoundaryDegrees - BoundaryToleranceDegrees
-            && absoluteBearingDegrees
-                <= aftBoundaryDegrees + BoundaryToleranceDegrees;
-    }
-
-
     private bool HasValidConfiguration()
     {
-        if (!IsFinite(forwardArcLimitDegrees)
-            || !IsFinite(aftArcLimitDegrees)
-            || !IsFinite(effectiveRangeMeters)
+        if (!IsFinite(effectiveRangeMeters)
             || !IsFinite(maximumRangeMeters))
         {
             return false;
         }
 
-        bool arcLimitsValid = forwardArcLimitDegrees >= 0f
-            && forwardArcLimitDegrees <= MaximumSideArcLimitDegrees
-            && aftArcLimitDegrees >= 0f
-            && aftArcLimitDegrees <= MaximumSideArcLimitDegrees
-            && forwardArcLimitDegrees + aftArcLimitDegrees > 0f
-            && forwardArcLimitDegrees + aftArcLimitDegrees
-                <= MaximumBroadsideArcDegrees;
         bool rangesValid = effectiveRangeMeters >= 0f
             && maximumRangeMeters >= 0f
             && effectiveRangeMeters <= maximumRangeMeters;
 
-        return arcLimitsValid && rangesValid;
+        return ShipBroadsideGeometry.HasValidArcConfiguration(
+            forwardArcLimitDegrees,
+            aftArcLimitDegrees
+        ) && rangesValid;
     }
 
 

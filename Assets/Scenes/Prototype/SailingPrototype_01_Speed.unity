@@ -687,7 +687,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6891163026523442319, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -125
       objectReference: {fileID: 0}
     - target: {fileID: 6891163026523442319, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.y
@@ -695,7 +695,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6891163026523442319, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -14.1
       objectReference: {fileID: 0}
     - target: {fileID: 6891163026523442319, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2430,7 +2430,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6891163026523442319, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -228
+      value: -373
       objectReference: {fileID: 0}
     - target: {fileID: 6891163026523442319, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.y
@@ -6344,6 +6344,7 @@ MonoBehaviour:
   lastWorldDestination: {x: 0, y: 0, z: 0}
   lastSelectionMode: 0
   pendingFormationTemplate: 0
+  blindFireArmed: 0
 --- !u!114 &1123039777
 MonoBehaviour:
   m_ObjectHideFlags: 0

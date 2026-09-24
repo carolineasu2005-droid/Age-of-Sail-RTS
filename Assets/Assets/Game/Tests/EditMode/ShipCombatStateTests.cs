@@ -31,6 +31,7 @@ public class ShipCombatStateTests
         shipRoot = new GameObject("Ship Root");
         targetShipRoot = new GameObject("Target Ship Root");
         combatState = shipRoot.AddComponent<ShipCombatState>();
+        targetShipRoot.AddComponent<ShipCombatState>();
     }
 
 
@@ -67,7 +68,10 @@ public class ShipCombatStateTests
     [Test]
     public void ManualTarget_AssignsAndClearsAuthoritativeRootIdentity()
     {
-        combatState.AssignManualTarget(targetShipRoot);
+        Assert.That(
+            combatState.AssignManualTarget(targetShipRoot),
+            Is.True
+        );
 
         Assert.That(combatState.ManualTarget, Is.SameAs(targetShipRoot));
 
@@ -91,19 +95,22 @@ public class ShipCombatStateTests
 
 
     [Test]
-    public void Phase1AStates_DoNotApplyDeferredModeInteractions()
+    public void Phase3AStates_ApplyAutoManualArbitrationOnly()
     {
         combatState.SetAutoFireEnabled(true);
         combatState.SetBlindFireEnabled(true);
-        combatState.AssignManualTarget(targetShipRoot);
+        Assert.That(
+            combatState.AssignManualTarget(targetShipRoot),
+            Is.True
+        );
 
-        Assert.That(combatState.AutoFireEnabled, Is.True);
+        Assert.That(combatState.AutoFireEnabled, Is.False);
         Assert.That(combatState.BlindFireEnabled, Is.True);
         Assert.That(combatState.ManualTarget, Is.SameAs(targetShipRoot));
 
         combatState.ClearManualTarget();
 
-        Assert.That(combatState.AutoFireEnabled, Is.True);
+        Assert.That(combatState.AutoFireEnabled, Is.False);
         Assert.That(combatState.BlindFireEnabled, Is.True);
         Assert.That(combatState.ManualTarget, Is.Null);
     }

@@ -1,0 +1,1389 @@
+BLENDER WATER NODE DUMP
+====================================================================================================
+Object: 水面
+Blender Version: 5.2.2 LTS
+
+
+MATERIALS
+====================================================================================================
+
+MATERIAL SLOT 0: 水面
+
+====================================================================================================
+NODE TREE: Shader Nodetree
+SOURCE: Material: 水面
+TYPE: ShaderNodeTree
+====================================================================================================
+
+[NODE 1] Name='Material Output' | Label=''
+Type=ShaderNodeOutputMaterial
+Location=(3042.3, -356.2)
+INPUTS:
+  [0] Socket: Surface | LINK <- Group [tmp_viewer]
+  [1] Socket: Volume
+  [2] Socket: Displacement | Default = [0, 0, 0]
+  [3] Socket: Thickness | Default = 0
+
+[NODE 2] Name='Group' | Label=''
+Type=ShaderNodeGroup
+Location=(2777.8, -216.1)
+INPUTS:
+  [0] Socket: 基础色 | Default = [0, 0.296138, 1, 1]
+  [1] Socket: 浪尖颜色 | Default = [0.0630087, 0.623961, 0.806953, 1]
+  [2] Socket: 菲涅尔高光 | Default = [0.270495, 0.973446, 1, 1]
+  [3] Socket: 透射颜色 | Default = [0, 0.879623, 1, 1]
+  [4] Socket: 高光强度 | Default = 0.8
+  [5] Socket: 浪花亮度 | Default = 1
+  [6] Socket: 浮沫范围 | Default = 1
+  [7] Socket: 浮沫演化速度 | Default = 0.7
+  [8] Socket: 浮沫强度 | Default = 0.1
+  [9] Socket: 浮沫颜色 | Default = [0.622619, 0.622619, 0.622619, 1]
+  [10] Socket: 水体透明范围 | Default = 3.4
+  [11] Socket: 水面反射系数 | Default = 0
+  [12] Socket: 距离深度 | Default = -0.799999
+OUTPUTS:
+  [0] Shader
+  [1] tmp_viewer -> Material Output[Surface], Mix Shader[Shader]
+
+====================================================================================================
+    NODE TREE: 水面材质节点
+    SOURCE: Group Node: Group
+    TYPE: ShaderNodeTree
+====================================================================================================
+
+    [NODE 1] Name='Group Output' | Label=''
+    Type=NodeGroupOutput
+    Location=(-4587.0, 888.2)
+    INPUTS:
+      [0] Socket: Shader | LINK <- Mix Shader.002 [Shader]
+      [1] Socket: tmp_viewer | LINK <- Mix Shader.002 [Shader]
+      [2] Socket: 
+
+    [NODE 2] Name='Group Input' | Label=''
+    Type=NodeGroupInput
+    Location=(-15460.0, 2340.0)
+    OUTPUTS:
+      [0] 基础色 -> Brightness/Contrast[Color]
+      [1] 浪尖颜色 -> Mix.001[A]
+      [2] 菲涅尔高光 -> Mix.004[B]
+      [3] 透射颜色 -> Mix.005[B]
+      [4] 高光强度 -> Math.005[Value]
+      [5] 浪花亮度 -> Reroute.001[Input]
+      [6] 浮沫范围 -> Reroute[Input]
+      [7] 浮沫演化速度 -> Reroute.002[Input]
+      [8] 浮沫强度 -> Math.006[Value]
+      [9] 浮沫颜色 -> Mix.008[B]
+      [10] 水体透明范围 -> Map Range.001[From Max]
+      [11] 水面反射系数 -> Mix Shader[Factor]
+      [12] 距离深度 -> Map Range.002[To Max]
+      [13] 
+
+    [NODE 3] Name='Attribute' | Label=''
+    Type=ShaderNodeAttribute
+    Location=(140.2, -36.2)
+    OUTPUTS:
+      [0] Color -> Map Range[Value]
+      [1] Vector
+      [2] Factor
+      [3] Alpha
+
+    [NODE 4] Name='Attribute.001' | Label=''
+    Type=ShaderNodeAttribute
+    Location=(30.2, -37.6)
+    OUTPUTS:
+      [0] Color -> Map Range.001[Value]
+      [1] Vector
+      [2] Factor
+      [3] Alpha
+
+    [NODE 5] Name='Map Range' | Label=''
+    Type=ShaderNodeMapRange
+    Location=(360.2, -56.2)
+    data_type = FLOAT
+    clamp = True
+    INPUTS:
+      [0] Socket: Value | LINK <- Attribute [Color]
+      [1] Socket: From Min | Default = 0
+      [2] Socket: From Max | LINK <- Reroute [Output]
+      [3] Socket: To Min | Default = 1
+      [4] Socket: To Max | Default = 0
+      [5] Socket: Steps | Default = 4
+      [6] Socket: Vector | Default = [0, 0, 0]
+      [7] Socket: From Min | Default = [0, 0, 0]
+      [8] Socket: From Max | Default = [1, 1, 1]
+      [9] Socket: To Min | Default = [0, 0, 0]
+      [10] Socket: To Max | Default = [1, 1, 1]
+      [11] Socket: Steps | Default = [4, 4, 4]
+    OUTPUTS:
+      [0] Result -> Math[Value], Math.002[Value]
+      [1] Vector
+
+    [NODE 6] Name='Value' | Label='浮沫范围'
+    Type=ShaderNodeValue
+    Location=(2858.0, -282.4)
+    OUTPUTS:
+      [0] Value
+
+    [NODE 7] Name='Noise Texture' | Label=''
+    Type=ShaderNodeTexNoise
+    Location=(1100.2, -376.2)
+    noise_dimensions = 3D
+    normalize = False
+    INPUTS:
+      [0] Socket: Vector | LINK <- Mix [Result]
+      [1] Socket: W | Default = 0
+      [2] Socket: Scale | Default = 2
+      [3] Socket: Detail | Default = 1.2
+      [4] Socket: Roughness | Default = 0.434
+      [5] Socket: Lacunarity | Default = 2.2
+      [6] Socket: Offset | Default = 0
+      [7] Socket: Gain | Default = 1
+      [8] Socket: Distortion | Default = 0.11
+    OUTPUTS:
+      [0] Factor
+      [1] Color -> Math.006[Value]
+
+    [NODE 8] Name='Mapping' | Label=''
+    Type=ShaderNodeMapping
+    Location=(530.2, -250.2)
+    INPUTS:
+      [0] Socket: Vector | LINK <- Texture Coordinate [Object]
+      [1] Socket: Location | Default = [0, 0, 0]
+      [2] Socket: Rotation | Default = [0, 0, 0]
+      [3] Socket: Scale | Default = [1, 1, 1]
+    OUTPUTS:
+      [0] Vector -> Mix[B]
+
+    [NODE 9] Name='Texture Coordinate' | Label=''
+    Type=ShaderNodeTexCoord
+    Location=(370.2, -250.2)
+    OUTPUTS:
+      [0] Generated
+      [1] Normal
+      [2] UV
+      [3] Object -> Mapping[Vector]
+      [4] Camera
+      [5] Window
+      [6] Reflection
+
+    [NODE 10] Name='Math' | Label=''
+    Type=ShaderNodeMath
+    Location=(690.2, -30.2)
+    operation = ADD
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Map Range [Result]
+      [1] Socket: Value | LINK <- Math.001 [Value]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Mix[A]
+
+    [NODE 11] Name='Value.001' | Label=''
+    Type=ShaderNodeValue
+    Location=(30.2, -110.2)
+    OUTPUTS:
+      [0] Value -> Math.008[Value]
+
+    [NODE 12] Name='Math.001' | Label=''
+    Type=ShaderNodeMath
+    Location=(470.2, -90.2)
+    operation = DIVIDE
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Math.008 [Value]
+      [1] Socket: Value | Default = 75
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Math[Value]
+
+    [NODE 13] Name='Mix' | Label=''
+    Type=ShaderNodeMix
+    Location=(870.2, -70.2)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | Default = 0.15
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Math [Value]
+      [7] Socket: B | LINK <- Mapping [Vector]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Noise Texture[Vector]
+      [3] Result
+
+    [NODE 14] Name='Math.002' | Label=''
+    Type=ShaderNodeMath
+    Location=(1460.2, -216.2)
+    operation = MULTIPLY
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Map Range [Result]
+      [1] Socket: Value | LINK <- Math.006 [Value]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Color Ramp.001[Factor]
+
+    [NODE 15] Name='Color Ramp.001' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(1660.2, -136.2)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Math.002 [Value]
+    OUTPUTS:
+      [0] Color -> Mix.009[B], Mix.008[Factor]
+      [1] Alpha
+
+    [NODE 16] Name='Frame' | Label=''
+    Type=NodeFrame
+    Location=(30.0, -366.0)
+
+    [NODE 17] Name='Map Range.001' | Label=''
+    Type=ShaderNodeMapRange
+    Location=(253.9, -36.2)
+    data_type = FLOAT
+    clamp = True
+    INPUTS:
+      [0] Socket: Value | LINK <- Attribute.001 [Color]
+      [1] Socket: From Min | Default = 0
+      [2] Socket: From Max | LINK <- Group Input [水体透明范围]
+      [3] Socket: To Min | Default = 1
+      [4] Socket: To Max | Default = 0
+      [5] Socket: Steps | Default = 4
+      [6] Socket: Vector | Default = [0, 0, 0]
+      [7] Socket: From Min | Default = [0, 0, 0]
+      [8] Socket: From Max | Default = [1, 1, 1]
+      [9] Socket: To Min | Default = [0, 0, 0]
+      [10] Socket: To Max | Default = [1, 1, 1]
+      [11] Socket: Steps | Default = [4, 4, 4]
+    OUTPUTS:
+      [0] Result -> Mix.009[Factor]
+      [1] Vector
+
+    [NODE 18] Name='Value.002' | Label='岸边范围'
+    Type=ShaderNodeValue
+    Location=(31.6, -236.8)
+    OUTPUTS:
+      [0] Value
+
+    [NODE 19] Name='Frame.001' | Label='碰撞浮沫'
+    Type=NodeFrame
+    Location=(-14427.0, 1154.0)
+
+    [NODE 20] Name='Texture Coordinate.001' | Label=''
+    Type=ShaderNodeTexCoord
+    Location=(29.7, -35.8)
+    OUTPUTS:
+      [0] Generated
+      [1] Normal
+      [2] UV
+      [3] Object -> Separate XYZ[Vector]
+      [4] Camera
+      [5] Window
+      [6] Reflection
+
+    [NODE 21] Name='Separate XYZ' | Label=''
+    Type=ShaderNodeSeparateXYZ
+    Location=(205.2, -51.4)
+    INPUTS:
+      [0] Socket: Vector | LINK <- Texture Coordinate.001 [Object]
+    OUTPUTS:
+      [0] X
+      [1] Y
+      [2] Z -> Color Ramp.002[Factor]
+
+    [NODE 22] Name='Color Ramp.002' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(383.4, -44.6)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Separate XYZ [Z]
+    OUTPUTS:
+      [0] Color -> Mix.001[Factor]
+      [1] Alpha
+
+    [NODE 23] Name='Mix.001' | Label=''
+    Type=ShaderNodeMix
+    Location=(-1499.4, 1430.9)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.002 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Group Input [浪尖颜色]
+      [7] Socket: B | LINK <- Mix.010 [Result]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.003[A]
+      [3] Result
+
+    [NODE 24] Name='Frame.002' | Label='海面高度'
+    Type=NodeFrame
+    Location=(-2286.0, 1228.0)
+
+    [NODE 25] Name='Glossy BSDF' | Label=''
+    Type=ShaderNodeBsdfAnisotropic
+    Location=(29.6, -93.5)
+    distribution = MULTI_GGX
+    INPUTS:
+      [0] Socket: Color | Default = [0.8, 0.8, 0.8, 1]
+      [1] Socket: Roughness | Default = 0.15
+      [2] Socket: Anisotropy | Default = 0
+      [3] Socket: Rotation | Default = 0
+      [4] Socket: Normal | Default = [0, 0, 0]
+      [5] Socket: Tangent | Default = [0, 0, 0]
+      [6] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] BSDF -> Shader to RGB[Shader]
+
+    [NODE 26] Name='Shader to RGB' | Label=''
+    Type=ShaderNodeShaderToRGB
+    Location=(201.0, -108.4)
+    INPUTS:
+      [0] Socket: Shader | LINK <- Glossy BSDF [BSDF]
+    OUTPUTS:
+      [0] Color -> Color Ramp.003[Factor]
+      [1] Alpha
+
+    [NODE 27] Name='Color Ramp.003' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(406.1, -36.0)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Shader to RGB [Color]
+    OUTPUTS:
+      [0] Color -> Mix.002[Factor]
+      [1] Alpha
+
+    [NODE 28] Name='Fresnel' | Label=''
+    Type=ShaderNodeFresnel
+    Location=(241.8, -431.4)
+    INPUTS:
+      [0] Socket: IOR | Default = 1.5
+      [1] Socket: Normal | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Factor -> Color Ramp.006[Factor], Color Ramp.005[Factor]
+
+    [NODE 29] Name='Mix.002' | Label=''
+    Type=ShaderNodeMix
+    Location=(797.9, -82.2)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.003 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Color Ramp.005 [Color]
+      [7] Socket: B | Default = [1, 1, 1, 1]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Color Ramp.004[Factor]
+      [3] Result
+
+    [NODE 30] Name='Frame.003' | Label='阴影'
+    Type=NodeFrame
+    Location=(-2418.0, 2183.0)
+
+    [NODE 31] Name='Mix.003' | Label=''
+    Type=ShaderNodeMix
+    Location=(-832.7, 2078.5)
+    blend_type = MULTIPLY
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | Default = 0.5
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Mix.001 [Result]
+      [7] Socket: B | LINK <- Color Ramp.004 [Color]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.004[A]
+      [3] Result
+
+    [NODE 32] Name='Color Ramp.004' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(982.3, -54.6)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Mix.002 [Result]
+    OUTPUTS:
+      [0] Color -> Mix.003[B]
+      [1] Alpha
+
+    [NODE 33] Name='Color Ramp.005' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(470.7, -338.9)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Fresnel [Factor]
+    OUTPUTS:
+      [0] Color -> Mix.002[A]
+      [1] Alpha
+
+    [NODE 34] Name='Color Ramp.006' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(30.4, -35.6)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Fresnel [Factor]
+    OUTPUTS:
+      [0] Color -> Mix.004[Factor]
+      [1] Alpha
+
+    [NODE 35] Name='Mix.004' | Label=''
+    Type=ShaderNodeMix
+    Location=(-520.9, 809.5)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.006 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Mix.003 [Result]
+      [7] Socket: B | LINK <- Group Input [菲涅尔高光]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.005[A]
+      [3] Result
+
+    [NODE 36] Name='Frame.004' | Label='高光'
+    Type=NodeFrame
+    Location=(-1176.0, 410.0)
+
+    [NODE 37] Name='Combine XYZ' | Label=''
+    Type=ShaderNodeCombineXYZ
+    Location=(33.3, -218.9)
+    INPUTS:
+      [0] Socket: X | Default = 1.31782
+      [1] Socket: Y | Default = 0.440343
+      [2] Socket: Z | Default = -0.579558
+    OUTPUTS:
+      [0] Vector -> Vector Rotate[Rotation]
+
+    [NODE 38] Name='Combine XYZ.001' | Label=''
+    Type=ShaderNodeCombineXYZ
+    Location=(30.5, -61.9)
+    INPUTS:
+      [0] Socket: X | Default = 0
+      [1] Socket: Y | Default = 0
+      [2] Socket: Z | Default = 1
+    OUTPUTS:
+      [0] Vector -> Vector Rotate[Vector]
+
+    [NODE 39] Name='Vector Rotate' | Label=''
+    Type=ShaderNodeVectorRotate
+    Location=(256.2, -36.0)
+    INPUTS:
+      [0] Socket: Vector | LINK <- Combine XYZ.001 [Vector]
+      [1] Socket: Center | Default = [0, 0, 0]
+      [2] Socket: Axis | Default = [0, 0, 1]
+      [3] Socket: Angle | Default = 0
+      [4] Socket: Rotation | LINK <- Combine XYZ [Vector]
+    OUTPUTS:
+      [0] Vector -> Vector Math[Vector]
+
+    [NODE 40] Name='Frame.005' | Label='灯光矢量'
+    Type=NodeFrame
+    Location=(77.0, -489.0)
+
+    [NODE 41] Name='Vector Math' | Label=''
+    Type=ShaderNodeVectorMath
+    Location=(549.5, -354.9)
+    operation = DOT_PRODUCT
+    INPUTS:
+      [0] Socket: Vector | LINK <- Attribute.002 [Vector]
+      [1] Socket: Vector | LINK <- Vector Rotate [Vector]
+      [2] Socket: Vector | Default = [0, 0, 0]
+      [3] Socket: Scale | Default = 1
+    OUTPUTS:
+      [0] Vector
+      [1] Value -> Math.003[Value]
+
+    [NODE 42] Name='Frame.006' | Label='自身投影做水面透射'
+    Type=NodeFrame
+    Location=(316.0, 2162.0)
+
+    [NODE 43] Name='Math.003' | Label=''
+    Type=ShaderNodeMath
+    Location=(744.3, -334.3)
+    operation = MULTIPLY_ADD
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Vector Math [Value]
+      [1] Socket: Value | Default = 0.5
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Color Ramp.007[Factor]
+
+    [NODE 44] Name='Color Ramp.007' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(931.0, -305.1)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Math.003 [Value]
+    OUTPUTS:
+      [0] Color -> Mix.011[B]
+      [1] Alpha
+
+    [NODE 45] Name='Mix.005' | Label=''
+    Type=ShaderNodeMix
+    Location=(-235.5, 520.1)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Mix.011 [Result]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Mix.004 [Result]
+      [7] Socket: B | LINK <- Group Input [透射颜色]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.006[A]
+      [3] Result
+
+    [NODE 46] Name='Frame.007' | Label='基础色'
+    Type=NodeFrame
+    Location=(-4282.0, 2643.0)
+
+    [NODE 47] Name='Shader to RGB.001' | Label=''
+    Type=ShaderNodeShaderToRGB
+    Location=(213.9, -106.2)
+    INPUTS:
+      [0] Socket: Shader | LINK <- Glossy BSDF.001 [BSDF]
+    OUTPUTS:
+      [0] Color -> Color Ramp.008[Factor]
+      [1] Alpha
+
+    [NODE 48] Name='Color Ramp.008' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(381.3, -36.1)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Shader to RGB.001 [Color]
+    OUTPUTS:
+      [0] Color -> Mix.006[Factor]
+      [1] Alpha
+
+    [NODE 49] Name='Glossy BSDF.001' | Label=''
+    Type=ShaderNodeBsdfAnisotropic
+    Location=(30.5, -103.8)
+    distribution = MULTI_GGX
+    INPUTS:
+      [0] Socket: Color | Default = [0.154205, 0.154205, 0.154205, 1]
+      [1] Socket: Roughness | Default = 0.038
+      [2] Socket: Anisotropy | Default = 0
+      [3] Socket: Rotation | Default = 0
+      [4] Socket: Normal | Default = [0, 0, 0]
+      [5] Socket: Tangent | Default = [0, 0, 0]
+      [6] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] BSDF -> Shader to RGB.001[Shader]
+
+    [NODE 50] Name='Frame.008' | Label='高光'
+    Type=NodeFrame
+    Location=(280.0, 888.0)
+
+    [NODE 51] Name='Mix.006' | Label=''
+    Type=ShaderNodeMix
+    Location=(144.8, 290.0)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.008 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Mix.005 [Result]
+      [7] Socket: B | LINK <- Math.005 [Value]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.007[A]
+      [3] Result
+
+    [NODE 52] Name='Color Attribute' | Label=''
+    Type=ShaderNodeVertexColor
+    Location=(29.5, -143.5)
+    OUTPUTS:
+      [0] Color -> Color Ramp.009[Factor]
+      [1] Alpha
+
+    [NODE 53] Name='Color Ramp.009' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(225.8, -44.0)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Attribute [Color]
+    OUTPUTS:
+      [0] Color -> Math.010[Value]
+      [1] Alpha
+
+    [NODE 54] Name='Frame.009' | Label='浪花泡沫'
+    Type=NodeFrame
+    Location=(-8823.0, 213.0)
+
+    [NODE 55] Name='Mix.007' | Label=''
+    Type=ShaderNodeMix
+    Location=(-7474.8, 533.2)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.010 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Mix.006 [Result]
+      [7] Socket: B | LINK <- Math.007 [Value]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.008[A]
+      [3] Result
+
+    [NODE 56] Name='Mix.008' | Label=''
+    Type=ShaderNodeMix
+    Location=(-7249.4, 679.7)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.001 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Mix.007 [Result]
+      [7] Socket: B | LINK <- Group Input [浮沫颜色]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Emission[Color]
+      [3] Result
+
+    [NODE 57] Name='Glossy BSDF.002' | Label=''
+    Type=ShaderNodeBsdfAnisotropic
+    Location=(-7000.5, 612.3)
+    distribution = MULTI_GGX
+    INPUTS:
+      [0] Socket: Color | Default = [1, 1, 1, 1]
+      [1] Socket: Roughness | Default = 0
+      [2] Socket: Anisotropy | Default = 0
+      [3] Socket: Rotation | Default = 0
+      [4] Socket: Normal | Default = [0, 0, 0]
+      [5] Socket: Tangent | Default = [0, 0, 0]
+      [6] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] BSDF -> Mix Shader[Shader]
+
+    [NODE 58] Name='Emission' | Label=''
+    Type=ShaderNodeEmission
+    Location=(-6990.4, 756.4)
+    INPUTS:
+      [0] Socket: Color | LINK <- Mix.008 [Result]
+      [1] Socket: Strength | Default = 1
+      [2] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] Emission -> Mix Shader[Shader]
+
+    [NODE 59] Name='Transparent BSDF' | Label=''
+    Type=ShaderNodeBsdfTransparent
+    Location=(-6594.3, 479.4)
+    INPUTS:
+      [0] Socket: Color | Default = [1, 1, 1, 1]
+      [1] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] BSDF -> Mix Shader.001[Shader]
+
+    [NODE 60] Name='Mix Shader' | Label=''
+    Type=ShaderNodeMixShader
+    Location=(-6480.6, 759.5)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Group Input [水面反射系数]
+      [1] Socket: Shader | LINK <- Emission [Emission]
+      [2] Socket: Shader | LINK <- Glossy BSDF.002 [BSDF]
+    OUTPUTS:
+      [0] Shader -> Mix Shader.001[Shader]
+
+    [NODE 61] Name='Mix Shader.001' | Label=''
+    Type=ShaderNodeMixShader
+    Location=(-5938.4, 823.6)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Math.004 [Value]
+      [1] Socket: Shader | LINK <- Mix Shader [Shader]
+      [2] Socket: Shader | LINK <- Transparent BSDF [BSDF]
+    OUTPUTS:
+      [0] Shader -> Mix Shader.002[Shader]
+
+    [NODE 62] Name='Mix.009' | Label=''
+    Type=ShaderNodeMix
+    Location=(481.4, -55.6)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Map Range.001 [Result]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | Default = [1, 1, 1, 1]
+      [7] Socket: B | LINK <- Color Ramp.001 [Color]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Math.004[Value]
+      [3] Result
+
+    [NODE 63] Name='Math.004' | Label=''
+    Type=ShaderNodeMath
+    Location=(675.2, -107.9)
+    operation = SUBTRACT
+    use_clamp = True
+    INPUTS:
+      [0] Socket: Value | Default = 1
+      [1] Socket: Value | LINK <- Mix.009 [Result]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Mix Shader.001[Factor]
+
+    [NODE 64] Name='Math.005' | Label=''
+    Type=ShaderNodeMath
+    Location=(-60.6, 17.9)
+    operation = MULTIPLY
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | Default = 1
+      [1] Socket: Value | LINK <- Group Input [高光强度]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Mix.006[B]
+
+    [NODE 65] Name='Math.006' | Label=''
+    Type=ShaderNodeMath
+    Location=(1280.2, -476.2)
+    operation = ADD
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Noise Texture [Color]
+      [1] Socket: Value | LINK <- Group Input [浮沫强度]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Math.002[Value]
+
+    [NODE 66] Name='Frame.010' | Label='透明区域'
+    Type=NodeFrame
+    Location=(-7436.0, 1192.0)
+
+    [NODE 67] Name='Math.007' | Label=''
+    Type=ShaderNodeMath
+    Location=(-8997.1, 363.0)
+    operation = MULTIPLY
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | Default = 1
+      [1] Socket: Value | LINK <- Reroute.003 [Output]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Mix.007[B]
+
+    [NODE 68] Name='Camera Data' | Label=''
+    Type=ShaderNodeCameraData
+    Location=(30.1, -114.7)
+    OUTPUTS:
+      [0] View Vector
+      [1] View Z Depth -> Map Range.002[Value]
+      [2] View Distance
+
+    [NODE 69] Name='Map Range.002' | Label=''
+    Type=ShaderNodeMapRange
+    Location=(231.9, -36.0)
+    data_type = FLOAT
+    clamp = True
+    INPUTS:
+      [0] Socket: Value | LINK <- Camera Data [View Z Depth]
+      [1] Socket: From Min | Default = 0
+      [2] Socket: From Max | Default = 500
+      [3] Socket: To Min | Default = -1
+      [4] Socket: To Max | LINK <- Group Input [距离深度]
+      [5] Socket: Steps | Default = 82
+      [6] Socket: Vector | Default = [0, 0, 0]
+      [7] Socket: From Min | Default = [0, 0, 0]
+      [8] Socket: From Max | Default = [1, 1, 1]
+      [9] Socket: To Min | Default = [0, 0, 0]
+      [10] Socket: To Max | Default = [1, 1, 1]
+      [11] Socket: Steps | Default = [4, 4, 4]
+    OUTPUTS:
+      [0] Result -> Mix Shader.002[Factor], Math.009[Value]
+      [1] Vector
+
+    [NODE 70] Name='Mix Shader.002' | Label=''
+    Type=ShaderNodeMixShader
+    Location=(-4977.7, 880.0)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Map Range.002 [Result]
+      [1] Socket: Shader | LINK <- Mix Shader.001 [Shader]
+      [2] Socket: Shader | LINK <- Emission.001 [Emission]
+    OUTPUTS:
+      [0] Shader -> Group Output[Shader], Group Output[tmp_viewer]
+
+    [NODE 71] Name='Emission.001' | Label=''
+    Type=ShaderNodeEmission
+    Location=(-5710.8, 770.0)
+    INPUTS:
+      [0] Socket: Color | Default = [0.59062, 0.830767, 0.930095, 1]
+      [1] Socket: Strength | Default = 1
+      [2] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] Emission -> Mix Shader.002[Shader]
+
+    [NODE 72] Name='Frame.011' | Label='距离'
+    Type=NodeFrame
+    Location=(-5899.0, 1729.0)
+
+    [NODE 73] Name='Brightness/Contrast' | Label=''
+    Type=ShaderNodeBrightContrast
+    Location=(30.1, -534.3)
+    INPUTS:
+      [0] Socket: Color | LINK <- Group Input [基础色]
+      [1] Socket: Brightness | Default = 0
+      [2] Socket: Contrast | Default = 0
+    OUTPUTS:
+      [0] Color -> Hue/Saturation/Value[Color], Mix.010[A]
+
+    [NODE 74] Name='Math.008' | Label=''
+    Type=ShaderNodeMath
+    Location=(230.2, -90.2)
+    operation = MULTIPLY
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Value.001 [Value]
+      [1] Socket: Value | LINK <- Reroute.002 [Output]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Math.001[Value]
+
+    [NODE 75] Name='Mix.010' | Label=''
+    Type=ShaderNodeMix
+    Location=(746.4, -428.4)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Math.009 [Value]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | LINK <- Brightness/Contrast [Color]
+      [7] Socket: B | LINK <- Hue/Saturation/Value [Color]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.001[B]
+      [3] Result
+
+    [NODE 76] Name='Hue/Saturation/Value' | Label=''
+    Type=ShaderNodeHueSaturation
+    Location=(327.9, -368.6)
+    INPUTS:
+      [0] Socket: Hue | Default = 0.5
+      [1] Socket: Saturation | Default = 1
+      [2] Socket: Value | Default = 0.5
+      [3] Socket: Factor | Default = 1
+      [4] Socket: Color | LINK <- Brightness/Contrast [Color]
+    OUTPUTS:
+      [0] Color -> Mix.010[B]
+
+    [NODE 77] Name='Math.009' | Label=''
+    Type=ShaderNodeMath
+    Location=(602.6, -36.3)
+    operation = ADD
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Map Range.002 [Result]
+      [1] Socket: Value | Default = 0.2
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Mix.010[Factor]
+
+    [NODE 78] Name='Noise Texture.001' | Label=''
+    Type=ShaderNodeTexNoise
+    Location=(72.7, -271.8)
+    noise_dimensions = 3D
+    normalize = True
+    INPUTS:
+      [0] Socket: Vector | Default = [0, 0, 0]
+      [1] Socket: W | Default = 0
+      [2] Socket: Scale | Default = 6
+      [3] Socket: Detail | Default = 2
+      [4] Socket: Roughness | Default = 0
+      [5] Socket: Lacunarity | Default = 2
+      [6] Socket: Offset | Default = 0
+      [7] Socket: Gain | Default = 1
+      [8] Socket: Distortion | Default = 0.3
+    OUTPUTS:
+      [0] Factor -> Map Range.003[Value]
+      [1] Color
+
+    [NODE 79] Name='Math.010' | Label=''
+    Type=ShaderNodeMath
+    Location=(511.5, -97.1)
+    operation = MULTIPLY
+    use_clamp = False
+    INPUTS:
+      [0] Socket: Value | LINK <- Color Ramp.009 [Color]
+      [1] Socket: Value | LINK <- Map Range.003 [Result]
+      [2] Socket: Value | Default = 0.5
+    OUTPUTS:
+      [0] Value -> Color Ramp.010[Factor]
+
+    [NODE 80] Name='Map Range.003' | Label=''
+    Type=ShaderNodeMapRange
+    Location=(266.0, -280.2)
+    data_type = FLOAT
+    clamp = True
+    INPUTS:
+      [0] Socket: Value | LINK <- Noise Texture.001 [Factor]
+      [1] Socket: From Min | Default = 0
+      [2] Socket: From Max | Default = 1
+      [3] Socket: To Min | Default = -0.6
+      [4] Socket: To Max | Default = 1
+      [5] Socket: Steps | Default = 4
+      [6] Socket: Vector | Default = [0, 0, 0]
+      [7] Socket: From Min | Default = [0, 0, 0]
+      [8] Socket: From Max | Default = [1, 1, 1]
+      [9] Socket: To Min | Default = [0, 0, 0]
+      [10] Socket: To Max | Default = [1, 1, 1]
+      [11] Socket: Steps | Default = [4, 4, 4]
+    OUTPUTS:
+      [0] Result -> Math.010[Value]
+      [1] Vector
+
+    [NODE 81] Name='Color Ramp.010' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(697.7, -35.6)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Math.010 [Value]
+    OUTPUTS:
+      [0] Color -> Mix.007[Factor]
+      [1] Alpha
+
+    [NODE 82] Name='Attribute.002' | Label=''
+    Type=ShaderNodeAttribute
+    Location=(29.8, -247.1)
+    OUTPUTS:
+      [0] Color
+      [1] Vector -> Vector Math[Vector], Glossy BSDF.003[Normal]
+      [2] Factor
+      [3] Alpha
+
+    [NODE 83] Name='Color Ramp.011' | Label=''
+    Type=ShaderNodeValToRGB
+    Location=(712.5, -36.0)
+    INPUTS:
+      [0] Socket: Factor | LINK <- Shader to RGB.002 [Color]
+    OUTPUTS:
+      [0] Color -> Mix.011[Factor]
+      [1] Alpha
+
+    [NODE 84] Name='Glossy BSDF.003' | Label=''
+    Type=ShaderNodeBsdfAnisotropic
+    Location=(314.1, -54.2)
+    distribution = MULTI_GGX
+    INPUTS:
+      [0] Socket: Color | Default = [0.8, 0.8, 0.8, 1]
+      [1] Socket: Roughness | Default = 0.408065
+      [2] Socket: Anisotropy | Default = 0
+      [3] Socket: Rotation | Default = 0
+      [4] Socket: Normal | LINK <- Attribute.002 [Vector]
+      [5] Socket: Tangent | Default = [0, 0, 0]
+      [6] Socket: Weight | Default = 0
+    OUTPUTS:
+      [0] BSDF -> Shader to RGB.002[Shader]
+
+    [NODE 85] Name='Shader to RGB.002' | Label=''
+    Type=ShaderNodeShaderToRGB
+    Location=(513.6, -92.0)
+    INPUTS:
+      [0] Socket: Shader | LINK <- Glossy BSDF.003 [BSDF]
+    OUTPUTS:
+      [0] Color -> Color Ramp.011[Factor]
+      [1] Alpha
+
+    [NODE 86] Name='Mix.011' | Label=''
+    Type=ShaderNodeMix
+    Location=(1265.5, -201.1)
+    blend_type = MIX
+    data_type = RGBA
+    INPUTS:
+      [0] Socket: Factor | LINK <- Color Ramp.011 [Color]
+      [1] Socket: Factor | Default = [0.5, 0.5, 0.5]
+      [2] Socket: A | Default = 0
+      [3] Socket: B | Default = 0
+      [4] Socket: A | Default = [0, 0, 0]
+      [5] Socket: B | Default = [0, 0, 0]
+      [6] Socket: A | Default = [0, 0, 0, 1]
+      [7] Socket: B | LINK <- Color Ramp.007 [Color]
+      [8] Socket: A | Default = [0, 0, 0]
+      [9] Socket: B | Default = [0, 0, 0]
+    OUTPUTS:
+      [0] Result
+      [1] Result
+      [2] Result -> Mix.005[Factor]
+      [3] Result
+
+    [NODE 87] Name='Frame.012' | Label='碰撞浮沫'
+    Type=NodeFrame
+    Location=(-14427.0, 1154.0)
+
+    [NODE 88] Name='Reroute' | Label=''
+    Type=NodeReroute
+    Location=(-14980.0, 2160.0)
+    INPUTS:
+      [0] Socket: Input | LINK <- Group Input [浮沫范围]
+    OUTPUTS:
+      [0] Output -> Map Range[From Max]
+
+    [NODE 89] Name='Reroute.001' | Label=''
+    Type=NodeReroute
+    Location=(-15240.0, 2200.0)
+    INPUTS:
+      [0] Socket: Input | LINK <- Group Input [浪花亮度]
+    OUTPUTS:
+      [0] Output -> Reroute.003[Input]
+
+    [NODE 90] Name='Reroute.002' | Label=''
+    Type=NodeReroute
+    Location=(-15200.0, 2140.0)
+    INPUTS:
+      [0] Socket: Input | LINK <- Group Input [浮沫演化速度]
+    OUTPUTS:
+      [0] Output -> Math.008[Value]
+
+    [NODE 91] Name='Reroute.003' | Label=''
+    Type=NodeReroute
+    Location=(-14320.0, 2160.0)
+    INPUTS:
+      [0] Socket: Input | LINK <- Reroute.001 [Output]
+    OUTPUTS:
+      [0] Output -> Math.007[Value]
+
+[NODE 3] Name='Material Output.001' | Label=''
+Type=ShaderNodeOutputMaterial
+Location=(3361.9, -215.9)
+INPUTS:
+  [0] Socket: Surface | LINK <- Mix Shader [Shader]
+  [1] Socket: Volume
+  [2] Socket: Displacement | Default = [0, 0, 0]
+  [3] Socket: Thickness | Default = 0
+
+[NODE 4] Name='Mix Shader' | Label='Disable Shadow'
+Type=ShaderNodeMixShader
+Location=(3163.1, -261.8)
+INPUTS:
+  [0] Socket: Factor | LINK <- Light Path [Is Shadow Ray]
+  [1] Socket: Shader | LINK <- Group [tmp_viewer]
+  [2] Socket: Shader | LINK <- Transparent BSDF [BSDF]
+OUTPUTS:
+  [0] Shader -> Material Output.001[Surface]
+
+[NODE 5] Name='Light Path' | Label=''
+Type=ShaderNodeLightPath
+Location=(2972.1, -218.4)
+OUTPUTS:
+  [0] Is Camera Ray
+  [1] Is Shadow Ray -> Mix Shader[Factor]
+  [2] Is Diffuse Ray
+  [3] Is Glossy Ray
+  [4] Is Singular Ray
+  [5] Is Reflection Ray
+  [6] Is Transmission Ray
+  [7] Is Volume Scatter Ray
+  [8] Ray Length
+  [9] Ray Depth
+  [10] Diffuse Depth
+  [11] Glossy Depth
+  [12] Transparent Depth
+  [13] Transmission Depth
+  [14] Portal Depth
+
+[NODE 6] Name='Transparent BSDF' | Label=''
+Type=ShaderNodeBsdfTransparent
+Location=(3008.1, -294.2)
+INPUTS:
+  [0] Socket: Color | Default = [1, 1, 1, 1]
+  [1] Socket: Weight | Default = 0
+OUTPUTS:
+  [0] BSDF -> Mix Shader[Shader]
+
+
+MODIFIERS
+====================================================================================================
+
+####################################################################################################
+MODIFIER: GeometryNodes
+TYPE: NODES
+####################################################################################################
+
+====================================================================================================
+    NODE TREE: 水面搭建
+    SOURCE: Geometry Nodes Modifier: GeometryNodes
+    TYPE: GeometryNodeTree
+====================================================================================================
+
+    [NODE 1] Name='Group Input' | Label=''
+    Type=NodeGroupInput
+    Location=(-469.9, 10.7)
+    OUTPUTS:
+      [0] Geometry -> Instance on Points[Points]
+      [1] Object -> Object Info[Object]
+      [2] 
+
+    [NODE 2] Name='Group Output' | Label=''
+    Type=NodeGroupOutput
+    Location=(621.5, -3.3)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Set Material [Geometry]
+      [1] Socket: 
+
+    [NODE 3] Name='Instance on Points' | Label=''
+    Type=GeometryNodeInstanceOnPoints
+    Location=(-25.1, -20.3)
+    INPUTS:
+      [0] Socket: Points | LINK <- Group Input [Geometry]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Instance | LINK <- Object Info [Geometry]
+      [3] Socket: Pick Instance | Default = False
+      [4] Socket: Instance Index | Default = 0
+      [5] Socket: Rotation | Default = [0, 0, 0]
+      [6] Socket: Scale | Default = [1, 1, 1]
+    OUTPUTS:
+      [0] Instances -> Realize Instances[Geometry]
+
+    [NODE 4] Name='Object Info' | Label=''
+    Type=GeometryNodeObjectInfo
+    Location=(-267.1, -135.3)
+    INPUTS:
+      [0] Socket: Object | LINK <- Group Input [Object]
+      [1] Socket: As Instance | Default = False
+    OUTPUTS:
+      [0] Transform
+      [1] Location
+      [2] Rotation
+      [3] Scale
+      [4] Geometry -> Instance on Points[Instance]
+
+    [NODE 5] Name='Realize Instances' | Label=''
+    Type=GeometryNodeRealizeInstances
+    Location=(204.7, -26.1)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Instance on Points [Instances]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Realize All | Default = True
+      [3] Socket: Depth | Default = 0
+    OUTPUTS:
+      [0] Geometry -> Set Material[Geometry]
+
+    [NODE 6] Name='Set Material' | Label=''
+    Type=GeometryNodeSetMaterial
+    Location=(407.0, -14.1)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Realize Instances [Geometry]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Material | Default = <bpy_struct, Material("水面") at 0x000002A1D40B7620>
+    OUTPUTS:
+      [0] Geometry -> Group Output[Geometry]
+
+####################################################################################################
+MODIFIER: GeometryNodes.001
+TYPE: NODES
+####################################################################################################
+
+====================================================================================================
+    NODE TREE: 颜色属性
+    SOURCE: Geometry Nodes Modifier: GeometryNodes.001
+    TYPE: GeometryNodeTree
+====================================================================================================
+
+    [NODE 1] Name='Group Input' | Label=''
+    Type=NodeGroupInput
+    Location=(-697.3, 17.1)
+    OUTPUTS:
+      [0] Geometry -> Store Named Attribute[Geometry]
+      [1] 接触集合 -> Collection Info[Collection]
+      [2] 岸边陆地 -> Object Info[Object]
+      [3] 
+
+    [NODE 2] Name='Group Output' | Label=''
+    Type=NodeGroupOutput
+    Location=(1007.7, 42.2)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Store Named Attribute.002 [Geometry]
+      [1] Socket: 
+
+    [NODE 3] Name='Geometry Proximity' | Label=''
+    Type=GeometryNodeProximity
+    Location=(-4.9, -154.0)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Realize Instances [Geometry]
+      [1] Socket: Group ID | Default = 0
+      [2] Socket: Sample Position | Default = [0, 0, 0]
+      [3] Socket: Sample Group ID | Default = 0
+    OUTPUTS:
+      [0] Position
+      [1] Distance -> Store Named Attribute[Value]
+      [2] Is Valid
+
+    [NODE 4] Name='Collection Info' | Label=''
+    Type=GeometryNodeCollectionInfo
+    Location=(-353.4, -137.0)
+    INPUTS:
+      [0] Socket: Collection | LINK <- Group Input [接触集合]
+      [1] Socket: Separate Children | Default = False
+      [2] Socket: Reset Children | Default = False
+    OUTPUTS:
+      [0] Instances -> Realize Instances[Geometry]
+
+    [NODE 5] Name='Realize Instances' | Label=''
+    Type=GeometryNodeRealizeInstances
+    Location=(-191.4, -203.3)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Collection Info [Instances]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Realize All | Default = True
+      [3] Socket: Depth | Default = 0
+    OUTPUTS:
+      [0] Geometry -> Geometry Proximity[Geometry]
+
+    [NODE 6] Name='Store Named Attribute' | Label=''
+    Type=GeometryNodeStoreNamedAttribute
+    Location=(189.8, 93.2)
+    data_type = FLOAT_COLOR
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Group Input [Geometry]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Name | Default = '接触浮沫'
+      [3] Socket: Value | LINK <- Geometry Proximity [Distance]
+    OUTPUTS:
+      [0] Geometry -> Store Named Attribute.001[Geometry]
+
+    [NODE 7] Name='Store Named Attribute.001' | Label=''
+    Type=GeometryNodeStoreNamedAttribute
+    Location=(444.8, 88.4)
+    data_type = FLOAT_COLOR
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Store Named Attribute [Geometry]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Name | Default = '岸边区域'
+      [3] Socket: Value | LINK <- Geometry Proximity.001 [Distance]
+    OUTPUTS:
+      [0] Geometry -> Store Named Attribute.002[Geometry]
+
+    [NODE 8] Name='Object Info' | Label=''
+    Type=GeometryNodeObjectInfo
+    Location=(-367.4, -325.7)
+    INPUTS:
+      [0] Socket: Object | LINK <- Group Input [岸边陆地]
+      [1] Socket: As Instance | Default = False
+    OUTPUTS:
+      [0] Transform
+      [1] Location
+      [2] Rotation
+      [3] Scale
+      [4] Geometry -> Realize Instances.001[Geometry]
+
+    [NODE 9] Name='Geometry Proximity.001' | Label=''
+    Type=GeometryNodeProximity
+    Location=(-14.1, -324.9)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Realize Instances.001 [Geometry]
+      [1] Socket: Group ID | Default = 0
+      [2] Socket: Sample Position | Default = [0, 0, 0]
+      [3] Socket: Sample Group ID | Default = 0
+    OUTPUTS:
+      [0] Position
+      [1] Distance -> Store Named Attribute.001[Value]
+      [2] Is Valid
+
+    [NODE 10] Name='Realize Instances.001' | Label=''
+    Type=GeometryNodeRealizeInstances
+    Location=(-195.9, -358.4)
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Object Info [Geometry]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Realize All | Default = True
+      [3] Socket: Depth | Default = 0
+    OUTPUTS:
+      [0] Geometry -> Geometry Proximity.001[Geometry]
+
+    [NODE 11] Name='Normal' | Label=''
+    Type=GeometryNodeInputNormal
+    Location=(342.4, -212.3)
+    OUTPUTS:
+      [0] Normal -> Blur Attribute[Value]
+      [1] True Normal
+
+    [NODE 12] Name='Blur Attribute' | Label=''
+    Type=GeometryNodeBlurAttribute
+    Location=(501.6, -174.8)
+    data_type = FLOAT_VECTOR
+    INPUTS:
+      [0] Socket: Value | LINK <- Normal [Normal]
+      [1] Socket: Iterations | Default = 12
+      [2] Socket: Weight | Default = 1
+    OUTPUTS:
+      [0] Value -> Store Named Attribute.002[Value]
+
+    [NODE 13] Name='Store Named Attribute.002' | Label=''
+    Type=GeometryNodeStoreNamedAttribute
+    Location=(763.7, 99.5)
+    data_type = FLOAT_VECTOR
+    INPUTS:
+      [0] Socket: Geometry | LINK <- Store Named Attribute.001 [Geometry]
+      [1] Socket: Selection | Default = True
+      [2] Socket: Name | Default = '模糊法向'
+      [3] Socket: Value | LINK <- Blur Attribute [Value]
+    OUTPUTS:
+      [0] Geometry -> Group Output[Geometry]

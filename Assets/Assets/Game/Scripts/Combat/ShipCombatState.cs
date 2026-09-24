@@ -77,13 +77,25 @@ public sealed class ShipCombatState : MonoBehaviour
 
     public void SetAutoFireEnabled(bool enabled)
     {
+        if (enabled)
+        {
+            manualTarget = null;
+        }
+
         autoFireEnabled = enabled;
     }
 
 
-    public void AssignManualTarget(GameObject targetShipRoot)
+    public bool AssignManualTarget(GameObject targetShipRoot)
     {
+        if (!IsValidManualTarget(targetShipRoot))
+        {
+            return false;
+        }
+
         manualTarget = targetShipRoot;
+        autoFireEnabled = false;
+        return true;
     }
 
 
@@ -96,6 +108,14 @@ public sealed class ShipCombatState : MonoBehaviour
     public void SetBlindFireEnabled(bool enabled)
     {
         blindFireEnabled = enabled;
+    }
+
+
+    private bool IsValidManualTarget(GameObject targetShipRoot)
+    {
+        return targetShipRoot != null
+            && targetShipRoot != gameObject
+            && targetShipRoot.GetComponent<ShipCombatState>() != null;
     }
 
 

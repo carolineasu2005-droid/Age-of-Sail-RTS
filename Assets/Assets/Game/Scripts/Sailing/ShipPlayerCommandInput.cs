@@ -678,6 +678,13 @@ public class ShipPlayerCommandInput : MonoBehaviour
 
     private void CommitNormalDestinationClick()
     {
+        if (TryAssignManualTargetAtScreenPosition(
+            rightMouseDownScreenPosition
+        ))
+        {
+            return;
+        }
+
         lastClickValid = true;
         lastWorldDestination = rightMouseDownWorldPosition;
         lastSelectionMode = GetSelectionMode();
@@ -700,6 +707,90 @@ public class ShipPlayerCommandInput : MonoBehaviour
             lastSelectionMode,
             windNavigationAssistMode
         );
+    }
+
+
+    private bool TryAssignManualTargetAtScreenPosition(
+        Vector2 screenPosition
+    )
+    {
+        if (commandCamera == null)
+        {
+            return false;
+        }
+
+        Ray clickRay = commandCamera.ScreenPointToRay(screenPosition);
+
+        if (!Physics.Raycast(
+            clickRay,
+            out RaycastHit hit,
+            Mathf.Infinity,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Collide
+        ))
+        {
+            return false;
+        }
+
+        return TryAssignManualTarget(hit.collider.gameObject);
+    }
+
+
+    public bool TryAssignManualTarget(GameObject clickedObject)
+    {
+        if (selectionManager == null
+            || clickedObject == null
+            || selectionManager.SelectedCount != 1)
+        {
+            return false;
+        }
+
+        ShipDestinationController selectedShip =
+            selectionManager.PrimarySelectedShip;
+
+        if (selectedShip == null || !selectedShip.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        ShipCombatState shooterCombatState =
+            selectedShip.GetComponent<ShipCombatState>();
+
+        if (shooterCombatState == null
+            || !TryResolveCombatShipRoot(
+                clickedObject,
+                out GameObject targetShipRoot
+            ))
+        {
+            return false;
+        }
+
+        return shooterCombatState.AssignManualTarget(targetShipRoot);
+    }
+
+
+    private static bool TryResolveCombatShipRoot(
+        GameObject clickedObject,
+        out GameObject shipRoot
+    )
+    {
+        shipRoot = null;
+
+        if (clickedObject == null)
+        {
+            return false;
+        }
+
+        ShipCombatState combatState =
+            clickedObject.GetComponentInParent<ShipCombatState>();
+
+        if (combatState == null || !combatState.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        shipRoot = combatState.gameObject;
+        return true;
     }
 
 

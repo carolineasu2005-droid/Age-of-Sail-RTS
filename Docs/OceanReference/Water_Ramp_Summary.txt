@@ -1,0 +1,137 @@
+WATER COLOR RAMP SUMMARY
+==============================================================================================================
+Blender Version: 5.2.2 LTS
+Blend File: C:\Users\Quethoud\Desktop\风格化水体\StylizedWater_UnityExport.blend
+Ramp Count: 11
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 1]
+Node Tree: 水面材质节点
+Node: Color Ramp.001
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.0458015203 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=0.179390043 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\01__水面材质节点__Color_Ramp.001.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 2]
+Node Tree: 水面材质节点
+Node: Color Ramp.002
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0 | RGBA=[1, 1, 1, 1]
+  Element 1: Position=0.751908243 | RGBA=[0, 0, 0, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\02__水面材质节点__Color_Ramp.002.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 3]
+Node Tree: 水面材质节点
+Node: Color Ramp.003
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.667938769 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=1 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\03__水面材质节点__Color_Ramp.003.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 4]
+Node Tree: 水面材质节点
+Node: Color Ramp.004
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0 | RGBA=[0.272830486, 0.272830486, 0.272830486, 1]
+  Element 1: Position=0.858778656 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\04__水面材质节点__Color_Ramp.004.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 5]
+Node Tree: 水面材质节点
+Node: Color Ramp.005
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.324427426 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=0.507633507 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\05__水面材质节点__Color_Ramp.005.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 6]
+Node Tree: 水面材质节点
+Node: Color Ramp.006
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.595419586 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=0.6183213 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\06__水面材质节点__Color_Ramp.006.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 7]
+Node Tree: 水面材质节点
+Node: Color Ramp.007
+Label: ''
+Interpolation: EASE
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.282442689 | RGBA=[1, 1, 1, 1]
+  Element 1: Position=0.653053045 | RGBA=[0, 0, 0, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\07__水面材质节点__Color_Ramp.007.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 8]
+Node Tree: 水面材质节点
+Node: Color Ramp.008
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.97272706 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=1 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\08__水面材质节点__Color_Ramp.008.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 9]
+Node Tree: 水面材质节点
+Node: Color Ramp.009
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.0381679386 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=0.0801528767 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\09__水面材质节点__Color_Ramp.009.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 10]
+Node Tree: 水面材质节点
+Node: Color Ramp.010
+Label: ''
+Interpolation: EASE
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=0.0839695409 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\10__水面材质节点__Color_Ramp.010.png
+
+--------------------------------------------------------------------------------------------------------------
+[RAMP 11]
+Node Tree: 水面材质节点
+Node: Color Ramp.011
+Label: ''
+Interpolation: LINEAR
+Color Mode: RGB
+Hue Interpolation: NEAR
+  Element 0: Position=0.580153048 | RGBA=[0, 0, 0, 1]
+  Element 1: Position=1 | RGBA=[1, 1, 1, 1]
+LUT: C:\Users\Quethoud\Desktop\风格化水体\Water_Ramp_LUTs\11__水面材质节点__Color_Ramp.011.png

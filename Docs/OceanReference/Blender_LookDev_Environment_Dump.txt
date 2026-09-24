@@ -1,0 +1,742 @@
+BLENDER LOOKDEV ENVIRONMENT DUMP
+====================================================================================================
+
+====================================================================================================
+SCENE
+====================================================================================================
+Blender Version: 5.2.2 LTS
+Blend File: C:\Users\Quethoud\Desktop\风格化水体\StylizedWater_UnityExport.blend
+Scene: Scene
+Current Frame: 44
+Frame Start: 1
+Frame End: 250
+Render Engine: BLENDER_EEVEE
+FPS: 24 / 1.0
+Resolution: 1920 x 1080 @ 100%
+Unit System: METRIC
+Unit Scale: 1.0
+Length Unit: METERS
+
+====================================================================================================
+SUN / MAIN DIRECTIONAL LIGHT
+====================================================================================================
+Object: Sun
+Object Type: LIGHT
+Location: [0, -43.9675369, 18.8003654]
+Rotation Mode: XYZ
+Rotation Euler: [1.31781781, 0.440343082, -0.579557538]
+Scale: [1, 1, 1]
+Matrix World:
+  [0.756887972, 0.4823654, -0.440958291, 0]
+  [-0.495410621, -0.0165894274, -0.868500471, -43.9675369]
+  [-0.426249832, 0.875813007, 0.226412609, 18.8003654]
+  [0, 0, 0, 1]
+Light Data: Sun
+Light Type: SUN
+Color: [1, 1, 1]
+Energy: 10
+angle: 0.00918043219
+use_shadow: True
+specular_factor: 1
+diffuse_factor: 1
+volume_factor: 1
+Animation: None
+Animation: None
+
+====================================================================================================
+WORLD
+====================================================================================================
+World: World.001
+World Color: [0.0508760884, 0.0508760884, 0.0508760884]
+Use Nodes: True
+Animation: None
+Node Tree: Shader Nodetree
+
+[NODE 1] Name='World Output' | Label='' | Type=ShaderNodeOutputWorld
+Location=(3494.756, 16.339)
+INPUTS:
+  [0] Socket: Surface | LINK <- 混合着色器.001[Shader]
+  [1] Socket: Volume
+
+[NODE 2] Name='几何数据' | Label='' | Type=ShaderNodeNewGeometry
+Location=(30.544, -70.939)
+OUTPUTS:
+  [0] Position
+  [1] Normal
+  [2] Tangent
+  [3] True Normal
+  [4] Incoming -> 分离 XYZ.005[Vector]
+  [5] Parametric
+  [6] Backfacing
+  [7] Pointiness
+  [8] Random Per Island
+
+[NODE 3] Name='分离 XYZ' | Label='' | Type=ShaderNodeSeparateXYZ
+Location=(663.327, -149.181)
+INPUTS:
+  [0] Socket: Vector | LINK <- 纹理坐标.001[Window]
+OUTPUTS:
+  [0] X
+  [1] Y -> 映射范围.007[Value]
+  [2] Z
+
+[NODE 4] Name='映射范围' | Label='' | Type=ShaderNodeMapRange
+Location=(845.431, -114.891)
+INPUTS:
+  [0] Socket: Value | Default=1
+  [1] Socket: From Min | Default=-1
+  [2] Socket: From Max | Default=1
+  [3] Socket: To Min | Default=0
+  [4] Socket: To Max | Default=1
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result
+  [1] Vector
+
+[NODE 5] Name='沃罗诺伊纹理' | Label='' | Type=ShaderNodeTexVoronoi
+Location=(992.798, -95.088)
+INPUTS:
+  [0] Socket: Vector | LINK <- 混合.002[Result]
+  [1] Socket: W | Default=0
+  [2] Socket: Scale | Default=3.19999981
+  [3] Socket: Detail | Default=1.49999976
+  [4] Socket: Roughness | Default=0.5
+  [5] Socket: Lacunarity | Default=3.50000119
+  [6] Socket: Smoothness | Default=0.800000012
+  [7] Socket: Exponent | Default=0.5
+  [8] Socket: Randomness | Default=1
+OUTPUTS:
+  [0] Distance -> 颜色渐变.001[Factor], 混合.011[B]
+  [1] Color
+  [2] Position -> 矢量运算[Vector]
+  [3] W
+  [4] Radius
+
+[NODE 6] Name='颜色渐变.001' | Label='' | Type=ShaderNodeValToRGB
+Location=(30.135, -66.174)
+INPUTS:
+  [0] Socket: Factor | LINK <- 沃罗诺伊纹理[Distance]
+OUTPUTS:
+  [0] Color -> 混合.004[B]
+  [1] Alpha
+
+[NODE 7] Name='混合' | Label='' | Type=ShaderNodeMix
+Location=(2656.132, 39.900)
+INPUTS:
+  [0] Socket: Factor | LINK <- 混合.004[Result]
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 颜色渐变.002[Color]
+  [7] Socket: B | LINK <- 颜色渐变[Color]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 混合着色器.001[Shader]
+  [3] Result
+
+[NODE 8] Name='矢量运算' | Label='沃洛诺伊输出位置减输入坐标' | Type=ShaderNodeVectorMath
+Location=(30.511, -369.785)
+INPUTS:
+  [0] Socket: Vector | LINK <- 沃罗诺伊纹理[Position]
+  [1] Socket: Vector | LINK <- 混合.002[Result]
+  [2] Socket: Vector | Default=[0, 0, 0]
+  [3] Socket: Scale | Default=1
+OUTPUTS:
+  [0] Vector -> 矢量运算.001[Vector], 分离 XYZ.001[Vector]
+  [1] Value
+
+[NODE 9] Name='矢量运算.001' | Label='长度运算暗到亮的距离，即阴影深度' | Type=ShaderNodeVectorMath
+Location=(288.673, -203.582)
+INPUTS:
+  [0] Socket: Vector | LINK <- 矢量运算[Vector]
+  [1] Socket: Vector | Default=[0, 0, 0]
+  [2] Socket: Vector | Default=[0, 0, 0]
+  [3] Socket: Scale | Default=1
+OUTPUTS:
+  [0] Vector
+  [1] Value -> 映射范围.008[Value], 映射范围.010[Value]
+
+[NODE 10] Name='颜色渐变.002' | Label='' | Type=ShaderNodeValToRGB
+Location=(1678.805, -173.333)
+INPUTS:
+  [0] Socket: Factor | LINK <- 混合.010[Result]
+OUTPUTS:
+  [0] Color -> 混合[A]
+  [1] Alpha
+
+[NODE 11] Name='分离 XYZ.001' | Label='' | Type=ShaderNodeSeparateXYZ
+Location=(340.840, -467.473)
+INPUTS:
+  [0] Socket: Vector | LINK <- 矢量运算[Vector]
+OUTPUTS:
+  [0] X
+  [1] Y
+  [2] Z -> 映射范围.009[Value]
+
+[NODE 12] Name='混合.001' | Label='和相减后的z坐标相乘控制上下阴影' | Type=ShaderNodeMix
+Location=(30.554, -40.206)
+INPUTS:
+  [0] Socket: Factor | Default=0.592105329
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 映射范围.008[Result]
+  [7] Socket: B | LINK <- 映射范围.009[Result]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 混合.010[A]
+  [3] Result
+
+[NODE 13] Name='帧' | Label='背景调整' | Type=NodeFrame
+Location=(-864.837, 1012.651)
+
+[NODE 14] Name='帧.001' | Label='混合遮罩系数（云块大小）' | Type=NodeFrame
+Location=(1250.791, -860.099)
+
+[NODE 15] Name='噪波纹理' | Label='' | Type=ShaderNodeTexNoise
+Location=(319.466, -328.893)
+INPUTS:
+  [0] Socket: Vector | LINK <- 矢量运算.008[Vector]
+  [1] Socket: W | Default=0
+  [2] Socket: Scale | Default=15
+  [3] Socket: Detail | Default=5
+  [4] Socket: Roughness | Default=0.532999992
+  [5] Socket: Lacunarity | Default=2
+  [6] Socket: Offset | Default=0
+  [7] Socket: Gain | Default=1
+  [8] Socket: Distortion | Default=0
+OUTPUTS:
+  [0] Factor
+  [1] Color -> 混合.002[B]
+
+[NODE 16] Name='混合.002' | Label='混合噪波轻微变化云的形状' | Type=ShaderNodeMix
+Location=(604.862, -420.255)
+INPUTS:
+  [0] Socket: Factor | Default=0.111738853
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 矢量运算.007[Vector]
+  [7] Socket: B | LINK <- 噪波纹理[Color]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 沃罗诺伊纹理[Vector], 矢量运算[Vector]
+  [3] Result
+
+[NODE 17] Name='混合着色器.001' | Label='' | Type=ShaderNodeMixShader
+Location=(2846.095, 85.442)
+INPUTS:
+  [0] Socket: Factor | LINK <- 光程[Is Diffuse Ray]
+  [1] Socket: Shader | LINK <- 混合[Result]
+  [2] Socket: Shader | LINK <- 背景[Background]
+OUTPUTS:
+  [0] Shader -> World Output[Surface]
+
+[NODE 18] Name='背景' | Label='背景' | Type=ShaderNodeBackground
+Location=(2654.849, -214.986)
+Background Color: [0.15628466, 0.816111207, 1, 1]
+Background Strength: 1
+INPUTS:
+  [0] Socket: Color | Default=[0.15628466, 0.816111207, 1, 1]
+  [1] Socket: Strength | Default=1
+  [2] Socket: Weight | Default=0
+OUTPUTS:
+  [0] Background -> 混合着色器.001[Shader]
+
+[NODE 19] Name='光程' | Label='' | Type=ShaderNodeLightPath
+Location=(2653.197, 395.367)
+OUTPUTS:
+  [0] Is Camera Ray
+  [1] Is Shadow Ray
+  [2] Is Diffuse Ray -> 混合着色器.001[Factor]
+  [3] Is Glossy Ray
+  [4] Is Singular Ray
+  [5] Is Reflection Ray
+  [6] Is Transmission Ray
+  [7] Is Volume Scatter Ray
+  [8] Ray Length
+  [9] Ray Depth
+  [10] Diffuse Depth
+  [11] Glossy Depth
+  [12] Transparent Depth
+  [13] Transmission Depth
+  [14] Portal Depth
+
+[NODE 20] Name='映射范围.007' | Label='' | Type=ShaderNodeMapRange
+Location=(845.431, -114.891)
+INPUTS:
+  [0] Socket: Value | LINK <- 分离 XYZ[Y]
+  [1] Socket: From Min | Default=0.5
+  [2] Socket: From Max | Default=2
+  [3] Socket: To Min | Default=1
+  [4] Socket: To Max | Default=0
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result -> 运算.003[Value]
+  [1] Vector
+
+[NODE 21] Name='映射范围.008' | Label='' | Type=ShaderNodeMapRange
+Location=(685.223, -94.925)
+INPUTS:
+  [0] Socket: Value | LINK <- 矢量运算.001[Value]
+  [1] Socket: From Min | Default=-0.0500000119
+  [2] Socket: From Max | Default=0.049999997
+  [3] Socket: To Min | Default=0
+  [4] Socket: To Max | Default=1
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result -> 混合.001[A]
+  [1] Vector
+
+[NODE 22] Name='帧.002' | Label='调整云的阴影' | Type=NodeFrame
+Location=(-348.279, -273.302)
+
+[NODE 23] Name='映射范围.009' | Label='' | Type=ShaderNodeMapRange
+Location=(691.826, -435.296)
+INPUTS:
+  [0] Socket: Value | LINK <- 分离 XYZ.001[Z]
+  [1] Socket: From Min | Default=0.0399999917
+  [2] Socket: From Max | Default=-0.0199999958
+  [3] Socket: To Min | Default=1
+  [4] Socket: To Max | Default=0
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result -> 混合.001[B]
+  [1] Vector
+
+[NODE 24] Name='混合.010' | Label='拉亮部分边缘模拟反光' | Type=ShaderNodeMix
+Location=(1330.090, -168.387)
+INPUTS:
+  [0] Socket: Factor | Default=1
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 混合.001[Result]
+  [7] Socket: B | LINK <- 映射范围.010[Result]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 颜色渐变.002[Factor]
+  [3] Result
+
+[NODE 25] Name='映射范围.010' | Label='' | Type=ShaderNodeMapRange
+Location=(1052.221, -500.305)
+INPUTS:
+  [0] Socket: Value | LINK <- 矢量运算.001[Value]
+  [1] Socket: From Min | Default=0.0300000012
+  [2] Socket: From Max | Default=0.099999994
+  [3] Socket: To Min | Default=0.199999988
+  [4] Socket: To Max | Default=1
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result -> 混合.010[B]
+  [1] Vector
+
+[NODE 26] Name='颜色渐变' | Label='' | Type=ShaderNodeValToRGB
+Location=(442.054, -91.086)
+INPUTS:
+  [0] Socket: Factor | LINK <- 浮点曲线.003[Value]
+OUTPUTS:
+  [0] Color -> 混合[B], 混合.004[A]
+  [1] Alpha
+
+[NODE 27] Name='混合.011' | Label='' | Type=ShaderNodeMix
+Location=(223.829, 562.044)
+INPUTS:
+  [0] Socket: Factor | Default=0.245283037
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 浮点曲线.005[Value]
+  [7] Socket: B | LINK <- 沃罗诺伊纹理[Distance]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 运算.003[Value]
+  [3] Result
+
+[NODE 28] Name='运算.003' | Label='' | Type=ShaderNodeMath
+Location=(1364.456, -351.336)
+INPUTS:
+  [0] Socket: Value | LINK <- 映射范围.007[Result]
+  [1] Socket: Value | LINK <- 混合.011[Result]
+  [2] Socket: Value | Default=0.5
+OUTPUTS:
+  [0] Value -> 浮点曲线.003[Value]
+
+[NODE 29] Name='浮点曲线.003' | Label='提亮范围' | Type=ShaderNodeFloatCurve
+Location=(29.924, -40.295)
+INPUTS:
+  [0] Socket: Factor | Default=1
+  [1] Socket: Value | LINK <- 运算.003[Value]
+OUTPUTS:
+  [0] Value -> 颜色渐变[Factor]
+
+[NODE 30] Name='纹理坐标.001' | Label='' | Type=ShaderNodeTexCoord
+Location=(486.700, -95.424)
+OUTPUTS:
+  [0] Generated
+  [1] Normal
+  [2] UV
+  [3] Object
+  [4] Camera
+  [5] Window -> 分离 XYZ[Vector]
+  [6] Reflection
+
+[NODE 31] Name='分离 XYZ.005' | Label='' | Type=ShaderNodeSeparateXYZ
+Location=(268.279, -82.582)
+INPUTS:
+  [0] Socket: Vector | LINK <- 几何数据[Incoming]
+OUTPUTS:
+  [0] X
+  [1] Y
+  [2] Z -> 映射范围.013[Value]
+
+[NODE 32] Name='映射范围.012' | Label='' | Type=ShaderNodeMapRange
+Location=(-384.086, 469.748)
+INPUTS:
+  [0] Socket: Value | LINK <- 分离 XYZ.006[Z]
+  [1] Socket: From Min | Default=-1
+  [2] Socket: From Max | Default=1
+  [3] Socket: To Min | Default=0
+  [4] Socket: To Max | Default=1
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result -> 浮点曲线.005[Value]
+  [1] Vector
+
+[NODE 33] Name='映射范围.013' | Label='' | Type=ShaderNodeMapRange
+Location=(527.778, -183.167)
+INPUTS:
+  [0] Socket: Value | LINK <- 分离 XYZ.005[Z]
+  [1] Socket: From Min | Default=-1
+  [2] Socket: From Max | Default=1
+  [3] Socket: To Min | Default=0
+  [4] Socket: To Max | Default=1
+  [5] Socket: Steps | Default=4
+  [6] Socket: Vector | Default=[0, 0, 0]
+  [7] Socket: From Min | Default=[0, 0, 0]
+  [8] Socket: From Max | Default=[1, 1, 1]
+  [9] Socket: To Min | Default=[0, 0, 0]
+  [10] Socket: To Max | Default=[1, 1, 1]
+  [11] Socket: Steps | Default=[4, 4, 4]
+OUTPUTS:
+  [0] Result -> 浮点曲线.004[Value]
+  [1] Vector
+
+[NODE 34] Name='浮点曲线.004' | Label='' | Type=ShaderNodeFloatCurve
+Location=(785.304, -155.164)
+INPUTS:
+  [0] Socket: Factor | Default=1
+  [1] Socket: Value | LINK <- 映射范围.013[Result]
+OUTPUTS:
+  [0] Value -> 合并 XYZ.002[Z]
+
+[NODE 35] Name='合并 XYZ.002' | Label='' | Type=ShaderNodeCombineXYZ
+Location=(1134.818, -202.286)
+INPUTS:
+  [0] Socket: X | Default=1
+  [1] Socket: Y | Default=1
+  [2] Socket: Z | LINK <- 浮点曲线.004[Value]
+OUTPUTS:
+  [0] Vector -> 混合.012[B]
+
+[NODE 36] Name='混合.012' | Label='畸变程度' | Type=ShaderNodeMix
+Location=(30.229, -653.349)
+INPUTS:
+  [0] Socket: Factor | Default=0.801886797
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 矢量运算.008[Vector]
+  [7] Socket: B | LINK <- 合并 XYZ.002[Vector]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 矢量运算.007[Vector]
+  [3] Result
+
+[NODE 37] Name='矢量运算.007' | Label='' | Type=ShaderNodeVectorMath
+Location=(30.268, -40.221)
+INPUTS:
+  [0] Socket: Vector | LINK <- 混合.012[Result]
+  [1] Socket: Vector | Default=[1.10000002, 1.10000002, 2.0999999]
+  [2] Socket: Vector | Default=[0, 0, 0]
+  [3] Socket: Scale | Default=1
+OUTPUTS:
+  [0] Vector -> 混合.002[A]
+  [1] Value
+
+[NODE 38] Name='运算.004' | Label='' | Type=ShaderNodeMath
+Location=(322.183, -333.504)
+INPUTS:
+  [0] Socket: Value | LINK <- 值.001[Value]
+  [1] Socket: Value | Default=3
+  [2] Socket: Value | Default=0.5
+OUTPUTS:
+  [0] Value -> 合并 XYZ.003[X]
+
+[NODE 39] Name='运算.005' | Label='' | Type=ShaderNodeMath
+Location=(326.701, -510.670)
+INPUTS:
+  [0] Socket: Value | LINK <- 值.001[Value]
+  [1] Socket: Value | Default=-1
+  [2] Socket: Value | Default=0.5
+OUTPUTS:
+  [0] Value -> 合并 XYZ.003[Z]
+
+[NODE 40] Name='值.001' | Label='驱动xy' | Type=ShaderNodeValue
+Location=(30.460, -435.424)
+OUTPUTS:
+  [0] Value -> 运算.005[Value], 运算.004[Value]
+
+[NODE 41] Name='合并 XYZ.003' | Label='' | Type=ShaderNodeCombineXYZ
+Location=(600.904, -402.972)
+INPUTS:
+  [0] Socket: X | LINK <- 运算.004[Value]
+  [1] Socket: Y | Default=0
+  [2] Socket: Z | LINK <- 运算.005[Value]
+OUTPUTS:
+  [0] Vector -> 矢量旋转.001[Vector]
+
+[NODE 42] Name='矢量旋转.001' | Label='' | Type=ShaderNodeVectorRotate
+Location=(818.500, -343.460)
+INPUTS:
+  [0] Socket: Vector | LINK <- 合并 XYZ.003[Vector]
+  [1] Socket: Center | Default=[0, 0, 0]
+  [2] Socket: Axis | Default=[0, 0, 1]
+  [3] Socket: Angle | Default=0
+  [4] Socket: Rotation | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Vector -> 矢量运算.008[Vector]
+
+[NODE 43] Name='矢量运算.008' | Label='加减xy' | Type=ShaderNodeVectorMath
+Location=(1106.396, -320.466)
+INPUTS:
+  [0] Socket: Vector | LINK <- 几何数据.003[Incoming]
+  [1] Socket: Vector | LINK <- 矢量旋转.001[Vector]
+  [2] Socket: Vector | Default=[0, 0, 0]
+  [3] Socket: Scale | Default=1
+OUTPUTS:
+  [0] Vector -> 噪波纹理[Vector], 混合.012[A]
+  [1] Value
+
+[NODE 44] Name='浮点曲线.005' | Label='提亮范围' | Type=ShaderNodeFloatCurve
+Location=(-191.778, 497.931)
+INPUTS:
+  [0] Socket: Factor | Default=1
+  [1] Socket: Value | LINK <- 映射范围.012[Result]
+OUTPUTS:
+  [0] Value -> 混合.011[A]
+
+[NODE 45] Name='帧.003' | Label='控制整体xyz' | Type=NodeFrame
+Location=(293.023, -654.442)
+
+[NODE 46] Name='帧.004' | Label='动画' | Type=NodeFrame
+Location=(-3228.279, 299.913)
+
+[NODE 47] Name='帧.005' | Label='螺旋' | Type=NodeFrame
+Location=(-3328.744, -508.866)
+
+[NODE 48] Name='分离 XYZ.006' | Label='' | Type=ShaderNodeSeparateXYZ
+Location=(-581.127, 424.595)
+INPUTS:
+  [0] Socket: Vector | LINK <- 几何数据.002[Incoming]
+OUTPUTS:
+  [0] X
+  [1] Y
+  [2] Z -> 映射范围.012[Value]
+
+[NODE 49] Name='几何数据.002' | Label='' | Type=ShaderNodeNewGeometry
+Location=(29.780, -423.117)
+OUTPUTS:
+  [0] Position
+  [1] Normal
+  [2] Tangent
+  [3] True Normal
+  [4] Incoming -> 分离 XYZ.006[Vector]
+  [5] Parametric
+  [6] Backfacing
+  [7] Pointiness
+  [8] Random Per Island
+
+[NODE 50] Name='几何数据.003' | Label='' | Type=ShaderNodeNewGeometry
+Location=(819.952, -63.568)
+OUTPUTS:
+  [0] Position
+  [1] Normal
+  [2] Tangent
+  [3] True Normal
+  [4] Incoming -> 矢量运算.008[Vector]
+  [5] Parametric
+  [6] Backfacing
+  [7] Pointiness
+  [8] Random Per Island
+
+[NODE 51] Name='帧.008' | Label='控制云层形状' | Type=NodeFrame
+Location=(-1780.744, 31.442)
+
+[NODE 52] Name='帧.010' | Label='阴影的主要调节' | Type=NodeFrame
+Location=(929.302, -121.140)
+
+[NODE 53] Name='帧.013' | Label='背景色的主要调整' | Type=NodeFrame
+Location=(1615.814, -398.256)
+
+[NODE 54] Name='混合.004' | Label='' | Type=ShaderNodeMix
+Location=(949.780, -250.726)
+INPUTS:
+  [0] Socket: Factor | LINK <- 颜色渐变.003[Color]
+  [1] Socket: Factor | Default=[0.5, 0.5, 0.5]
+  [2] Socket: A | Default=0
+  [3] Socket: B | Default=0
+  [4] Socket: A | Default=[0, 0, 0]
+  [5] Socket: B | Default=[0, 0, 0]
+  [6] Socket: A | LINK <- 颜色渐变[Color]
+  [7] Socket: B | LINK <- 颜色渐变.001[Color]
+  [8] Socket: A | Default=[0, 0, 0]
+  [9] Socket: B | Default=[0, 0, 0]
+OUTPUTS:
+  [0] Result
+  [1] Result
+  [2] Result -> 混合[Factor]
+  [3] Result
+
+[NODE 55] Name='渐变纹理' | Label='' | Type=ShaderNodeTexGradient
+Location=(400.524, -129.084)
+INPUTS:
+  [0] Socket: Vector | LINK <- 映射[Vector]
+OUTPUTS:
+  [0] Color -> 颜色渐变.003[Factor]
+  [1] Factor
+
+[NODE 56] Name='映射' | Label='' | Type=ShaderNodeMapping
+Location=(220.778, -82.824)
+INPUTS:
+  [0] Socket: Vector | LINK <- 纹理坐标[Generated]
+  [1] Socket: Location | Default=[0.099999994, 0, 0]
+  [2] Socket: Rotation | Default=[0, 1.57079637, 0]
+  [3] Socket: Scale | Default=[1, 1, 1]
+OUTPUTS:
+  [0] Vector -> 渐变纹理[Vector]
+
+[NODE 57] Name='纹理坐标' | Label='' | Type=ShaderNodeTexCoord
+Location=(29.744, -84.280)
+OUTPUTS:
+  [0] Generated -> 映射[Vector]
+  [1] Normal
+  [2] UV
+  [3] Object
+  [4] Camera
+  [5] Window
+  [6] Reflection
+
+[NODE 58] Name='颜色渐变.003' | Label='' | Type=ShaderNodeValToRGB
+Location=(597.611, -114.004)
+INPUTS:
+  [0] Socket: Factor | LINK <- 渐变纹理[Color]
+OUTPUTS:
+  [0] Color -> 混合.004[Factor]
+  [1] Alpha
+
+[NODE 59] Name='帧.014' | Label='水平渐变' | Type=NodeFrame
+Location=(1516.186, 539.686)
+
+====================================================================================================
+COLOR MANAGEMENT
+====================================================================================================
+Display Device: sRGB
+View Transform: 'Standard'
+Look: 'None'
+Exposure: 0
+Gamma: 1
+Sequencer Color Space: sRGB
+
+====================================================================================================
+ACTIVE CAMERA
+====================================================================================================
+Object: Camera
+Location: [2.63429046, -3.04802895, 7.38444996]
+Rotation Mode: XYZ
+Rotation Euler: [1.17912614, -0.0156398658, 2.95672894]
+Scale: [1, 1, 1]
+Matrix World:
+  [-0.982841074, -0.0559586436, 0.175761238, 2.63429046]
+  [0.183790103, -0.377885431, 0.907427013, -3.04802895]
+  [0.0156392287, 0.924159765, 0.381685972, 7.38444996]
+  [0, 0, 0, 1]
+Camera Data: Camera
+Projection Type: PERSP
+Focal Length: 25
+Sensor Fit: 'AUTO'
+Sensor Width: 36
+Sensor Height: 24
+Clip Start: 0.100000001
+Clip End: 1000
+Ortho Scale: 6
+Shift X: 0
+Shift Y: 0
+Animation: None
+Animation: None

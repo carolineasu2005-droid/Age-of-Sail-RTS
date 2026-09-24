@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -21,6 +22,14 @@ public sealed class ShipTestPanel : EditorWindow
         new Color(0.25f, 1f, 0.35f);
     private static readonly Color BlockedLineColor =
         new Color(1f, 0.2f, 0.2f);
+    private static readonly Color ManualTargetLineColor =
+        new Color(1f, 0.25f, 0.85f);
+    [System.Serializable]
+    private sealed class AutoTargetDebugCandidate
+    {
+        public GameObject targetShipRoot;
+        public bool relationshipAllowsFire = true;
+    }
 
     [SerializeField]
     private GameObject targetShipRoot;
@@ -30,6 +39,10 @@ public sealed class ShipTestPanel : EditorWindow
 
     [SerializeField]
     private bool targetRelationshipAllowsFire = true;
+
+    [SerializeField]
+    private List<AutoTargetDebugCandidate> autoTargetCandidates =
+        new List<AutoTargetDebugCandidate>();
 
     private Vector2 scrollPosition;
 
@@ -133,6 +146,9 @@ public sealed class ShipTestPanel : EditorWindow
                     MessageType.Info
                 );
             }
+
+            EditorGUILayout.Space();
+            DrawAutoTargetSection();
 
             EditorGUILayout.Space();
             DrawFireEligibilitySection();
@@ -266,6 +282,221 @@ public sealed class ShipTestPanel : EditorWindow
     }
 
 
+    private void DrawAutoTargetSection()
+    {
+        EditorGUILayout.LabelField(
+            "Auto Target Selection",
+            EditorStyles.boldLabel
+        );
+
+        DrawAutoTargetCandidateInputs();
+
+        IReadOnlyList<AutoTargetCandidate> candidates =
+            BuildAutoTargetCandidates();
+        EditorGUILayout.LabelField(
+            "Candidate Count",
+            candidates.Count.ToString()
+        );
+
+        if (!TrySelectAutoTargetForDebug(
+            targetShipRoot,
+            candidates,
+            out AutoTargetSelectionResult selection,
+            out string message
+        ))
+        {
+            DrawAutoTargetSideSelection(
+                CombatSide.Port,
+                default
+            );
+            EditorGUILayout.Space();
+            DrawAutoTargetSideSelection(
+                CombatSide.Starboard,
+                default
+            );
+            EditorGUILayout.HelpBox(message, MessageType.Info);
+            return;
+        }
+
+        DrawAutoTargetSideSelection(
+            CombatSide.Port,
+            selection.PortSelection
+        );
+        EditorGUILayout.Space();
+        DrawAutoTargetSideSelection(
+            CombatSide.Starboard,
+            selection.StarboardSelection
+        );
+    }
+
+
+    private void DrawAutoTargetCandidateInputs()
+    {
+        if (autoTargetCandidates == null)
+        {
+            autoTargetCandidates = new List<AutoTargetDebugCandidate>();
+        }
+
+        int removeIndex = -1;
+        int moveFromIndex = -1;
+        int moveToIndex = -1;
+
+        for (int index = 0; index < autoTargetCandidates.Count; index++)
+        {
+            AutoTargetDebugCandidate candidate =
+                autoTargetCandidates[index];
+
+            if (candidate == null)
+            {
+                candidate = new AutoTargetDebugCandidate();
+                autoTargetCandidates[index] = candidate;
+            }
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField($"Candidate {index + 1}");
+
+            EditorGUI.BeginDisabledGroup(index == 0);
+
+            if (GUILayout.Button("Up", GUILayout.Width(45f)))
+            {
+                moveFromIndex = index;
+                moveToIndex = index - 1;
+            }
+
+            EditorGUI.EndDisabledGroup();
+            EditorGUI.BeginDisabledGroup(
+                index == autoTargetCandidates.Count - 1
+            );
+
+            if (GUILayout.Button("Down", GUILayout.Width(50f)))
+            {
+                moveFromIndex = index;
+                moveToIndex = index + 1;
+            }
+
+            EditorGUI.EndDisabledGroup();
+
+            if (GUILayout.Button("Remove", GUILayout.Width(70f)))
+            {
+                removeIndex = index;
+            }
+
+            EditorGUILayout.EndHorizontal();
+            candidate.targetShipRoot =
+                (GameObject)EditorGUILayout.ObjectField(
+                    "Ship Root",
+                    candidate.targetShipRoot,
+                    typeof(GameObject),
+                    true
+                );
+            candidate.relationshipAllowsFire = EditorGUILayout.Toggle(
+                "Relationship Allows Fire",
+                candidate.relationshipAllowsFire
+            );
+            EditorGUILayout.EndVertical();
+        }
+
+        if (removeIndex >= 0)
+        {
+            autoTargetCandidates.RemoveAt(removeIndex);
+            SceneView.RepaintAll();
+        }
+        else if (moveFromIndex >= 0 && moveToIndex >= 0)
+        {
+            if (TryMoveAutoTargetCandidate(
+                autoTargetCandidates,
+                moveFromIndex,
+                moveToIndex
+            ))
+            {
+                SceneView.RepaintAll();
+            }
+        }
+
+        if (GUILayout.Button("Add Candidate"))
+        {
+            autoTargetCandidates.Add(new AutoTargetDebugCandidate());
+        }
+    }
+
+
+    private static bool TryMoveAutoTargetCandidate(
+        List<AutoTargetDebugCandidate> candidates,
+        int fromIndex,
+        int toIndex
+    )
+    {
+        if (candidates == null
+            || fromIndex < 0
+            || fromIndex >= candidates.Count
+            || toIndex < 0
+            || toIndex >= candidates.Count
+            || fromIndex == toIndex)
+        {
+            return false;
+        }
+
+        AutoTargetDebugCandidate movedCandidate = candidates[fromIndex];
+        candidates.RemoveAt(fromIndex);
+        candidates.Insert(toIndex, movedCandidate);
+        return true;
+    }
+
+
+    private static void DrawAutoTargetSideSelection(
+        CombatSide side,
+        AutoTargetSideSelectionResult selection
+    )
+    {
+        string sideName = side.ToString().ToUpperInvariant();
+
+        EditorGUILayout.LabelField(
+            $"AUTO TARGET — {sideName}",
+            EditorStyles.boldLabel
+        );
+
+        if (!selection.HasTarget)
+        {
+            EditorGUILayout.LabelField("Target", "None");
+            EditorGUILayout.LabelField("Side", sideName);
+            return;
+        }
+
+        EditorGUILayout.LabelField(
+            "Target",
+            selection.TargetShipRoot.name
+        );
+        EditorGUILayout.LabelField(
+            "Side",
+            selection.FireEligibility.Side.HasValue
+                ? selection.FireEligibility.Side.Value
+                    .ToString()
+                    .ToUpperInvariant()
+                : "NONE"
+        );
+        EditorGUILayout.LabelField(
+            "Exposure E",
+            selection.Score.ExposureNormalized.ToString("F3")
+        );
+        EditorGUILayout.LabelField(
+            "Range Quality R",
+            selection.Score.RangeQualityNormalized.ToString("F3")
+        );
+        EditorGUILayout.LabelField(
+            "Final Score (E x R)",
+            selection.Score.FinalScore.ToString("F3")
+        );
+        EditorGUILayout.HelpBox(
+            BuildEligibilitySummary(
+                selection.TargetShipRoot,
+                selection.FireEligibility
+            ),
+            MessageType.Info
+        );
+    }
+
+
     private void DrawSceneDebug(SceneView sceneView)
     {
         if (sceneView == null
@@ -285,6 +516,7 @@ public sealed class ShipTestPanel : EditorWindow
         }
 
         DrawArcAndRangeVisualization(targetShipRoot.transform, evaluator);
+        DrawTargetOwnershipLines();
 
         if (!TryEvaluateForDebug(
             targetShipRoot,
@@ -318,6 +550,109 @@ public sealed class ShipTestPanel : EditorWindow
             BuildEligibilitySummary(eligibilityTargetShipRoot, result)
         );
         Handles.color = previousColor;
+    }
+
+
+    private void DrawTargetOwnershipLines()
+    {
+        if (!TryGetCombatState(
+            targetShipRoot,
+            out ShipCombatState combatState,
+            out string _
+        ))
+        {
+            return;
+        }
+
+        if (combatState.ManualTarget != null)
+        {
+            DrawTargetOwnershipLine(
+                targetShipRoot.transform.position,
+                combatState.ManualTarget,
+                ManualTargetLineColor,
+                "MANUAL TARGET"
+            );
+        }
+
+        if (TrySelectAutoTargetForDebug(
+            targetShipRoot,
+            BuildAutoTargetCandidates(),
+            out AutoTargetSelectionResult selection,
+            out string _
+        ))
+        {
+            if (selection.PortSelection.HasTarget)
+            {
+                DrawTargetOwnershipLine(
+                    targetShipRoot.transform.position,
+                    selection.PortSelection.TargetShipRoot,
+                    PortArcColor,
+                    "AUTO PORT TARGET"
+                );
+            }
+
+            if (selection.StarboardSelection.HasTarget)
+            {
+                DrawTargetOwnershipLine(
+                    targetShipRoot.transform.position,
+                    selection.StarboardSelection.TargetShipRoot,
+                    StarboardArcColor,
+                    "AUTO STARBOARD TARGET"
+                );
+            }
+        }
+    }
+
+
+    private static void DrawTargetOwnershipLine(
+        Vector3 shooterPosition,
+        GameObject targetRoot,
+        Color color,
+        string label
+    )
+    {
+        if (targetRoot == null)
+        {
+            return;
+        }
+
+        Color previousColor = Handles.color;
+        Handles.color = color;
+        Handles.DrawAAPolyLine(
+            TargetLineWidth,
+            shooterPosition,
+            targetRoot.transform.position
+        );
+        Handles.Label(
+            targetRoot.transform.position + Vector3.up * 3f,
+            label
+        );
+        Handles.color = previousColor;
+    }
+
+
+    private IReadOnlyList<AutoTargetCandidate> BuildAutoTargetCandidates()
+    {
+        if (autoTargetCandidates == null)
+        {
+            return new AutoTargetCandidate[0];
+        }
+
+        List<AutoTargetCandidate> candidates =
+            new List<AutoTargetCandidate>(autoTargetCandidates.Count);
+
+        foreach (AutoTargetDebugCandidate candidate in autoTargetCandidates)
+        {
+            if (candidate != null && candidate.targetShipRoot != null)
+            {
+                candidates.Add(new AutoTargetCandidate(
+                    candidate.targetShipRoot,
+                    candidate.relationshipAllowsFire
+                ));
+            }
+        }
+
+        return candidates;
     }
 
 
@@ -495,6 +830,59 @@ public sealed class ShipTestPanel : EditorWindow
         {
             message = "Fire Eligibility could not evaluate the assigned "
                 + "shooter/target configuration.";
+            return false;
+        }
+
+        message = string.Empty;
+        return true;
+    }
+
+
+    private static bool TrySelectAutoTargetForDebug(
+        GameObject shooterRoot,
+        IReadOnlyList<AutoTargetCandidate> candidates,
+        out AutoTargetSelectionResult result,
+        out string message
+    )
+    {
+        result = default;
+
+        if (!TryGetCombatState(
+            shooterRoot,
+            out ShipCombatState combatState,
+            out message
+        ))
+        {
+            return false;
+        }
+
+        if (!combatState.AutoFireEnabled)
+        {
+            message = "Auto Fire is OFF.";
+            return false;
+        }
+
+        if (combatState.ManualTarget != null)
+        {
+            message = "Manual Target owns targeting; Auto Target is inactive.";
+            return false;
+        }
+
+        if (candidates == null || candidates.Count == 0)
+        {
+            message = "Supply at least one explicit Auto Target candidate.";
+            return false;
+        }
+
+        Physics.SyncTransforms();
+
+        if (!ShipAutoTargetSelector.TrySelect(
+            shooterRoot,
+            candidates,
+            out result
+        ))
+        {
+            message = "No supplied candidate is currently legal/selectable.";
             return false;
         }
 

@@ -14,6 +14,7 @@ public class ShipAutoTargetScorerTests
     private ShipCombatState shooterState;
     private ShipFireEligibility eligibility;
     private AutoTargetScoringProfile scoringProfile;
+    private DispersionProfile dispersionProfile;
 
 
     [SetUp]
@@ -36,6 +37,16 @@ public class ShipAutoTargetScorerTests
             "scoringProfile",
             scoringProfile
         );
+        dispersionProfile = ScriptableObject.CreateInstance<
+            DispersionProfile
+        >();
+        ShipDispersionConfiguration dispersionConfiguration =
+            shooterRoot.AddComponent<ShipDispersionConfiguration>();
+        SetPrivateField(
+            dispersionConfiguration,
+            "dispersionProfile",
+            dispersionProfile
+        );
         SetRanges(100f, 200f);
     }
 
@@ -45,6 +56,7 @@ public class ShipAutoTargetScorerTests
     {
         Object.DestroyImmediate(targetRoot);
         Object.DestroyImmediate(shooterRoot);
+        Object.DestroyImmediate(dispersionProfile);
         Object.DestroyImmediate(scoringProfile);
     }
 
@@ -255,6 +267,45 @@ public class ShipAutoTargetScorerTests
             after.RangeQualityNormalized,
             Is.EqualTo(before.RangeQualityNormalized).Within(Tolerance)
         );
+        Assert.That(
+            after.FinalScore,
+            Is.EqualTo(before.FinalScore).Within(Tolerance)
+        );
+    }
+
+
+    [Test]
+    public void DispersionConfiguration_DoesNotChangeExposureRangeVisibilityOrScore()
+    {
+        targetRoot.transform.position = Vector3.right * 150f;
+        AutoTargetScoreResult before = EvaluateScore();
+
+        SetPrivateField(
+            dispersionProfile,
+            "horizontalHalfAngleDegrees",
+            7.5f
+        );
+        SetPrivateField(
+            dispersionProfile,
+            "verticalHalfAngleDegrees",
+            3.25f
+        );
+        SetPrivateField(
+            dispersionProfile,
+            "foundationSpreadScale",
+            2.5f
+        );
+        AutoTargetScoreResult after = EvaluateScore();
+
+        Assert.That(
+            after.ExposureNormalized,
+            Is.EqualTo(before.ExposureNormalized).Within(Tolerance)
+        );
+        Assert.That(
+            after.RangeQualityNormalized,
+            Is.EqualTo(before.RangeQualityNormalized).Within(Tolerance)
+        );
+        Assert.That(after.VisibilityQualityNormalized, Is.EqualTo(1f));
         Assert.That(
             after.FinalScore,
             Is.EqualTo(before.FinalScore).Within(Tolerance)

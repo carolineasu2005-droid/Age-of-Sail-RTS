@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 public class ShipBlindFireExecutionTests
@@ -15,25 +16,49 @@ public class ShipBlindFireExecutionTests
     private ShipCombatState combatState;
     private ShipFireEligibility eligibility;
     private ShipBlindFireCommand command;
+    private ShipBroadsideFireExecutor broadsideExecutor;
 
 
     [SetUp]
     public void SetUp()
     {
-        shooterRoot = new GameObject("Blind Fire Shooter Root");
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Assets/Game/Ship/Proxy/"
+                + "PF_Ship_Gelderland_Combat_v01.prefab"
+        );
+        Assert.That(prefab, Is.Not.Null);
+        shooterRoot = UnityEngine.Object.Instantiate(prefab);
+        shooterRoot.name = "Blind Fire Shooter Root";
         targetRoot = new GameObject("Existing Manual Target Root");
-        combatState = shooterRoot.AddComponent<ShipCombatState>();
+        combatState = shooterRoot.GetComponent<ShipCombatState>();
         targetRoot.AddComponent<ShipCombatState>();
-        eligibility = shooterRoot.AddComponent<ShipFireEligibility>();
+        eligibility = shooterRoot.GetComponent<ShipFireEligibility>();
+        broadsideExecutor =
+            shooterRoot.GetComponent<ShipBroadsideFireExecutor>();
+        Assert.That(broadsideExecutor, Is.Not.Null);
+        shooterRoot.GetComponent<CombatVFXPlaceholderReceiver>()
+            .VisualSpawningEnabled = false;
         SetPrivateField(eligibility, "effectiveRangeMeters", 100f);
         SetPrivateField(eligibility, "maximumRangeMeters", 200f);
-        command = new ShipBlindFireCommand(eligibility, combatState);
+        command = new ShipBlindFireCommand(
+            eligibility,
+            combatState,
+            broadsideExecutor
+        );
     }
 
 
     [TearDown]
     public void TearDown()
     {
+        foreach (CombatProjectile projectile in UnityEngine.Object
+            .FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ))
+        {
+            UnityEngine.Object.DestroyImmediate(projectile.gameObject);
+        }
+
         UnityEngine.Object.DestroyImmediate(targetRoot);
         UnityEngine.Object.DestroyImmediate(shooterRoot);
     }
@@ -85,7 +110,7 @@ public class ShipBlindFireExecutionTests
     public void LegalStarboardBlindFire_CommitsStarboard()
     {
         BlindFireExecutionResult result = Execute(
-            DirectionAim(Vector3.right)
+            PointAim(Vector3.right * 50f)
         );
 
         Assert.That(result.Accepted, Is.True);
@@ -126,8 +151,8 @@ public class ShipBlindFireExecutionTests
     [Test]
     public void PortThenStarboard_CanCommitIndependently()
     {
-        BlindFireAim portAim = DirectionAim(Vector3.left);
-        BlindFireAim starboardAim = DirectionAim(Vector3.right);
+        BlindFireAim portAim = PointAim(Vector3.left * 50f);
+        BlindFireAim starboardAim = PointAim(Vector3.right * 50f);
 
         BlindFireExecutionResult port = Execute(portAim);
         BlindFireExecutionResult starboard = Execute(starboardAim);
@@ -190,7 +215,7 @@ public class ShipBlindFireExecutionTests
     [Test]
     public void ReloadingSide_Rejects()
     {
-        BlindFireAim aim = DirectionAim(Vector3.left);
+        BlindFireAim aim = PointAim(Vector3.left * 50f);
         Assert.That(
             combatState.TryCommitBroadsideFire(CombatSide.Port),
             Is.True
@@ -211,7 +236,7 @@ public class ShipBlindFireExecutionTests
     [Test]
     public void RejectedReloadAttempt_DoesNotResetExistingTimer()
     {
-        BlindFireAim aim = DirectionAim(Vector3.left);
+        BlindFireAim aim = PointAim(Vector3.left * 50f);
         combatState.TryCommitBroadsideFire(CombatSide.Port);
         AdvanceReloads(2f);
         float remaining = combatState.PortReloadRemainingSeconds;
@@ -229,7 +254,7 @@ public class ShipBlindFireExecutionTests
     {
         combatState.SetAutoFireEnabled(true);
 
-        Execute(DirectionAim(Vector3.right));
+        Execute(PointAim(Vector3.right * 50f));
 
         Assert.That(combatState.AutoFireEnabled, Is.False);
     }
@@ -239,9 +264,9 @@ public class ShipBlindFireExecutionTests
     public void AutoFire_RemainsOffAfterSuccessfulExecution()
     {
         combatState.SetAutoFireEnabled(true);
-        Execute(DirectionAim(Vector3.left));
+        Execute(PointAim(Vector3.left * 50f));
 
-        Execute(DirectionAim(Vector3.right));
+        Execute(PointAim(Vector3.right * 50f));
 
         Assert.That(combatState.AutoFireEnabled, Is.False);
     }
@@ -264,7 +289,7 @@ public class ShipBlindFireExecutionTests
     {
         Assert.That(combatState.AssignManualTarget(targetRoot), Is.True);
 
-        Execute(DirectionAim(Vector3.right));
+        Execute(PointAim(Vector3.right * 50f));
 
         Assert.That(combatState.ManualTarget, Is.SameAs(targetRoot));
         Assert.That(combatState.AutoFireEnabled, Is.False);
@@ -305,18 +330,56 @@ public class ShipBlindFireExecutionTests
     [Test]
     public void Execution_RequiresNoTargetEntity()
     {
-        MethodInfo method = typeof(ShipBlindFireCommand).GetMethod(
-            "TryExecuteBlindFire"
-        );
+        MethodInfo[] methods = typeof(ShipBlindFireCommand)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .Where(method => method.Name == "TryExecuteBlindFire")
+            .ToArray();
+        Type[] forbiddenTargetTypes =
+        {
+            typeof(GameObject),
+            typeof(Transform),
+            typeof(ShipCombatState),
+            typeof(ShipExposureReference),
+            typeof(ShipCombatGeometry),
+            typeof(ShipArtDefinition),
+            typeof(CombatHitRegion)
+        };
 
-        Assert.That(method, Is.Not.Null);
+        Assert.That(methods, Is.Not.Empty);
+        Assert.That(methods.Any(method =>
+            method.GetParameters().Length == 2
+            && method.GetParameters()[0].ParameterType
+                == typeof(BlindFireAim)
+            && method.GetParameters()[1].ParameterType
+                == typeof(BlindFireExecutionResult).MakeByRefType()
+        ), Is.True);
+        Assert.That(methods.Any(method =>
+            method.GetParameters().Length == 3
+            && method.GetParameters()[0].ParameterType
+                == typeof(BlindFireAim)
+            && method.GetParameters()[1].ParameterType == typeof(uint)
+            && method.GetParameters()[2].ParameterType
+                == typeof(BlindFireExecutionResult).MakeByRefType()
+        ), Is.True);
+
+        foreach (MethodInfo method in methods)
+        {
+            Assert.That(
+                method.GetParameters().Any(parameter =>
+                    forbiddenTargetTypes.Contains(
+                        parameter.ParameterType.IsByRef
+                            ? parameter.ParameterType.GetElementType()
+                            : parameter.ParameterType
+                    )
+                ),
+                Is.False,
+                $"{method} unexpectedly requires target-entity state."
+            );
+        }
         Assert.That(
-            method.GetParameters().Any(
-                parameter => parameter.ParameterType == typeof(GameObject)
-            ),
-            Is.False
+            Execute(PointAim(Vector3.right * 50f)).Accepted,
+            Is.True
         );
-        Assert.That(Execute(DirectionAim(Vector3.right)).Accepted, Is.True);
     }
 
 
@@ -325,7 +388,7 @@ public class ShipBlindFireExecutionTests
     {
         Assert.That(combatState.ManualTarget, Is.Null);
 
-        Execute(DirectionAim(Vector3.right));
+        Execute(PointAim(Vector3.right * 50f));
 
         Assert.That(combatState.ManualTarget, Is.Null);
         Assert.That(
@@ -363,7 +426,10 @@ public class ShipBlindFireExecutionTests
         );
         Vector3 position = shooterRoot.transform.position;
         Quaternion rotation = shooterRoot.transform.rotation;
-        BlindFireAim aim = DirectionAim(shooterRoot.transform.right);
+        BlindFireAim aim = PointAim(
+            shooterRoot.transform.position
+                + shooterRoot.transform.right * 50f
+        );
 
         Execute(aim);
 
@@ -379,16 +445,28 @@ public class ShipBlindFireExecutionTests
 
 
     [Test]
-    public void Execution_CreatesNoProjectile()
+    public void Execution_SpawnsOneProjectilePerShotSample()
     {
-        Assert.That(GetExecutionSource(), Does.Not.Contain("Projectile"));
+        BlindFireExecutionResult result = Execute(
+            PointAim(Vector3.right * 50f)
+        );
+
+        Assert.That(result.BroadsideExecution.ShotCount, Is.EqualTo(13));
+        Assert.That(
+            result.BroadsideExecution.SpawnedProjectileCount,
+            Is.EqualTo(13)
+        );
     }
 
 
     [Test]
-    public void Execution_CreatesNoShotSample()
+    public void Execution_DelegatesShotSamplingToCommonExecutor()
     {
-        Assert.That(GetExecutionSource(), Does.Not.Contain("ShotSample"));
+        string source = GetExecutionSource();
+
+        Assert.That(source, Does.Contain("broadsideExecutor"));
+        Assert.That(source, Does.Not.Contain("ShipBroadsideShotSampler"));
+        Assert.That(source, Does.Not.Contain("CombatProjectile.TrySpawn"));
     }
 
 
@@ -446,7 +524,7 @@ public class ShipBlindFireExecutionTests
     [Test]
     public void OppositeSideReloadTimer_RemainsUnchangedByCommit()
     {
-        BlindFireAim starboardAim = DirectionAim(Vector3.right);
+        BlindFireAim starboardAim = PointAim(Vector3.right * 50f);
         combatState.TryCommitBroadsideFire(CombatSide.Port);
         AdvanceReloads(2f);
         float portRemaining = combatState.PortReloadRemainingSeconds;
@@ -460,20 +538,57 @@ public class ShipBlindFireExecutionTests
 
 
     [Test]
-    public void AcceptedResult_PreservesExactAimBasisWithoutDispersion()
+    public void AcceptedResult_PreservesCommonExecutionAimBasisAndSeed()
     {
-        Vector3 supplied = new Vector3(4f, 8f, 0f);
-        BlindFireAim aim = DirectionAim(supplied);
+        BlindFireAim aim = PointAim(Vector3.right * 50f);
 
-        BlindFireExecutionResult result = Execute(aim);
+        bool accepted = command.TryExecuteBlindFire(
+            aim,
+            12345u,
+            out BlindFireExecutionResult result
+        );
 
-        Assert.That(result.Aim.WorldAimDirection, Is.EqualTo(Vector3.right));
+        Assert.That(accepted, Is.True);
+        Assert.That(result.BroadsideExecution.BroadsideSeed, Is.EqualTo(12345u));
         Assert.That(
-            result.Eligibility.Aim.WorldAimDirection,
-            Is.EqualTo(result.Aim.WorldAimDirection)
+            result.BroadsideExecution.AimBasis.SourceKind,
+            Is.EqualTo(FireAimSourceKind.BlindFirePoint)
         );
         Assert.That(GetExecutionSource(), Does.Not.Contain("Random"));
-        Assert.That(GetExecutionSource(), Does.Not.Contain("Dispersion"));
+        Assert.That(
+            GetExecutionSource(),
+            Does.Not.Contain("ShipBroadsideShotSampler")
+        );
+    }
+
+
+    [Test]
+    public void DirectionOnlyPhysicalFire_RequiresFiniteAimPoint()
+    {
+        combatState.SetAutoFireEnabled(true);
+        BlindFireAim aim = DirectionAim(Vector3.right);
+
+        BlindFireExecutionResult result = Execute(aim, false);
+
+        Assert.That(result.FailureReasons.HasFlag(
+            BlindFireExecutionFailure.FiniteAimPointRequired
+        ), Is.True);
+        Assert.That(
+            result.AimBasisFailure,
+            Is.EqualTo(FireAimBasisFailure.FiniteAimPointRequired)
+        );
+        Assert.That(combatState.AutoFireEnabled, Is.True);
+        Assert.That(
+            combatState.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(result.BroadsideExecution.SpawnedProjectileCount, Is.Zero);
+        Assert.That(
+            UnityEngine.Object.FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ),
+            Is.Empty
+        );
     }
 
 

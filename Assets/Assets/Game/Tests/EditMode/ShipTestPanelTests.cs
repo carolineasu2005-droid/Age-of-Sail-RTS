@@ -437,14 +437,26 @@ public class ShipTestPanelTests
 
 
     [Test]
-    public void PanelSource_HasNoStateBypassOrProjectileDependency()
+    public void PanelSource_HasNoStateBypassOrDuplicateFireExecution()
     {
         string source = ReadPanelSource();
 
         Assert.That(source, Does.Not.Contain("SerializedObject"));
         Assert.That(source, Does.Not.Contain("System.Reflection"));
-        Assert.That(source, Does.Not.Contain("Projectile"));
-        Assert.That(source, Does.Not.Contain("ShotSample"));
+        Assert.That(source, Does.Contain("ShipTargetedFireCommand"));
+        Assert.That(source, Does.Contain(
+            "Execute Targeted Broadside"
+        ));
+        Assert.That(source, Does.Contain("BroadsideExecution"));
+        Assert.That(source, Does.Not.Contain(
+            "ShipBroadsideShotSampler"
+        ));
+        Assert.That(source, Does.Not.Contain(
+            "CombatProjectile.TrySpawn"
+        ));
+        Assert.That(source, Does.Not.Contain(
+            "TryCommitBroadsideFire(CombatSide"
+        ));
         Assert.That(source, Does.Not.Contain("portReloadRemainingSeconds"));
         Assert.That(
             source,

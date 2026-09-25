@@ -7,7 +7,10 @@ public enum BlindFireExecutionFailure
     InvalidAim = 1 << 0,
     EligibilityUnavailable = 1 << 1,
     EligibilityRejected = 1 << 2,
-    BroadsideCommitFailed = 1 << 3
+    BroadsideCommitFailed = 1 << 3,
+    FiniteAimPointRequired = 1 << 4,
+    AimBasisUnavailable = 1 << 5,
+    BroadsideExecutionRejected = 1 << 6
 }
 
 public readonly struct BlindFireExecutionResult
@@ -17,6 +20,8 @@ public readonly struct BlindFireExecutionResult
         CombatSide? side,
         BlindFireAim aim,
         BlindFireEligibilityResult eligibility,
+        FireAimBasisFailure aimBasisFailure,
+        BroadsideFireExecutionResult broadsideExecution,
         BlindFireExecutionFailure failureReasons
     )
     {
@@ -24,6 +29,8 @@ public readonly struct BlindFireExecutionResult
         Side = side;
         Aim = aim;
         Eligibility = eligibility;
+        AimBasisFailure = aimBasisFailure;
+        BroadsideExecution = broadsideExecution;
         FailureReasons = failureReasons;
     }
 
@@ -35,6 +42,10 @@ public readonly struct BlindFireExecutionResult
     public BlindFireAim Aim { get; }
 
     public BlindFireEligibilityResult Eligibility { get; }
+
+    public FireAimBasisFailure AimBasisFailure { get; }
+
+    public BroadsideFireExecutionResult BroadsideExecution { get; }
 
     public BlindFireExecutionFailure FailureReasons { get; }
 }

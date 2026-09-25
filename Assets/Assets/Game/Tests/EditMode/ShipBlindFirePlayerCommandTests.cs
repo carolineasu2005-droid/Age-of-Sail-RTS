@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 public class ShipBlindFirePlayerCommandTests
@@ -60,6 +61,14 @@ public class ShipBlindFirePlayerCommandTests
     [TearDown]
     public void TearDown()
     {
+        foreach (CombatProjectile projectile in UnityEngine.Object
+            .FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ))
+        {
+            UnityEngine.Object.DestroyImmediate(projectile.gameObject);
+        }
+
         for (int index = createdRoots.Count - 1; index >= 0; index--)
         {
             UnityEngine.Object.DestroyImmediate(createdRoots[index]);
@@ -511,10 +520,16 @@ public class ShipBlindFirePlayerCommandTests
 
     private GameObject CreateCombatShip(string name)
     {
-        GameObject root = CreateRoot(name);
-        root.AddComponent<ShipDestinationController>();
-        root.AddComponent<ShipCombatState>();
-        root.AddComponent<ShipFireEligibility>();
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Assets/Game/Ship/Proxy/"
+                + "PF_Ship_Gelderland_Combat_v01.prefab"
+        );
+        Assert.That(prefab, Is.Not.Null);
+        GameObject root = UnityEngine.Object.Instantiate(prefab);
+        root.name = name;
+        root.GetComponent<CombatVFXPlaceholderReceiver>()
+            .VisualSpawningEnabled = false;
+        createdRoots.Add(root);
         return root;
     }
 

@@ -1,13 +1,9 @@
-using System;
 using UnityEngine;
 
 [AddComponentMenu("Age of Sail/Combat/Ship Fire Eligibility")]
 [DisallowMultipleComponent]
 public sealed class ShipFireEligibility : MonoBehaviour
 {
-    private const int CombatGeometryLayer = 8;
-    private const int CombatGeometryMask = 1 << CombatGeometryLayer;
-
     [Header("Broadside Arc")]
 
     [SerializeField]
@@ -567,22 +563,25 @@ public sealed class ShipFireEligibility : MonoBehaviour
             return false;
         }
 
-        RaycastHit[] hits = Physics.RaycastAll(
+        RaycastHit[] hits = CombatPhysicsQuery.RaycastAllCombatGeometry(
             originWorld,
             offset / distance,
-            distance,
-            CombatGeometryMask,
-            QueryTriggerInteraction.Collide
+            distance
         );
-        Array.Sort(hits, CompareRaycastHits);
 
         foreach (RaycastHit hit in hits)
         {
             Collider candidate = hit.collider;
 
             if (candidate == null
-                || candidate.transform.IsChildOf(shooterRoot)
-                || candidate.transform.IsChildOf(targetRoot))
+                || CombatPhysicsQuery.IsInHierarchy(
+                    candidate,
+                    shooterRoot
+                )
+                || CombatPhysicsQuery.IsInHierarchy(
+                    candidate,
+                    targetRoot
+                ))
             {
                 continue;
             }
@@ -592,31 +591,6 @@ public sealed class ShipFireEligibility : MonoBehaviour
         }
 
         return false;
-    }
-
-
-    private static int CompareRaycastHits(RaycastHit left, RaycastHit right)
-    {
-        int distanceComparison = left.distance.CompareTo(right.distance);
-
-        if (distanceComparison != 0)
-        {
-            return distanceComparison;
-        }
-
-        if (left.collider == null)
-        {
-            return right.collider == null ? 0 : -1;
-        }
-
-        if (right.collider == null)
-        {
-            return 1;
-        }
-
-        return left.collider.GetEntityId().CompareTo(
-            right.collider.GetEntityId()
-        );
     }
 
 

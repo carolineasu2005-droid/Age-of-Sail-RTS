@@ -49,12 +49,21 @@ public sealed class ShipTestPanel : EditorWindow
     private bool targetRelationshipAllowsFire = true;
 
     [SerializeField]
+    private bool useFixedTargetedFireSeed = true;
+
+    [SerializeField]
+    private uint targetedFireSeed = 12345u;
+
+    [SerializeField]
     private List<AutoTargetDebugCandidate> autoTargetCandidates =
         new List<AutoTargetDebugCandidate>();
 
     private Vector2 scrollPosition;
 
     private string lastCommandResult;
+
+    private bool hasTargetedFireResult;
+    private TargetedFireExecutionResult lastTargetedFireResult;
 
 
     [MenuItem(MenuPath)]
@@ -171,6 +180,9 @@ public sealed class ShipTestPanel : EditorWindow
 
             EditorGUILayout.Space();
             DrawFireEligibilitySection();
+
+            EditorGUILayout.Space();
+            DrawTargetedFireSection();
         }
     }
 
@@ -360,6 +372,106 @@ public sealed class ShipTestPanel : EditorWindow
             BuildEligibilitySummary(eligibilityTargetShipRoot, result),
             result.CanFire ? MessageType.Info : MessageType.Warning
         );
+    }
+
+
+    private void DrawTargetedFireSection()
+    {
+        EditorGUILayout.LabelField(
+            "Targeted Physical Broadside",
+            EditorStyles.boldLabel
+        );
+        EditorGUILayout.LabelField(
+            "Shooter",
+            targetShipRoot != null ? targetShipRoot.name : "None"
+        );
+        EditorGUILayout.LabelField(
+            "Target",
+            eligibilityTargetShipRoot != null
+                ? eligibilityTargetShipRoot.name
+                : "None"
+        );
+
+        useFixedTargetedFireSeed = EditorGUILayout.Toggle(
+            "Use Fixed Seed",
+            useFixedTargetedFireSeed
+        );
+
+        if (useFixedTargetedFireSeed)
+        {
+            long enteredSeed = EditorGUILayout.LongField(
+                "Broadside Seed",
+                targetedFireSeed
+            );
+            targetedFireSeed = enteredSeed <= 0L
+                ? 0u
+                : enteredSeed >= uint.MaxValue
+                    ? uint.MaxValue
+                    : (uint)enteredSeed;
+        }
+
+        if (GUILayout.Button("Execute Targeted Broadside"))
+        {
+            ExecuteTargetedBroadsideForDebug();
+        }
+
+        if (!hasTargetedFireResult)
+        {
+            EditorGUILayout.LabelField("Last Execution", "None");
+            return;
+        }
+
+        EditorGUILayout.HelpBox(
+            BuildTargetedFireSummary(
+                lastTargetedFireResult,
+                targetShipRoot != null
+                    ? targetShipRoot.GetComponent<
+                        ShipBroadsideFireExecutor
+                    >()
+                    : null
+            ),
+            lastTargetedFireResult.Accepted
+                ? MessageType.Info
+                : MessageType.Warning
+        );
+    }
+
+
+    private void ExecuteTargetedBroadsideForDebug()
+    {
+        hasTargetedFireResult = true;
+        ShipFireEligibility eligibility = targetShipRoot != null
+            ? targetShipRoot.GetComponent<ShipFireEligibility>()
+            : null;
+        ShipBroadsideFireExecutor executor = targetShipRoot != null
+            ? targetShipRoot.GetComponent<ShipBroadsideFireExecutor>()
+            : null;
+        ShipTargetedFireCommand command = new ShipTargetedFireCommand(
+            eligibility,
+            executor
+        );
+
+        Physics.SyncTransforms();
+
+        if (useFixedTargetedFireSeed)
+        {
+            command.TryExecute(
+                eligibilityTargetShipRoot,
+                targetRelationshipAllowsFire,
+                targetedFireSeed,
+                out lastTargetedFireResult
+            );
+        }
+        else
+        {
+            command.TryExecuteWithRuntimeSeed(
+                eligibilityTargetShipRoot,
+                targetRelationshipAllowsFire,
+                out lastTargetedFireResult
+            );
+        }
+
+        SceneView.RepaintAll();
     }
 
 
@@ -1066,6 +1178,90 @@ public sealed class ShipTestPanel : EditorWindow
     }
 
 
+    private static string BuildTargetedFireSummary(
+        TargetedFireExecutionResult result,
+        ShipBroadsideFireExecutor executor
+    )
+    {
+        StringBuilder summary = new StringBuilder();
+        summary.AppendLine("Targeted Broadside Execution");
+        summary.Append("Accepted: ")
+            .AppendLine(FormatYesNo(result.Accepted));
+        summary.Append("Side: ").AppendLine(
+            result.BroadsideExecution.Side.HasValue
+                ? result.BroadsideExecution.Side.Value
+                    .ToString()
+                    .ToUpperInvariant()
+                : "NONE"
+        );
+        summary.Append("Seed: ")
+            .AppendLine(
+                result.BroadsideExecution.BroadsideSeed.ToString()
+            );
+        summary.Append("Shot Samples: ")
+            .AppendLine(
+                result.BroadsideExecution.ShotCount.ToString()
+            );
+        summary.Append("Projectiles Spawned: ")
+            .AppendLine(
+                result.BroadsideExecution.SpawnedProjectileCount
+                    .ToString()
+            );
+        summary.Append("Nominal Range: ")
+            .Append(
+                result.BroadsideExecution.AimBasis
+                    .AimDistanceMeters
+                    .ToString("F1")
+            )
+            .AppendLine(" m");
+
+        DispersionEllipse ellipse = result.BroadsideExecution
+            .SamplingResult
+            .DispersionEllipse;
+        summary.Append("Dispersion Semi-Axes H/V: ")
+            .Append(ellipse.HorizontalSemiAxisMeters.ToString("F2"))
+            .Append(" / ")
+            .Append(ellipse.VerticalSemiAxisMeters.ToString("F2"))
+            .AppendLine(" m");
+
+        if (executor != null)
+        {
+            summary.Append("Last Outcomes H/W/E: ")
+                .Append(executor.LastHullHitCount)
+                .Append(" / ")
+                .Append(executor.LastWaterMissCount)
+                .Append(" / ")
+                .AppendLine(executor.LastExpiredCount.ToString());
+        }
+
+        if (!result.Accepted)
+        {
+            summary.Append("Command Failure: ")
+                .AppendLine(
+                    result.FailureReasons.ToString().ToUpperInvariant()
+                );
+            summary.Append("Aim Failure: ")
+                .AppendLine(
+                    result.AimBasisFailure.ToString().ToUpperInvariant()
+                );
+            summary.Append("Execution Failure: ")
+                .AppendLine(
+                    result.BroadsideExecution.FailureReasons
+                        .ToString()
+                        .ToUpperInvariant()
+                );
+            summary.Append("Sampling Failure: ")
+                .Append(
+                    result.BroadsideExecution.SamplingFailure
+                        .ToString()
+                        .ToUpperInvariant()
+                );
+        }
+
+        return summary.ToString();
+    }
+
+
     private static string BuildBlindFireSummary(
         BlindFirePlayerCommandResult command
     )
@@ -1202,6 +1398,15 @@ public sealed class ShipTestPanel : EditorWindow
         AppendFailure(reasons, failures,
             BlindFireExecutionFailure.BroadsideCommitFailed,
             "COMMIT_FAILED");
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.FiniteAimPointRequired,
+            "FINITE_AIM_POINT_REQUIRED");
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.AimBasisUnavailable,
+            "AIM_BASIS_UNAVAILABLE");
+        AppendFailure(reasons, failures,
+            BlindFireExecutionFailure.BroadsideExecutionRejected,
+            "BROADSIDE_EXECUTION_REJECTED");
     }
 
 

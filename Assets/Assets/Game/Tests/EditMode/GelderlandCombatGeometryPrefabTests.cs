@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -119,7 +121,7 @@ public class GelderlandCombatGeometryPrefabTests
 
 
     [Test]
-    public void CombatGeometry_PreservesArtSocketsAndMovementWithoutCombatLeakage()
+    public void CombatGeometry_PreservesArtAndMovementWithoutOwningGameplay()
     {
         GameObject prefab = LoadCombatPrefab();
 
@@ -141,12 +143,43 @@ public class GelderlandCombatGeometryPrefabTests
             );
         }
 
-        foreach (Component component in prefab.GetComponentsInChildren<Component>(true))
-        {
-            string typeName = component.GetType().Name;
-            Assert.That(typeName, Does.Not.Contain("Projectile"));
-            Assert.That(typeName, Does.Not.Contain("Damage"));
-        }
+        FieldInfo[] serializedGeometryFields = typeof(ShipCombatGeometry)
+            .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+            .Where(field => field.GetCustomAttribute<SerializeField>() != null)
+            .ToArray();
+
+        Assert.That(serializedGeometryFields, Is.Not.Empty);
+        Assert.That(
+            serializedGeometryFields.All(field =>
+                field.FieldType == typeof(Transform)
+                || field.FieldType == typeof(CombatHitRegion)
+            ),
+            Is.True
+        );
+        Assert.That(
+            typeof(ShipCombatGeometry).GetMethods(
+                BindingFlags.Instance
+                    | BindingFlags.Public
+                    | BindingFlags.DeclaredOnly
+            ).Select(method => method.Name),
+            Is.EquivalentTo(new[]
+            {
+                "get_MainHullRoot",
+                "get_BowRegion",
+                "get_MidshipRegion",
+                "get_SternRegion",
+                "TryResolveRegion"
+            })
+        );
+
+        Assert.That(
+            prefab.GetComponent<ShipProjectileFlightConfiguration>(),
+            Is.Not.Null
+        );
+        Assert.That(
+            prefab.GetComponent<ShipBroadsideFireExecutor>(),
+            Is.Not.Null
+        );
     }
 
 
@@ -168,6 +201,14 @@ public class GelderlandCombatGeometryPrefabTests
             Assert.That(prefab.transform.Find("CombatGeometry"), Is.Null);
             Assert.That(
                 prefab.GetComponentInChildren<CombatHitRegion>(true),
+                Is.Null
+            );
+            Assert.That(
+                prefab.GetComponent<ShipProjectileFlightConfiguration>(),
+                Is.Null
+            );
+            Assert.That(
+                prefab.GetComponent<ShipBroadsideFireExecutor>(),
                 Is.Null
             );
         }

@@ -953,11 +953,15 @@ public class ShipPlayerCommandInput : MonoBehaviour
             selectedShip.GetComponent<ShipCombatState>();
         fireEligibility =
             selectedShip.GetComponent<ShipFireEligibility>();
+        ShipBroadsideFireExecutor broadsideExecutor =
+            selectedShip.GetComponent<ShipBroadsideFireExecutor>();
 
         if (combatState == null
             || !combatState.isActiveAndEnabled
             || fireEligibility == null
-            || !fireEligibility.isActiveAndEnabled)
+            || !fireEligibility.isActiveAndEnabled
+            || broadsideExecutor == null
+            || !broadsideExecutor.isActiveAndEnabled)
         {
             fireEligibility = null;
             return false;
@@ -966,7 +970,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
         shooterShipRoot = selectedShip.gameObject;
         blindFireCommand = new ShipBlindFireCommand(
             fireEligibility,
-            combatState
+            combatState,
+            broadsideExecutor
         );
         return true;
     }

@@ -565,7 +565,11 @@ public sealed class ShipTestPanel : EditorWindow
             selection.Score.RangeQualityNormalized.ToString("F3")
         );
         EditorGUILayout.LabelField(
-            "Final Score (E x R)",
+            "Visibility V",
+            selection.Score.VisibilityQualityNormalized.ToString("F3")
+        );
+        EditorGUILayout.LabelField(
+            "Final Score (E x R x V)",
             selection.Score.FinalScore.ToString("F3")
         );
         EditorGUILayout.HelpBox(

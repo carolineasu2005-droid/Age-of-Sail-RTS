@@ -2,13 +2,17 @@ public readonly struct AutoTargetScoreResult
 {
     internal AutoTargetScoreResult(
         float exposureNormalized,
-        float rangeQualityNormalized
+        float rangeQualityNormalized,
+        float visibilityQualityNormalized
     )
     {
         Selectable = true;
         ExposureNormalized = exposureNormalized;
         RangeQualityNormalized = rangeQualityNormalized;
-        FinalScore = exposureNormalized * rangeQualityNormalized;
+        VisibilityQualityNormalized = visibilityQualityNormalized;
+        FinalScore = exposureNormalized
+            * rangeQualityNormalized
+            * visibilityQualityNormalized;
     }
 
 
@@ -17,6 +21,8 @@ public readonly struct AutoTargetScoreResult
     public float ExposureNormalized { get; }
 
     public float RangeQualityNormalized { get; }
+
+    public float VisibilityQualityNormalized { get; }
 
     public float FinalScore { get; }
 }

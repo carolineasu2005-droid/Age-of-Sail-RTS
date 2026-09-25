@@ -13,6 +13,7 @@ public class ShipAutoTargetScorerTests
     private GameObject targetRoot;
     private ShipCombatState shooterState;
     private ShipFireEligibility eligibility;
+    private AutoTargetScoringProfile scoringProfile;
 
 
     [SetUp]
@@ -23,6 +24,18 @@ public class ShipAutoTargetScorerTests
         targetRoot.transform.position = Vector3.right * 50f;
         shooterState = shooterRoot.GetComponent<ShipCombatState>();
         eligibility = shooterRoot.AddComponent<ShipFireEligibility>();
+        scoringProfile = ScriptableObject.CreateInstance<
+            AutoTargetScoringProfile
+        >();
+        ShipAutoTargetScoringConfiguration scoringConfiguration =
+            shooterRoot.AddComponent<
+                ShipAutoTargetScoringConfiguration
+            >();
+        SetPrivateField(
+            scoringConfiguration,
+            "scoringProfile",
+            scoringProfile
+        );
         SetRanges(100f, 200f);
     }
 
@@ -32,6 +45,7 @@ public class ShipAutoTargetScorerTests
     {
         Object.DestroyImmediate(targetRoot);
         Object.DestroyImmediate(shooterRoot);
+        Object.DestroyImmediate(scoringProfile);
     }
 
 
@@ -68,24 +82,65 @@ public class ShipAutoTargetScorerTests
             .Within(Tolerance));
         Assert.That(bowOn.ExposureNormalized, Is.EqualTo(1f / 3f)
             .Within(Tolerance));
+        Assert.That(
+            broadside.RangeQualityNormalized,
+            Is.EqualTo(bowOn.RangeQualityNormalized).Within(Tolerance)
+        );
+        Assert.That(broadside.VisibilityQualityNormalized, Is.EqualTo(1f));
+        Assert.That(bowOn.VisibilityQualityNormalized, Is.EqualTo(1f));
         Assert.That(broadside.FinalScore, Is.GreaterThan(bowOn.FinalScore));
     }
 
 
     [Test]
-    public void SameExposure_NearTargetScoresAtLeastFartherLegalTarget()
+    public void SameExposure_NearTargetHasHigherRangeAndScoreThanFarTarget()
     {
         targetRoot.transform.position = Vector3.right * 50f;
-        AutoTargetScoreResult near = EvaluateScore();
+        FireEligibilityResult nearEligibility = EvaluateEligibility();
+        AutoTargetScoreResult near = EvaluateScore(nearEligibility);
 
         targetRoot.transform.position = Vector3.right * 150f;
-        AutoTargetScoreResult far = EvaluateScore();
+        FireEligibilityResult farEligibility = EvaluateEligibility();
+        AutoTargetScoreResult far = EvaluateScore(farEligibility);
 
+        Assert.That(nearEligibility.CanFire, Is.True);
+        Assert.That(nearEligibility.WithinEffectiveRange, Is.True);
+        Assert.That(farEligibility.CanFire, Is.True);
+        Assert.That(farEligibility.WithinEffectiveRange, Is.False);
         Assert.That(
             far.ExposureNormalized,
             Is.EqualTo(near.ExposureNormalized).Within(Tolerance)
         );
-        Assert.That(near.FinalScore, Is.GreaterThanOrEqualTo(far.FinalScore));
+        Assert.That(near.RangeQualityNormalized, Is.EqualTo(1f));
+        Assert.That(far.RangeQualityNormalized, Is.GreaterThan(0f));
+        Assert.That(far.RangeQualityNormalized, Is.LessThan(1f));
+        Assert.That(
+            near.RangeQualityNormalized,
+            Is.GreaterThan(far.RangeQualityNormalized)
+        );
+        Assert.That(near.VisibilityQualityNormalized, Is.EqualTo(1f));
+        Assert.That(far.VisibilityQualityNormalized, Is.EqualTo(1f));
+        Assert.That(near.FinalScore, Is.GreaterThan(far.FinalScore));
+    }
+
+
+    [Test]
+    public void BeyondMaximumRange_IsFireIneligibleAndNotScored()
+    {
+        targetRoot.transform.position = Vector3.right * 201f;
+        FireEligibilityResult fireResult = EvaluateEligibility();
+
+        bool scored = ShipAutoTargetScorer.TryEvaluate(
+            shooterRoot,
+            targetRoot,
+            fireResult,
+            out AutoTargetScoreResult score
+        );
+
+        Assert.That(fireResult.WithinMaximumRange, Is.False);
+        Assert.That(fireResult.CanFire, Is.False);
+        Assert.That(scored, Is.False);
+        Assert.That(score.Selectable, Is.False);
     }
 
 
@@ -175,6 +230,7 @@ public class ShipAutoTargetScorerTests
 
                 AssertNormalized(score.ExposureNormalized);
                 AssertNormalized(score.RangeQualityNormalized);
+                Assert.That(score.VisibilityQualityNormalized, Is.EqualTo(1f));
                 AssertNormalized(score.FinalScore);
             }
         }
@@ -291,7 +347,12 @@ public class ShipAutoTargetScorerTests
         Assert.That(source, Does.Not.Contain("ShipTurning"));
         Assert.That(source, Does.Not.Contain("Integrity"));
         Assert.That(source, Does.Not.Contain("Raking"));
+        Assert.That(source, Does.Not.Contain("Accuracy"));
+        Assert.That(source, Does.Not.Contain("Dispersion"));
         Assert.That(source, Does.Not.Contain("Projectile"));
+        Assert.That(source, Does.Not.Contain("ShotSample"));
+        Assert.That(source, Does.Not.Contain("CannonPrecision"));
+        Assert.That(source, Does.Not.Contain("MuzzleSpread"));
         Assert.That(source, Does.Not.Contain("transform.position ="));
         Assert.That(source, Does.Not.Contain("transform.rotation ="));
     }
@@ -305,6 +366,15 @@ public class ShipAutoTargetScorerTests
 
         AutoTargetScoreResult score = EvaluateScore();
 
+        Assert.That(
+            score.FinalScore,
+            Is.EqualTo(
+                score.ExposureNormalized
+                    * score.RangeQualityNormalized
+                    * score.VisibilityQualityNormalized
+            ).Within(Tolerance)
+        );
+        Assert.That(score.VisibilityQualityNormalized, Is.EqualTo(1f));
         Assert.That(
             score.FinalScore,
             Is.EqualTo(

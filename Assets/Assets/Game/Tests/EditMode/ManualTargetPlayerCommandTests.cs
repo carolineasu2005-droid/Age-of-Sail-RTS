@@ -23,6 +23,7 @@ public class ManualTargetPlayerCommandTests
     private ShipDestinationController shooterDestination;
     private ShipCombatState shooterState;
     private ShipFireEligibility eligibility;
+    private AutoTargetScoringProfile scoringProfile;
 
 
     [SetUp]
@@ -61,6 +62,18 @@ public class ManualTargetPlayerCommandTests
             shooterRoot.GetComponent<ShipDestinationController>();
         shooterState = shooterRoot.GetComponent<ShipCombatState>();
         eligibility = shooterRoot.GetComponent<ShipFireEligibility>();
+        scoringProfile = ScriptableObject.CreateInstance<
+            AutoTargetScoringProfile
+        >();
+        ShipAutoTargetScoringConfiguration scoringConfiguration =
+            shooterRoot.AddComponent<
+                ShipAutoTargetScoringConfiguration
+            >();
+        SetPrivateField(
+            scoringConfiguration,
+            "scoringProfile",
+            scoringProfile
+        );
         SetPrivateField(eligibility, "effectiveRangeMeters", 100f);
         SetPrivateField(eligibility, "maximumRangeMeters", 200f);
         targetRoot.transform.position = Vector3.right * 50f;
@@ -78,6 +91,7 @@ public class ManualTargetPlayerCommandTests
         }
 
         createdRoots.Clear();
+        Object.DestroyImmediate(scoringProfile);
     }
 
 
@@ -354,6 +368,13 @@ public class ManualTargetPlayerCommandTests
     public void DebugAutoTargetSelection_ReadsResultWithoutMutation()
     {
         shooterState.SetAutoFireEnabled(true);
+        ShipExposureReference targetExposure =
+            targetRoot.GetComponent<ShipExposureReference>();
+        ShipArtDefinition targetArtDefinition =
+            targetExposure.ArtDefinition;
+        Transform targetBowReference = targetArtDefinition.BowReference;
+        Vector3 targetBowLocalPosition =
+            targetBowReference.localPosition;
         Vector3 shooterPosition = shooterRoot.transform.position;
         Quaternion shooterRotation = shooterRoot.transform.rotation;
         BroadsideReloadState portState = shooterState.PortBroadsideState;
@@ -389,12 +410,20 @@ public class ManualTargetPlayerCommandTests
             Is.SameAs(alternateTargetRoot)
         );
         Assert.That(result.PortSelection.Score.Selectable, Is.True);
+        Assert.That(
+            result.PortSelection.Score.VisibilityQualityNormalized,
+            Is.EqualTo(1f)
+        );
         Assert.That(result.StarboardSelection.HasTarget, Is.True);
         Assert.That(
             result.StarboardSelection.TargetShipRoot,
             Is.SameAs(targetRoot)
         );
         Assert.That(result.StarboardSelection.Score.Selectable, Is.True);
+        Assert.That(
+            result.StarboardSelection.Score.VisibilityQualityNormalized,
+            Is.EqualTo(1f)
+        );
         Assert.That((string)arguments[3], Is.EqualTo(string.Empty));
         Assert.That(shooterRoot.transform.position, Is.EqualTo(shooterPosition));
         Assert.That(shooterRoot.transform.rotation, Is.EqualTo(shooterRotation));
@@ -403,6 +432,50 @@ public class ManualTargetPlayerCommandTests
             shooterState.StarboardBroadsideState,
             Is.EqualTo(starboardState)
         );
+        Assert.That(shooterState.AutoFireEnabled, Is.True);
+        Assert.That(shooterState.ManualTarget, Is.Null);
+        Assert.That(
+            targetExposure.ArtDefinition,
+            Is.SameAs(targetArtDefinition)
+        );
+        Assert.That(
+            targetArtDefinition.BowReference,
+            Is.SameAs(targetBowReference)
+        );
+        Assert.That(
+            targetBowReference.localPosition,
+            Is.EqualTo(targetBowLocalPosition)
+        );
+    }
+
+
+    [Test]
+    public void DebugAutoTargetSelection_MissingScoringConfigurationFailsClosed()
+    {
+        Object.DestroyImmediate(
+            shooterRoot.GetComponent<
+                ShipAutoTargetScoringConfiguration
+            >()
+        );
+        shooterState.SetAutoFireEnabled(true);
+        object[] arguments =
+        {
+            shooterRoot,
+            new[] { new AutoTargetCandidate(targetRoot, true) },
+            default(AutoTargetSelectionResult),
+            null
+        };
+
+        bool selected = InvokePrivateStatic<bool>(
+            typeof(ShipTestPanel),
+            "TrySelectAutoTargetForDebug",
+            arguments
+        );
+        AutoTargetSelectionResult result =
+            (AutoTargetSelectionResult)arguments[2];
+
+        Assert.That(selected, Is.False);
+        Assert.That(result.HasAnyTarget, Is.False);
         Assert.That(shooterState.AutoFireEnabled, Is.True);
         Assert.That(shooterState.ManualTarget, Is.Null);
     }

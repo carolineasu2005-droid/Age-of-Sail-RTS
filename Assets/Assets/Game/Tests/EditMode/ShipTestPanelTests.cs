@@ -20,6 +20,7 @@ public class ShipTestPanelTests
     private GameObject nonCombatRoot;
     private ShipCombatState combatState;
     private ShipTestPanel panel;
+    private AutoTargetScoringProfile scoringProfile;
 
 
     [SetUp]
@@ -30,6 +31,9 @@ public class ShipTestPanelTests
         createdRoots.Add(shipRoot);
         createdRoots.Add(nonCombatRoot);
         combatState = shipRoot.AddComponent<ShipCombatState>();
+        scoringProfile = ScriptableObject.CreateInstance<
+            AutoTargetScoringProfile
+        >();
         panel = ScriptableObject.CreateInstance<ShipTestPanel>();
     }
 
@@ -38,6 +42,7 @@ public class ShipTestPanelTests
     public void TearDown()
     {
         UnityEngine.Object.DestroyImmediate(panel);
+        UnityEngine.Object.DestroyImmediate(scoringProfile);
 
         for (int index = createdRoots.Count - 1; index >= 0; index--)
         {
@@ -389,6 +394,49 @@ public class ShipTestPanelTests
 
 
     [Test]
+    public void AutoTargetPresentation_ShowsAuthoritativeErvScoreWithoutMath()
+    {
+        string source = ReadPanelSource();
+        string presentationMethod = ExtractMethodBlock(
+            source,
+            "private static void DrawAutoTargetSideSelection",
+            "private void DrawSceneDebug"
+        );
+
+        Assert.That(presentationMethod, Does.Contain("Exposure E"));
+        Assert.That(presentationMethod, Does.Contain("Range Quality R"));
+        Assert.That(presentationMethod, Does.Contain("Visibility V"));
+        Assert.That(presentationMethod, Does.Contain("Final Score (E x R x V)"));
+        Assert.That(
+            presentationMethod,
+            Does.Contain("selection.Score.ExposureNormalized")
+        );
+        Assert.That(
+            presentationMethod,
+            Does.Contain("selection.Score.RangeQualityNormalized")
+        );
+        Assert.That(
+            presentationMethod,
+            Does.Contain("selection.Score.VisibilityQualityNormalized")
+        );
+        Assert.That(
+            presentationMethod,
+            Does.Contain(
+                "VisibilityQualityNormalized.ToString(\"F3\")"
+            )
+        );
+        Assert.That(
+            presentationMethod,
+            Does.Contain("selection.Score.FinalScore")
+        );
+        Assert.That(presentationMethod, Does.Not.Contain("Mathf."));
+        Assert.That(presentationMethod, Does.Not.Contain("TryCalculateExposure"));
+        Assert.That(presentationMethod, Does.Not.Contain("EffectiveRangeMeters"));
+        Assert.That(presentationMethod, Does.Not.Contain("MaximumRangeMeters"));
+    }
+
+
+    [Test]
     public void PanelSource_HasNoStateBypassOrProjectileDependency()
     {
         string source = ReadPanelSource();
@@ -435,7 +483,7 @@ public class ShipTestPanelTests
     }
 
 
-    private static void ConfigureCombatShip(
+    private void ConfigureCombatShip(
         GameObject root,
         bool includeEligibility
     )
@@ -476,6 +524,22 @@ public class ShipTestPanelTests
             && root.GetComponent<ShipFireEligibility>() == null)
         {
             root.AddComponent<ShipFireEligibility>();
+        }
+
+        if (includeEligibility
+            && root.GetComponent<
+                ShipAutoTargetScoringConfiguration
+            >() == null)
+        {
+            ShipAutoTargetScoringConfiguration configuration =
+                root.AddComponent<
+                    ShipAutoTargetScoringConfiguration
+                >();
+            SetPrivateField(
+                configuration,
+                "scoringProfile",
+                scoringProfile
+            );
         }
     }
 

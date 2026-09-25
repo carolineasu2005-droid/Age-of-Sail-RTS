@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -138,28 +140,43 @@ public class GelderlandExposurePrefabTests
 
 
     [Test]
-    public void ExposureIntegration_AddsNoCombatGameplayComponents()
+    public void ExposureReference_OwnsOnlyPassiveArtDefinitionReference()
     {
-        GameObject prefab = LoadCombatPrefab();
-        string[] forbiddenNames =
+        FieldInfo[] fields = typeof(ShipExposureReference).GetFields(
+            BindingFlags.Instance
+                | BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.DeclaredOnly
+        );
+
+        Assert.That(fields, Has.Length.EqualTo(1));
+        Assert.That(fields[0].Name, Is.EqualTo("shipArtDefinition"));
+        Assert.That(fields[0].FieldType, Is.EqualTo(typeof(ShipArtDefinition)));
+
+        string sourcePath = Path.Combine(
+            Application.dataPath,
+            "Assets/Game/Scripts/CombatArt/ShipExposureReference.cs"
+        );
+        string source = File.ReadAllText(sourcePath);
+        string[] forbiddenDependencies =
         {
-            "AutoTarget",
-            "Weapon",
-            "Accuracy",
+            "ShipAutoTargetScorer",
+            "ShipAutoTargetSelector",
+            "ShipAutoTargetScoringConfiguration",
+            "ShipCombatState",
+            "ShipFireEligibility",
+            "CombatGeometry",
             "Dispersion",
             "Projectile",
-            "Damage"
+            "Rigidbody",
+            "Collider",
+            "Renderer",
+            "Mesh"
         };
 
-        foreach (Component component in prefab.GetComponentsInChildren<Component>(true))
+        foreach (string dependency in forbiddenDependencies)
         {
-            foreach (string forbiddenName in forbiddenNames)
-            {
-                Assert.That(
-                    component.GetType().Name,
-                    Does.Not.Contain(forbiddenName)
-                );
-            }
+            Assert.That(source, Does.Not.Contain(dependency));
         }
     }
 

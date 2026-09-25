@@ -15,6 +15,7 @@ public class ShipAutoTargetSelectorTests
     private GameObject portTarget;
     private ShipCombatState shooterState;
     private ShipFireEligibility eligibility;
+    private AutoTargetScoringProfile scoringProfile;
 
 
     [SetUp]
@@ -27,6 +28,18 @@ public class ShipAutoTargetSelectorTests
         portTarget.transform.position = Vector3.left * 150f;
         shooterState = shooterRoot.GetComponent<ShipCombatState>();
         eligibility = shooterRoot.AddComponent<ShipFireEligibility>();
+        scoringProfile = ScriptableObject.CreateInstance<
+            AutoTargetScoringProfile
+        >();
+        ShipAutoTargetScoringConfiguration scoringConfiguration =
+            shooterRoot.AddComponent<
+                ShipAutoTargetScoringConfiguration
+            >();
+        SetPrivateField(
+            scoringConfiguration,
+            "scoringProfile",
+            scoringProfile
+        );
         SetPrivateField(eligibility, "effectiveRangeMeters", 100f);
         SetPrivateField(eligibility, "maximumRangeMeters", 200f);
     }
@@ -41,6 +54,7 @@ public class ShipAutoTargetSelectorTests
         }
 
         createdRoots.Clear();
+        Object.DestroyImmediate(scoringProfile);
     }
 
 
@@ -167,6 +181,127 @@ public class ShipAutoTargetSelectorTests
             1,
             CombatSide.Starboard
         );
+    }
+
+
+    [Test]
+    public void SameRangeExposureCompetition_SelectsBroadsideAndKeepsStarboard()
+    {
+        EnableAutoFire();
+        portTarget.transform.position = Vector3.left * 75f;
+        portTarget.transform.rotation = Quaternion.identity;
+        GameObject bowOnPort = CreateShip("Bow-On Port", true);
+        bowOnPort.transform.position = Vector3.left * 75f;
+        bowOnPort.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+
+        AutoTargetSelectionResult result = Select(
+            Candidate(bowOnPort),
+            Candidate(starboardTarget),
+            Candidate(portTarget)
+        );
+
+        AssertSelection(result.PortSelection, portTarget, 2, CombatSide.Port);
+        Assert.That(
+            result.PortSelection.Score.ExposureNormalized,
+            Is.EqualTo(1f).Within(0.0001f)
+        );
+        AssertSelection(
+            result.StarboardSelection,
+            starboardTarget,
+            1,
+            CombatSide.Starboard
+        );
+    }
+
+
+    [Test]
+    public void PortRangeCompetitionSwitch_DoesNotChangeStarboardSelection()
+    {
+        EnableAutoFire();
+        portTarget.transform.position = Vector3.left * 75f;
+        GameObject secondPort = CreateShip("Second Port", true);
+        secondPort.transform.position = Vector3.left * 150f;
+        AutoTargetSelectionResult initial = Select(
+            Candidate(portTarget),
+            Candidate(secondPort),
+            Candidate(starboardTarget)
+        );
+
+        portTarget.transform.position = Vector3.left * 190f;
+        AutoTargetSelectionResult changed = Select(
+            Candidate(portTarget),
+            Candidate(secondPort),
+            Candidate(starboardTarget)
+        );
+
+        AssertSelection(initial.PortSelection, portTarget, 0, CombatSide.Port);
+        AssertSelection(changed.PortSelection, secondPort, 1, CombatSide.Port);
+        Assert.That(
+            initial.StarboardSelection.TargetShipRoot,
+            Is.SameAs(starboardTarget)
+        );
+        AssertSelection(
+            changed.StarboardSelection,
+            starboardTarget,
+            2,
+            CombatSide.Starboard
+        );
+    }
+
+
+    [Test]
+    public void StarboardRangeCompetitionSwitch_DoesNotChangePortSelection()
+    {
+        EnableAutoFire();
+        starboardTarget.transform.position = Vector3.right * 75f;
+        GameObject secondStarboard = CreateShip("Second Starboard", true);
+        secondStarboard.transform.position = Vector3.right * 150f;
+        AutoTargetSelectionResult initial = Select(
+            Candidate(portTarget),
+            Candidate(starboardTarget),
+            Candidate(secondStarboard)
+        );
+
+        starboardTarget.transform.position = Vector3.right * 190f;
+        AutoTargetSelectionResult changed = Select(
+            Candidate(portTarget),
+            Candidate(starboardTarget),
+            Candidate(secondStarboard)
+        );
+
+        AssertSelection(
+            initial.StarboardSelection,
+            starboardTarget,
+            1,
+            CombatSide.Starboard
+        );
+        AssertSelection(
+            changed.StarboardSelection,
+            secondStarboard,
+            2,
+            CombatSide.Starboard
+        );
+        Assert.That(
+            initial.PortSelection.TargetShipRoot,
+            Is.SameAs(portTarget)
+        );
+        AssertSelection(changed.PortSelection, portTarget, 0, CombatSide.Port);
+    }
+
+
+    [Test]
+    public void BeyondMaximumRangeCandidate_IsNotSelected()
+    {
+        EnableAutoFire();
+        starboardTarget.transform.position = Vector3.right * 201f;
+
+        bool selected = TrySelect(
+            new[] { Candidate(starboardTarget) },
+            out AutoTargetSelectionResult result
+        );
+
+        Assert.That(selected, Is.False);
+        AssertNoSelection(result);
     }
 
 
@@ -527,11 +662,20 @@ public class ShipAutoTargetSelectorTests
         Assert.That(source, Does.Not.Contain("Projectile"));
         Assert.That(source, Does.Not.Contain("CombatVFX"));
         Assert.That(source, Does.Not.Contain("ShotSample"));
+        Assert.That(source, Does.Not.Contain("Accuracy"));
+        Assert.That(source, Does.Not.Contain("Dispersion"));
+        Assert.That(source, Does.Not.Contain("CannonPrecision"));
+        Assert.That(source, Does.Not.Contain("MuzzleSpread"));
         Assert.That(source, Does.Not.Contain("ShipSailingSpeed"));
         Assert.That(source, Does.Not.Contain("ShipTurning"));
         Assert.That(source, Does.Not.Contain("ShipDestinationController"));
         Assert.That(source, Does.Not.Contain("transform.position ="));
         Assert.That(source, Does.Not.Contain("transform.rotation ="));
+        Assert.That(source, Does.Contain("ShipAutoTargetScorer.TryEvaluate"));
+        Assert.That(source, Does.Not.Contain("ExposureNormalized"));
+        Assert.That(source, Does.Not.Contain("RangeQualityNormalized"));
+        Assert.That(source, Does.Not.Contain("VisibilityQualityNormalized"));
+        Assert.That(source, Does.Not.Contain("TryCalculateExposure"));
     }
 
 

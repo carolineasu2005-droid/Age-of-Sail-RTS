@@ -21,10 +21,16 @@ public static class ShipAutoTargetScorer
 
         ShipFireEligibility shooterEligibility =
             shooterShipRoot.GetComponent<ShipFireEligibility>();
+        ShipAutoTargetScoringConfiguration scoringConfiguration =
+            shooterShipRoot.GetComponent<
+                ShipAutoTargetScoringConfiguration
+            >();
         ShipExposureReference targetExposure =
             targetShipRoot.GetComponent<ShipExposureReference>();
 
         if (shooterEligibility == null
+            || scoringConfiguration == null
+            || scoringConfiguration.ScoringProfile == null
             || targetExposure == null
             || !TryGetValidatedRanges(
                 shooterEligibility,
@@ -64,16 +70,23 @@ public static class ShipAutoTargetScorer
             effectiveRangeMeters,
             maximumRangeMeters
         );
+        float visibilityQualityNormalized =
+            scoringConfiguration.ScoringProfile
+                .VisibilityQualityNormalized;
 
         if (!IsFinite(exposureNormalized)
-            || !IsFinite(rangeQualityNormalized))
+            || !IsFinite(rangeQualityNormalized)
+            || !IsFinite(visibilityQualityNormalized)
+            || visibilityQualityNormalized < 0f
+            || visibilityQualityNormalized > 1f)
         {
             return false;
         }
 
         result = new AutoTargetScoreResult(
             exposureNormalized,
-            rangeQualityNormalized
+            rangeQualityNormalized,
+            visibilityQualityNormalized
         );
         return true;
     }

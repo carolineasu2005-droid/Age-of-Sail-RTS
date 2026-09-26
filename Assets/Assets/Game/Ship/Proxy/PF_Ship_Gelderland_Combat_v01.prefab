@@ -1682,6 +1682,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::CombatVFXPlaceholderReceiver
   visualSpawningEnabled: 1
+  cannonLingeringSmokePrefab: {fileID: 6318024350754962161, guid: e3801a6b6bac20446be1160c98a91592, type: 3}
 --- !u!114 &910000000000000020
 MonoBehaviour:
   m_ObjectHideFlags: 0

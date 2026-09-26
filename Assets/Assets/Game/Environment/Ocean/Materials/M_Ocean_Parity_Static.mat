@@ -1,0 +1,111 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_Ocean_Parity_Static
+  m_Shader: {fileID: 4800000, guid: b73997600ada97b43b995ca462a50605, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _Ramp01:
+        m_Texture: {fileID: 2800000, guid: 826a36e866b42df4598a5a5bb65adf81, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp02:
+        m_Texture: {fileID: 2800000, guid: 51d3571bb3046fe4294ec01afb35ecd0, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp03:
+        m_Texture: {fileID: 2800000, guid: 58e869e221f028b458f30c2d76acc178, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp04:
+        m_Texture: {fileID: 2800000, guid: b02d9a0c7d1cd7b4b8b59d3595070533, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp05:
+        m_Texture: {fileID: 2800000, guid: 3a0f2db15d090e24589a81f87169fd48, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp06:
+        m_Texture: {fileID: 2800000, guid: 19d189b9bcc8db14eaf03ffb72fdf445, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp07:
+        m_Texture: {fileID: 2800000, guid: 0afee10e981ac334c9f8fd8f93dcce17, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp08:
+        m_Texture: {fileID: 2800000, guid: d81f5735e855ac944b6662ff1bf6c691, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp09:
+        m_Texture: {fileID: 2800000, guid: 28afaa31f38bf434190a52f6be8e6763, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp10:
+        m_Texture: {fileID: 2800000, guid: b05c1fe185aaec24a8333a6ed6f41f15, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Ramp11:
+        m_Texture: {fileID: 2800000, guid: 2a49e263c6f29d440a729dc136d5cb22, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BlenderDistanceDepth: -0.79999924
+    - _BroadHighlightPower: 4
+    - _ContactFoamEvolutionSpeed: 0.70000005
+    - _ContactFoamRange: 1
+    - _ContactFoamStrength: 0.100000024
+    - _CrestHeightOffset: 0
+    - _CrestHeightScale: 1
+    - _CrestStrength: 1
+    - _DebugMode: 0
+    - _DistanceFadeEnd: 500
+    - _DistanceFadeStart: 0
+    - _DistanceFadeStrength: 1
+    - _FoamAttributeScale: 0.6
+    - _FoamDistanceFadeEnd: 100
+    - _FoamDistanceFadeStart: 35
+    - _FoamNoiseScale: 0.12
+    - _FoamNoiseStrength: 1
+    - _FresnelIOR: 1.5
+    - _FresnelStrength: 1
+    - _HighlightSignalPower: 12
+    - _HighlightStrength: 0.8
+    - _MainLightShadowInfluence: 0.15
+    - _ShadowStrength: 0.5
+    - _TransmissionGlossPower: 1
+    - _TransmissionNormalFlattening: 0.5
+    - _TransmissionStrength: 1
+    - _WaterReflectionFactor: 0
+    - _WaterTransparencyRange: 3.3999999
+    - _WaveFoamBrightness: 1
+    - _WaveFoamStrength: 0.4
+    m_Colors:
+    - _BaseColor: {r: 0, g: 0.29613832, b: 1, a: 1}
+    - _ContactFoamColor: {r: 0.62261915, g: 0.62261915, b: 0.62261915, a: 1}
+    - _CrestColor: {r: 0.06300866, g: 0.6239611, b: 0.8069526, a: 1}
+    - _FarOceanColor: {r: 0.5906203, g: 0.8307672, b: 0.93009496, a: 1}
+    - _FoamNoiseOffset: {r: 0, g: 0, b: 0, a: 0}
+    - _FresnelColor: {r: 0.270495, g: 0.9734461, b: 1, a: 1}
+    - _TransmissionColor: {r: 0, g: 0.8796233, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

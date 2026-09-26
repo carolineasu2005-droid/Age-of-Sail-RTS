@@ -98,7 +98,7 @@ public class BroadsideFireExecutionPlayModeTests
 
 
     [UnityTest]
-    public IEnumerator AcceptedBroadside_EmitsOneMuzzlePlaceholderPerShot()
+    public IEnumerator AcceptedBroadside_EmitsOneLingeringSmokePerShot()
     {
         GameObject shooter = CreateShip(Vector3.zero, true);
         GameObject target = CreateShip(Vector3.right * 100f, false);
@@ -108,14 +108,20 @@ public class BroadsideFireExecutionPlayModeTests
             target,
             4321u
         );
-        GameObject[] muzzlePlaceholders = Object
-            .FindObjectsByType<GameObject>(FindObjectsInactive.Include)
-            .Where(candidate => candidate.name
-                == "Combat VFX Placeholder - Muzzle Fire")
+        ParticleSystem[] muzzleSmoke = Object
+            .FindObjectsByType<ParticleSystem>(FindObjectsInactive.Include)
+            .Where(candidate => candidate.gameObject.name
+                == "VFX_Cannon_LingeringSmoke_v01(Clone)")
             .ToArray();
 
         Assert.That(result.BroadsideExecution.ShotCount, Is.EqualTo(13));
-        Assert.That(muzzlePlaceholders, Has.Length.EqualTo(13));
+        Assert.That(muzzleSmoke, Has.Length.EqualTo(13));
+        Assert.That(
+            muzzleSmoke.All(candidate =>
+                candidate.isPlaying
+                && candidate.transform.parent == null),
+            Is.True
+        );
         yield return null;
     }
 

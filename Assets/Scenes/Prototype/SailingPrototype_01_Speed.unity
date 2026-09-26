@@ -461,6 +461,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: -23
       objectReference: {fileID: 0}
+    - target: {fileID: 910000000000000025, guid: 45f76b674dece124096d84bb473f8322, type: 3}
+      propertyPath: combatVFXReceiver
+      value: 
+      objectReference: {fileID: 89041138}
     - target: {fileID: 1182704728908519034, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.z
       value: -26
@@ -885,6 +889,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::CombatVFXPlaceholderReceiver
   visualSpawningEnabled: 1
+  cannonLingeringSmokePrefab: {fileID: 6318024350754962161, guid: e3801a6b6bac20446be1160c98a91592, type: 3}
 --- !u!1001 &141315335
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2204,6 +2209,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: -23
       objectReference: {fileID: 0}
+    - target: {fileID: 910000000000000025, guid: 45f76b674dece124096d84bb473f8322, type: 3}
+      propertyPath: combatVFXReceiver
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 1182704728908519034, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.z
       value: -26
@@ -2628,6 +2637,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::CombatVFXPlaceholderReceiver
   visualSpawningEnabled: 1
+  cannonLingeringSmokePrefab: {fileID: 0}
 --- !u!1001 &297382680
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8351,6 +8361,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: -23
       objectReference: {fileID: 0}
+    - target: {fileID: 910000000000000025, guid: 45f76b674dece124096d84bb473f8322, type: 3}
+      propertyPath: combatVFXReceiver
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 1182704728908519034, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.z
       value: -26
@@ -8775,6 +8789,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::CombatVFXPlaceholderReceiver
   visualSpawningEnabled: 1
+  cannonLingeringSmokePrefab: {fileID: 0}
 --- !u!1001 &1481223896
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11095,6 +11110,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: -23
       objectReference: {fileID: 0}
+    - target: {fileID: 910000000000000025, guid: 45f76b674dece124096d84bb473f8322, type: 3}
+      propertyPath: combatVFXReceiver
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 1182704728908519034, guid: 45f76b674dece124096d84bb473f8322, type: 3}
       propertyPath: m_LocalPosition.z
       value: -26
@@ -11519,6 +11538,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::CombatVFXPlaceholderReceiver
   visualSpawningEnabled: 1
+  cannonLingeringSmokePrefab: {fileID: 0}
 --- !u!1 &1843676333
 GameObject:
   m_ObjectHideFlags: 0

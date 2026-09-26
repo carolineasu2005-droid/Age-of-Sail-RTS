@@ -154,16 +154,26 @@ public class ShipSinkingPresentationPlayModeTests
             Is.EqualTo(initialVisualPosition)
         );
 
-        const int maximumFrames = 30;
-        int frame = 0;
+        float completionTimeoutSeconds = Mathf.Max(
+            0.5f,
+            presentationProfile.SinkDurationSeconds * 5f
+        );
+        float completionDeadline = Time.realtimeSinceStartup
+            + completionTimeoutSeconds;
 
-        while (!presentation.IsComplete && frame < maximumFrames)
+        while (!presentation.IsComplete
+            && Time.realtimeSinceStartup < completionDeadline)
         {
-            frame++;
             yield return null;
         }
 
-        Assert.That(presentation.IsComplete, Is.True);
+        Assert.That(
+            presentation.IsComplete,
+            Is.True,
+            $"Sinking presentation did not complete within "
+                + $"{completionTimeoutSeconds:F2}s; progress was "
+                + $"{presentation.Progress:F3}."
+        );
         Assert.That(presentation.Progress, Is.EqualTo(1f));
         Assert.That(
             visual.transform.localPosition,

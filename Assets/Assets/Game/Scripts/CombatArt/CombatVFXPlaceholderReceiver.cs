@@ -13,6 +13,9 @@ public sealed class CombatVFXPlaceholderReceiver
     [SerializeField]
     private bool visualSpawningEnabled = true;
 
+    [SerializeField]
+    private GameObject cannonLingeringSmokePrefab;
+
 
     public bool VisualSpawningEnabled
     {
@@ -20,16 +23,38 @@ public sealed class CombatVFXPlaceholderReceiver
         set => visualSpawningEnabled = value;
     }
 
+    public GameObject CannonLingeringSmokePrefab =>
+        cannonLingeringSmokePrefab;
+
 
     public void OnMuzzleFire(CombatMuzzleFireEvent eventData)
     {
-        SpawnPlaceholder(
-            "Combat VFX Placeholder - Muzzle Fire",
-            PrimitiveType.Cube,
+        if (!visualSpawningEnabled
+            || cannonLingeringSmokePrefab == null
+            || !IsFinite(eventData.PositionWorld)
+            || !TryCreateForwardRotation(
+                eventData.DirectionWorld,
+                out Quaternion rotationWorld
+            )
+            || cannonLingeringSmokePrefab
+                .GetComponentsInChildren<ParticleSystem>(true)
+                .Length == 0)
+        {
+            return;
+        }
+
+        GameObject smoke = Instantiate(
+            cannonLingeringSmokePrefab,
             eventData.PositionWorld,
-            RotationFromForward(eventData.DirectionWorld),
-            new Vector3(0.2f, 0.2f, 0.8f)
+            rotationWorld
         );
+        ParticleSystem[] particleSystems = smoke
+            .GetComponentsInChildren<ParticleSystem>(true);
+
+        foreach (ParticleSystem particleSystem in particleSystems)
+        {
+            particleSystem.Play(true);
+        }
     }
 
 
@@ -90,17 +115,39 @@ public sealed class CombatVFXPlaceholderReceiver
     }
 
 
-    private static Quaternion RotationFromForward(Vector3 directionWorld)
+    private static bool TryCreateForwardRotation(
+        Vector3 directionWorld,
+        out Quaternion rotationWorld
+    )
     {
-        if (directionWorld.sqrMagnitude <= MinimumDirectionSqrMagnitude)
+        rotationWorld = Quaternion.identity;
+
+        if (!IsFinite(directionWorld)
+            || directionWorld.sqrMagnitude <= MinimumDirectionSqrMagnitude)
         {
-            return Quaternion.identity;
+            return false;
         }
 
-        return Quaternion.FromToRotation(
-            Vector3.forward,
-            directionWorld.normalized
-        );
+        Vector3 forward = directionWorld.normalized;
+        Vector3 up = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) < 0.999f
+            ? Vector3.up
+            : Vector3.forward;
+        rotationWorld = Quaternion.LookRotation(forward, up);
+        return true;
+    }
+
+
+    private static bool IsFinite(Vector3 value)
+    {
+        return IsFinite(value.x)
+            && IsFinite(value.y)
+            && IsFinite(value.z);
+    }
+
+
+    private static bool IsFinite(float value)
+    {
+        return !float.IsNaN(value) && !float.IsInfinity(value);
     }
 
 
@@ -111,6 +158,9 @@ public sealed class CombatVFXPlaceholderReceiver
             return Quaternion.identity;
         }
 
-        return Quaternion.FromToRotation(Vector3.up, normalWorld.normalized);
+        return Quaternion.FromToRotation(
+            Vector3.up,
+            normalWorld.normalized
+        );
     }
 }

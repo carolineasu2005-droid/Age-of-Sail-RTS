@@ -14,6 +14,9 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
 {
     private const string CombatPrefabPath =
         "Assets/Assets/Game/Ship/Proxy/PF_Ship_Gelderland_Combat_v01.prefab";
+    private const string SmokePrefabPath =
+        "Assets/Assets/Game/VFX/Cannon/Prefabs/"
+        + "VFX_Cannon_LingeringSmoke_v01.prefab";
     private const float PositionTolerance = 0.0001f;
     private const float DirectionDotTolerance = 0.9999f;
 
@@ -33,6 +36,7 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
     private readonly List<GameObject> spawnedObjects = new List<GameObject>();
     private GameObject receiverObject;
     private CombatVFXPlaceholderReceiver receiver;
+    private GameObject smokePrefab;
 
 
     [UnitySetUp]
@@ -40,6 +44,13 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
     {
         receiverObject = new GameObject("Placeholder VFX Receiver");
         receiver = receiverObject.AddComponent<CombatVFXPlaceholderReceiver>();
+#if UNITY_EDITOR
+        smokePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SmokePrefabPath);
+        Assert.That(smokePrefab, Is.Not.Null);
+        AssignSmokePrefab(smokePrefab);
+#else
+        Assert.Ignore("Prefab asset loading requires the Unity Editor.");
+#endif
         yield return null;
     }
 
@@ -111,11 +122,11 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
                 Is.GreaterThan(DirectionDotTolerance)
             );
 
-            GameObject portPlaceholder = SpawnMuzzlePlaceholder(
+            GameObject portPlaceholder = SpawnMuzzleSmoke(
                 ship,
                 portSocket
             );
-            GameObject starboardPlaceholder = SpawnMuzzlePlaceholder(
+            GameObject starboardPlaceholder = SpawnMuzzleSmoke(
                 ship,
                 starboardSocket
             );
@@ -168,7 +179,7 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
                 Is.LessThan(0.99f)
             );
 
-            GameObject placeholder = SpawnMuzzlePlaceholder(ship, socket);
+            GameObject placeholder = SpawnMuzzleSmoke(ship, socket);
 
             AssertWorldPose(
                 placeholder.transform,
@@ -176,6 +187,120 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
                 socket.forward,
                 false
             );
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(ship);
+        }
+
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator MuzzleSmoke_RemainsAtSpawnPoseWhenShooterMoves()
+    {
+        GameObject ship = InstantiateCombatShip();
+
+        try
+        {
+            Transform socket = ship.GetComponent<ShipMuzzleSockets>()
+                .PortMuzzles[0];
+            GameObject smoke = SpawnMuzzleSmoke(ship, socket);
+            Vector3 spawnPosition = smoke.transform.position;
+            Quaternion spawnRotation = smoke.transform.rotation;
+
+            ship.transform.SetPositionAndRotation(
+                new Vector3(150f, 0f, -80f),
+                Quaternion.Euler(0f, 165f, 0f)
+            );
+            yield return null;
+
+            Assert.That(smoke, Is.Not.Null);
+            AssertTransformUnchanged(
+                smoke.transform,
+                spawnPosition,
+                spawnRotation
+            );
+            Assert.That(smoke.transform.parent, Is.Null);
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(ship);
+        }
+    }
+
+
+    [UnityTest]
+    public IEnumerator MissingSmokePrefab_FailsSafelyWithoutCreatingPresentation()
+    {
+        GameObject sourceShip = new GameObject("Source Ship");
+
+        try
+        {
+            AssignSmokePrefab(null);
+            Vector3 sourcePosition = sourceShip.transform.position;
+            Quaternion sourceRotation = sourceShip.transform.rotation;
+            HashSet<GameObject> before = CaptureGameObjects();
+
+            receiver.OnMuzzleFire(new CombatMuzzleFireEvent(
+                new Vector3(9f, 2f, -6f),
+                Vector3.right,
+                sourceShip,
+                "S01"
+            ));
+
+            Assert.That(CaptureGameObjects(), Is.EquivalentTo(before));
+            AssertTransformUnchanged(
+                sourceShip.transform,
+                sourcePosition,
+                sourceRotation
+            );
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(sourceShip);
+        }
+
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator ThirteenMuzzleEvents_CreateThirteenIndependentSmokeInstances()
+    {
+        GameObject ship = InstantiateCombatShip();
+
+        try
+        {
+            IReadOnlyList<Transform> muzzles = ship
+                .GetComponent<ShipMuzzleSockets>()
+                .StarboardMuzzles;
+            Assert.That(muzzles, Has.Count.EqualTo(13));
+            HashSet<GameObject> before = CaptureGameObjects();
+
+            foreach (Transform muzzle in muzzles)
+            {
+                receiver.OnMuzzleFire(new CombatMuzzleFireEvent(
+                    muzzle.position,
+                    muzzle.forward,
+                    ship,
+                    muzzle.name
+                ));
+            }
+
+            GameObject[] addedObjects = UnityEngine.Object
+                .FindObjectsByType<GameObject>(FindObjectsInactive.Include)
+                .Where(candidate => !before.Contains(candidate))
+                .ToArray();
+            Assert.That(addedObjects, Has.Length.EqualTo(13));
+            Assert.That(
+                addedObjects.All(candidate =>
+                    candidate.GetComponent<ParticleSystem>() != null
+                    && candidate.transform.parent == null),
+                Is.True
+            );
+            spawnedObjects.AddRange(addedObjects);
         }
         finally
         {
@@ -355,7 +480,7 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
     }
 
 
-    private GameObject SpawnMuzzlePlaceholder(
+    private GameObject SpawnMuzzleSmoke(
         GameObject sourceShip,
         Transform socket
     )
@@ -374,7 +499,7 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
                 socket.name
             )
         );
-        GameObject placeholder = CaptureSpawnedObject(before);
+        GameObject smoke = CaptureSpawnedObject(before);
 
         AssertTransformUnchanged(
             receiverObject.transform,
@@ -386,7 +511,26 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
             shipPosition,
             shipRotation
         );
-        return placeholder;
+        Assert.That(smoke.transform.parent, Is.Null);
+        ParticleSystem particleSystem = smoke
+            .GetComponentInChildren<ParticleSystem>(true);
+        Assert.That(particleSystem, Is.Not.Null);
+        Assert.That(particleSystem.isPlaying, Is.True);
+        return smoke;
+    }
+
+
+    private void AssignSmokePrefab(GameObject prefab)
+    {
+#if UNITY_EDITOR
+        SerializedObject serializedReceiver = new SerializedObject(receiver);
+        SerializedProperty prefabProperty = serializedReceiver.FindProperty(
+            "cannonLingeringSmokePrefab"
+        );
+        Assert.That(prefabProperty, Is.Not.Null);
+        prefabProperty.objectReferenceValue = prefab;
+        serializedReceiver.ApplyModifiedPropertiesWithoutUndo();
+#endif
     }
 
 

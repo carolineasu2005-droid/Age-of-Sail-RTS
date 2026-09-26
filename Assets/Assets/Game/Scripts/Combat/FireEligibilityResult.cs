@@ -10,13 +10,15 @@ public enum FireEligibilityFailure
     BeyondMaximumRange = 1 << 2,
     BroadsideReloading = 1 << 3,
     LifecycleDisallowsFire = 1 << 4,
-    Obstructed = 1 << 5
+    Obstructed = 1 << 5,
+    TargetLifecycleIllegal = 1 << 6
 }
 
 public readonly struct FireEligibilityResult
 {
     internal FireEligibilityResult(
         bool targetLegal,
+        bool targetLifecycleLegal,
         CombatSide? side,
         bool inBroadsideArc,
         float targetLocalBearingDegrees,
@@ -34,6 +36,7 @@ public readonly struct FireEligibilityResult
     )
     {
         TargetLegal = targetLegal;
+        TargetLifecycleLegal = targetLifecycleLegal;
         Side = side;
         InBroadsideArc = inBroadsideArc;
         TargetLocalBearingDegrees = targetLocalBearingDegrees;
@@ -52,6 +55,8 @@ public readonly struct FireEligibilityResult
 
 
     public bool TargetLegal { get; }
+
+    public bool TargetLifecycleLegal { get; }
 
     public CombatSide? Side { get; }
 

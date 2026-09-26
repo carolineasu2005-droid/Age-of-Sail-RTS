@@ -526,6 +526,7 @@ public class ShipBlindFirePlayerCommandTests
         );
         Assert.That(prefab, Is.Not.Null);
         GameObject root = UnityEngine.Object.Instantiate(prefab);
+        CombatLifecycleTestUtility.EnsureOperational(root);
         root.name = name;
         root.GetComponent<CombatVFXPlaceholderReceiver>()
             .VisualSpawningEnabled = false;

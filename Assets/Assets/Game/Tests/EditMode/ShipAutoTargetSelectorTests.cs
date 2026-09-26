@@ -799,6 +799,7 @@ public class ShipAutoTargetSelectorTests
     {
         GameObject root = new GameObject(name);
         createdRoots.Add(root);
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
         root.AddComponent<ShipCombatState>();
         ShipArtDefinition artDefinition = root.AddComponent<ShipArtDefinition>();
         SetArtReferences(root, artDefinition);

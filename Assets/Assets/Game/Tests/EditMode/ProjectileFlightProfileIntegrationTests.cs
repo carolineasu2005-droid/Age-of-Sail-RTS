@@ -188,6 +188,7 @@ public class ProjectileFlightProfileIntegrationTests
 
     private static FireAimBasis BuildBlindFireBasis(GameObject sourceRoot)
     {
+        CombatLifecycleTestUtility.EnsureOperational(sourceRoot);
         Vector3 aimPoint = sourceRoot.transform.position
             + sourceRoot.transform.right * 100f;
         ShipFireEligibility eligibility =

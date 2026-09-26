@@ -482,6 +482,7 @@ public class ShipAutoTargetScorerTests
     private GameObject CreateShip(string name, bool includeExposure)
     {
         GameObject root = new GameObject(name);
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
         root.AddComponent<ShipCombatState>();
         ShipArtDefinition artDefinition =
             root.AddComponent<ShipArtDefinition>();

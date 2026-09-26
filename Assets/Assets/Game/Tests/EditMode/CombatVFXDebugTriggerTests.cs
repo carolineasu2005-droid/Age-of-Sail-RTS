@@ -129,6 +129,10 @@ public class CombatVFXDebugTriggerTests
             receiver.HullEvents[0].TargetShip,
             Is.SameAs(targetShip)
         );
+        Assert.That(
+            receiver.HullEvents[0].HitRegion,
+            Is.EqualTo(CombatHullRegion.Midship)
+        );
         Assert.That(targetShip.transform.position, Is.EqualTo(targetPosition));
         Assert.That(targetShip.transform.rotation, Is.EqualTo(targetRotation));
     }

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -120,7 +121,7 @@ public class BroadsideFireExecutionPlayModeTests
 
 
     [UnityTest]
-    public IEnumerator IntegratedHullContact_ResolvesSemanticHitAndVFXOnly()
+    public IEnumerator IntegratedHullContact_ResolvesDamageAndVFX()
     {
         GameObject shooter = CreateShip(Vector3.zero, true);
         GameObject target = CreateShip(Vector3.right * 100f, false);
@@ -133,6 +134,11 @@ public class BroadsideFireExecutionPlayModeTests
         Physics.SyncTransforms();
         Vector3 shooterPosition = shooter.transform.position;
         Quaternion shooterRotation = shooter.transform.rotation;
+        ShipIntegrity targetIntegrity = target.GetComponent<ShipIntegrity>();
+        float previousIntegrity = targetIntegrity.CurrentIntegrity;
+        CombatDamageProfile damageProfile = shooter
+            .GetComponent<ShipBroadsideFireExecutor>()
+            .CombatDamageProfile;
 
         ExecuteTargeted(shooter, target, 2468u);
         CombatProjectile[] projectiles = FindCurrentProjectiles();
@@ -169,6 +175,23 @@ public class BroadsideFireExecutionPlayModeTests
                 .LastHullHitCount,
             Is.EqualTo(1)
         );
+        ShipBroadsideFireExecutor executor =
+            shooter.GetComponent<ShipBroadsideFireExecutor>();
+        Assert.That(executor.HasLastTerminalResolution, Is.True);
+        Assert.That(
+            executor.LastTerminalResolution.Outcome.HitContext.Region,
+            Is.EqualTo(CombatHullRegion.Midship)
+        );
+        Assert.That(
+            executor.LastTerminalResolution.DamageResult.HitRegion,
+            Is.EqualTo(CombatHullRegion.Midship)
+        );
+        Assert.That(
+            targetIntegrity.CurrentIntegrity,
+            Is.EqualTo(
+                previousIntegrity - damageProfile.RoundShotBaseDamage
+            )
+        );
         Assert.That(
             Object.FindObjectsByType<GameObject>(
                 FindObjectsInactive.Include
@@ -178,7 +201,120 @@ public class BroadsideFireExecutionPlayModeTests
         );
         Assert.That(shooter.transform.position, Is.EqualTo(shooterPosition));
         Assert.That(shooter.transform.rotation, Is.EqualTo(shooterRotation));
+
+        float integrityAfterTerminal = targetIntegrity.CurrentIntegrity;
+        Assert.That(observed.SimulateStep(0.02f), Is.False);
+        Assert.That(
+            targetIntegrity.CurrentIntegrity,
+            Is.EqualTo(integrityAfterTerminal)
+        );
+        Assert.That(executor.LastHullHitCount, Is.EqualTo(1));
         yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator RepeatedPhysicalHits_ReachDisabledThenSinkingPresentation()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject target = CreateShip(Vector3.right * 100f, false);
+        ShipCombatGeometry geometry =
+            target.GetComponent<ShipCombatGeometry>();
+        BoxCollider midshipCollider =
+            geometry.MidshipRegion.QueryCollider as BoxCollider;
+        Assert.That(midshipCollider, Is.Not.Null);
+        midshipCollider.size = new Vector3(60f, 60f, 60f);
+        ShipIntegrity integrity = target.GetComponent<ShipIntegrity>();
+        ShipSinkingPresentation presentation =
+            target.GetComponent<ShipSinkingPresentation>();
+        Transform visualRoot = target.GetComponent<ShipArtDefinition>()
+            .VisualRoot;
+        ShipCombatState shooterState =
+            shooter.GetComponent<ShipCombatState>();
+        Physics.SyncTransforms();
+
+        for (int hitIndex = 1; hitIndex <= 10; hitIndex++)
+        {
+            TargetedFireExecutionResult execution = ExecuteTargeted(
+                shooter,
+                target,
+                (uint)(7000 + hitIndex)
+            );
+            Assert.That(
+                execution.BroadsideExecution.ShotCount,
+                Is.EqualTo(13)
+            );
+            Assert.That(
+                execution.BroadsideExecution.SpawnedProjectileCount,
+                Is.EqualTo(13)
+            );
+
+            CombatProjectile[] projectiles = FindCurrentProjectiles();
+            Assert.That(projectiles, Has.Length.EqualTo(13));
+            foreach (CombatProjectile projectile in projectiles)
+            {
+                projectile.enabled = false;
+            }
+
+            CombatProjectile observed = projectiles[0];
+            float integrityBeforeHit = integrity.CurrentIntegrity;
+            SimulateUntilTerminal(observed);
+            Assert.That(
+                integrity.CurrentIntegrity,
+                Is.LessThan(integrityBeforeHit)
+            );
+
+            foreach (CombatProjectile projectile in projectiles)
+            {
+                if (projectile != null && projectile != observed)
+                {
+                    UnityEngine.Object.Destroy(projectile.gameObject);
+                }
+            }
+
+            yield return null;
+
+            if (hitIndex == 7)
+            {
+                Assert.That(
+                    integrity.LifecycleState,
+                    Is.EqualTo(ShipCombatLifecycleState.Operational)
+                );
+            }
+            else if (hitIndex == 8 || hitIndex == 9)
+            {
+                Assert.That(
+                    integrity.LifecycleState,
+                    Is.EqualTo(ShipCombatLifecycleState.CombatDisabled)
+                );
+                Assert.That(presentation.HasStarted, Is.False);
+            }
+
+            if (hitIndex < 10)
+            {
+                AdvanceReloadsToReady(shooterState);
+            }
+        }
+
+        Assert.That(
+            integrity.LifecycleState,
+            Is.EqualTo(ShipCombatLifecycleState.Sinking)
+        );
+        Assert.That(presentation.HasStarted, Is.True);
+        Assert.That(target.activeSelf, Is.True);
+        Vector3 rootPosition = target.transform.position;
+        Quaternion rootRotation = target.transform.rotation;
+        Vector3 initialVisualPosition = visualRoot.localPosition;
+
+        AdvanceSinkingPresentation(presentation, 1f);
+
+        Assert.That(
+            visualRoot.localPosition.y,
+            Is.LessThan(initialVisualPosition.y)
+        );
+        Assert.That(target.transform.position, Is.EqualTo(rootPosition));
+        Assert.That(target.transform.rotation, Is.EqualTo(rootRotation));
+        Assert.That(target.activeSelf, Is.True);
     }
 
 
@@ -186,6 +322,13 @@ public class BroadsideFireExecutionPlayModeTests
     public IEnumerator IntegratedBlindFireMiss_ResolvesWaterAndVFXOnly()
     {
         GameObject shooter = CreateShip(Vector3.zero, true);
+        GameObject unaffectedTarget = CreateShip(
+            Vector3.right * 100f,
+            false
+        );
+        ShipIntegrity unaffectedIntegrity =
+            unaffectedTarget.GetComponent<ShipIntegrity>();
+        float integrityBeforeMiss = unaffectedIntegrity.CurrentIntegrity;
         ShipBlindFireCommand command = new ShipBlindFireCommand(
             shooter.GetComponent<ShipFireEligibility>(),
             shooter.GetComponent<ShipCombatState>(),
@@ -220,6 +363,21 @@ public class BroadsideFireExecutionPlayModeTests
             shooter.GetComponent<ShipBroadsideFireExecutor>()
                 .LastWaterMissCount,
             Is.EqualTo(1)
+        );
+        ShipBroadsideFireExecutor executor =
+            shooter.GetComponent<ShipBroadsideFireExecutor>();
+        Assert.That(executor.HasLastTerminalResolution, Is.True);
+        Assert.That(
+            executor.LastTerminalResolution.Outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.WaterMiss)
+        );
+        Assert.That(
+            executor.LastTerminalResolution.DamageResult.AppliedDamage,
+            Is.Zero
+        );
+        Assert.That(
+            unaffectedIntegrity.CurrentIntegrity,
+            Is.EqualTo(integrityBeforeMiss)
         );
         Assert.That(
             Object.FindObjectsByType<GameObject>(
@@ -294,5 +452,41 @@ public class BroadsideFireExecutionPlayModeTests
         }
 
         Assert.That(projectile.IsTerminated, Is.True);
+    }
+
+
+    private static void AdvanceReloadsToReady(ShipCombatState state)
+    {
+        MethodInfo method = typeof(ShipCombatState).GetMethod(
+            "AdvanceReloads",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(method, Is.Not.Null);
+        method.Invoke(
+            state,
+            new object[] { state.BroadsideReloadDurationSeconds }
+        );
+        Assert.That(
+            state.PortBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(
+            state.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+    }
+
+
+    private static void AdvanceSinkingPresentation(
+        ShipSinkingPresentation presentation,
+        float deltaTimeSeconds
+    )
+    {
+        MethodInfo method = typeof(ShipSinkingPresentation).GetMethod(
+            "AdvancePresentation",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(method, Is.Not.Null);
+        method.Invoke(presentation, new object[] { deltaTimeSeconds });
     }
 }

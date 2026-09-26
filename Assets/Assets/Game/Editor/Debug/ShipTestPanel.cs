@@ -156,6 +156,19 @@ public sealed class ShipTestPanel : EditorWindow
         {
             scrollPosition = scrollView.scrollPosition;
 
+            DrawPhaseSevenDiagnostics(
+                targetShipRoot,
+                "Shooter",
+                true
+            );
+            EditorGUILayout.Space();
+            DrawPhaseSevenDiagnostics(
+                eligibilityTargetShipRoot,
+                "Target",
+                false
+            );
+            EditorGUILayout.Space();
+
             if (TryGetCombatState(
                 targetShipRoot,
                 out ShipCombatState combatState,
@@ -184,6 +197,149 @@ public sealed class ShipTestPanel : EditorWindow
             EditorGUILayout.Space();
             DrawTargetedFireSection();
         }
+    }
+
+
+    private static void DrawPhaseSevenDiagnostics(
+        GameObject shipRoot,
+        string role,
+        bool includeLatestTerminalResolution
+    )
+    {
+        EditorGUILayout.LabelField(
+            $"Phase 7 — {role}",
+            EditorStyles.boldLabel
+        );
+        EditorGUILayout.HelpBox(
+            BuildPhaseSevenDiagnostics(
+                shipRoot,
+                includeLatestTerminalResolution
+            ),
+            shipRoot != null
+                ? MessageType.None
+                : MessageType.Info
+        );
+    }
+
+
+    private static string BuildPhaseSevenDiagnostics(
+        GameObject shipRoot,
+        bool includeLatestTerminalResolution
+    )
+    {
+        if (shipRoot == null)
+        {
+            return "Ship Root: None";
+        }
+
+        StringBuilder summary = new StringBuilder();
+        summary.Append("Ship: ").AppendLine(shipRoot.name);
+        ShipIntegrity integrity = shipRoot.GetComponent<ShipIntegrity>();
+
+        if (integrity == null || !integrity.IsInitialized)
+        {
+            summary.AppendLine("Integrity: UNAVAILABLE");
+            summary.AppendLine("Lifecycle: UNAVAILABLE");
+        }
+        else
+        {
+            summary.Append("Integrity: ")
+                .Append(integrity.CurrentIntegrity.ToString("F1"))
+                .Append(" / ")
+                .AppendLine(integrity.MaximumIntegrity.ToString("F1"));
+            summary.Append("Lifecycle: ").AppendLine(
+                FormatLifecycleState(integrity.LifecycleState)
+            );
+        }
+
+        ShipSinkingPresentation presentation =
+            shipRoot.GetComponent<ShipSinkingPresentation>();
+
+        if (presentation == null)
+        {
+            summary.AppendLine("Sinking Presentation: UNAVAILABLE");
+        }
+        else
+        {
+            string status = presentation.IsComplete
+                ? "COMPLETE"
+                : presentation.HasStarted
+                    ? "ACTIVE"
+                    : "INACTIVE";
+            summary.Append("Sinking Presentation: ")
+                .AppendLine(status);
+            summary.Append("Presentation Progress: ")
+                .AppendLine(presentation.Progress.ToString("F3"));
+        }
+
+        if (!includeLatestTerminalResolution)
+        {
+            return summary.ToString();
+        }
+
+        ShipBroadsideFireExecutor executor =
+            shipRoot.GetComponent<ShipBroadsideFireExecutor>();
+
+        if (executor == null || !executor.HasLastTerminalResolution)
+        {
+            summary.Append("Latest Resolved Outcome: NONE");
+            return summary.ToString();
+        }
+
+        CombatTerminalResolutionDiagnostics diagnostics =
+            executor.LastTerminalResolution;
+        FoundationShotOutcome outcome = diagnostics.Outcome;
+        summary.Append("Latest Resolved Outcome: ")
+            .AppendLine(outcome.Kind.ToString().ToUpperInvariant());
+
+        if (outcome.HasHitContext)
+        {
+            summary.Append("Hit Region: ")
+                .AppendLine(outcome.HitContext.Region.ToString());
+        }
+        else
+        {
+            summary.AppendLine("Hit Region: N/A");
+        }
+
+        if (!diagnostics.DamageResolutionSucceeded)
+        {
+            summary.Append("Damage Resolution: FAILED — ")
+                .Append(diagnostics.DamageFailure.ToString());
+            return summary.ToString();
+        }
+
+        CombatDamageResult damage = diagnostics.DamageResult;
+        summary.Append("Applied Damage: ")
+            .AppendLine(damage.AppliedDamage.ToString("F1"));
+
+        if (damage.HasIntegrityTransition)
+        {
+            summary.Append("Integrity: ")
+                .Append(damage.PreviousIntegrity.ToString("F1"))
+                .Append(" → ")
+                .AppendLine(damage.CurrentIntegrity.ToString("F1"));
+            summary.Append("Lifecycle: ")
+                .Append(FormatLifecycleState(
+                    damage.PreviousLifecycleState
+                ))
+                .Append(" → ")
+                .Append(FormatLifecycleState(
+                    damage.CurrentLifecycleState
+                ));
+        }
+
+        return summary.ToString();
+    }
+
+
+    private static string FormatLifecycleState(
+        ShipCombatLifecycleState lifecycleState
+    )
+    {
+        return lifecycleState == ShipCombatLifecycleState.CombatDisabled
+            ? "Combat Disabled"
+            : lifecycleState.ToString();
     }
 
 
@@ -1157,10 +1313,13 @@ public sealed class ShipTestPanel : EditorWindow
         summary.Append("Target Legal: ").AppendLine(
             FormatYesNo(result.TargetLegal)
         );
+        summary.Append("Target Lifecycle: ").AppendLine(
+            result.TargetLifecycleLegal ? "LEGAL" : "SINKING / INVALID"
+        );
         summary.Append("Blocked: ").AppendLine(FormatBlocked(result));
-        summary.Append("Lifecycle: ").AppendLine(
+        summary.Append("Shooter Lifecycle: ").AppendLine(
             result.LifecycleAllowsFire
-                ? "AVAILABLE (BRIDGE)"
+                ? "OPERATIONAL"
                 : "BLOCKED"
         );
         summary.Append("CAN FIRE: ").AppendLine(
@@ -1315,9 +1474,9 @@ public sealed class ShipTestPanel : EditorWindow
         summary.Append("Reload: ").AppendLine(
             result.ReloadReady ? "READY" : "NOT READY"
         );
-        summary.Append("Lifecycle: ").AppendLine(
+        summary.Append("Shooter Lifecycle: ").AppendLine(
             result.LifecycleAllowsFire
-                ? "AVAILABLE (BRIDGE)"
+                ? "OPERATIONAL"
                 : "BLOCKED"
         );
         summary.Append("CAN BLIND FIRE: ").AppendLine(
@@ -1435,6 +1594,12 @@ public sealed class ShipTestPanel : EditorWindow
             failures,
             FireEligibilityFailure.TargetIllegal,
             "TARGET_ILLEGAL"
+        );
+        AppendFailure(
+            reasons,
+            failures,
+            FireEligibilityFailure.TargetLifecycleIllegal,
+            "TARGET_SINKING"
         );
         AppendFailure(
             reasons,

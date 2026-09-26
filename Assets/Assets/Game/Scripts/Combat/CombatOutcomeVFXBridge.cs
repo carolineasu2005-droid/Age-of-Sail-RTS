@@ -22,7 +22,8 @@ public static class CombatOutcomeVFXBridge
             receiver.OnHullImpact(new CombatHullImpactEvent(
                 outcome.WorldPoint,
                 outcome.WorldNormal,
-                outcome.HitContext.TargetShipRoot
+                outcome.HitContext.TargetShipRoot,
+                outcome.HitContext.Region
             ));
             return true;
         }

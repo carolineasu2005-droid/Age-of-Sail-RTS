@@ -474,6 +474,77 @@ public class ShipTestPanelTests
     }
 
 
+    [Test]
+    public void PhaseSevenDiagnostics_ReadAuthoritativeIntegrityAndLifecycle()
+    {
+        GameObject ship = CreateRoot("Phase 7 Diagnostic Ship");
+        ShipIntegrity integrity =
+            CombatLifecycleTestUtility.AddOperationalIntegrity(ship);
+        Assert.That(
+            integrity.TryApplyIntegrityLoss(750f, out _),
+            Is.True
+        );
+
+        string summary = InvokePrivateStatic<string>(
+            "BuildPhaseSevenDiagnostics",
+            ship,
+            false
+        );
+
+        Assert.That(summary, Does.Contain("Integrity: 250.0 / 1000.0"));
+        Assert.That(summary, Does.Contain("Lifecycle: Combat Disabled"));
+        Assert.That(summary, Does.Contain(
+            "Sinking Presentation: UNAVAILABLE"
+        ));
+    }
+
+
+    [Test]
+    public void PhaseSevenDiagnostics_ConsumeResultsWithoutRecalculatingRules()
+    {
+        string source = ReadPanelSource();
+        string diagnosticsMethod = ExtractMethodBlock(
+            source,
+            "private static string BuildPhaseSevenDiagnostics",
+            "private static string FormatLifecycleState"
+        );
+
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "integrity.CurrentIntegrity"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "integrity.MaximumIntegrity"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "integrity.LifecycleState"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "executor.LastTerminalResolution"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "diagnostics.Outcome"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "diagnostics.DamageResult"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain("damage.AppliedDamage"));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "damage.PreviousIntegrity"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "damage.CurrentLifecycleState"
+        ));
+        Assert.That(diagnosticsMethod, Does.Not.Contain(
+            "CombatDamageResolver"
+        ));
+        Assert.That(diagnosticsMethod, Does.Not.Contain(
+            "TryApplyIntegrityLoss"
+        ));
+        Assert.That(diagnosticsMethod, Does.Not.Contain("Threshold"));
+        Assert.That(diagnosticsMethod, Does.Not.Contain("GetRegionMultiplier"));
+    }
+
+
     private GameObject CreateRoot(string name)
     {
         GameObject root = new GameObject(name);
@@ -500,6 +571,8 @@ public class ShipTestPanelTests
         bool includeEligibility
     )
     {
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
+
         if (root.GetComponent<ShipCombatState>() == null)
         {
             root.AddComponent<ShipCombatState>();

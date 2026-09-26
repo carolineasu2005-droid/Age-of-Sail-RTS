@@ -17,6 +17,7 @@ public class ShipFireEligibilityPlayModeTests
     private GameObject shooterRoot;
     private GameObject targetRoot;
     private ShipFireEligibility eligibility;
+    private ShipIntegrityProfile integrityProfile;
     private bool originalQueriesHitTriggers;
 
 
@@ -24,6 +25,19 @@ public class ShipFireEligibilityPlayModeTests
     public IEnumerator SetUp()
     {
         originalQueriesHitTriggers = Physics.queriesHitTriggers;
+        integrityProfile =
+            ScriptableObject.CreateInstance<ShipIntegrityProfile>();
+        SetPrivateField(integrityProfile, "maximumIntegrity", 1000f);
+        SetPrivateField(
+            integrityProfile,
+            "combatDisabledThresholdNormalized",
+            0.25f
+        );
+        SetPrivateField(
+            integrityProfile,
+            "sinkingThresholdNormalized",
+            0.05f
+        );
         shooterRoot = CreateShip("Shooter Root", Vector3.zero);
         targetRoot = CreateShip(
             "Target Root",
@@ -56,6 +70,7 @@ public class ShipFireEligibilityPlayModeTests
         }
 
         createdObjects.Clear();
+        Object.Destroy(integrityProfile);
         yield return null;
     }
 
@@ -216,6 +231,9 @@ public class ShipFireEligibilityPlayModeTests
     private GameObject CreateShip(string name, Vector3 position)
     {
         GameObject root = CreateRoot(name, position);
+        root.SetActive(false);
+        ShipIntegrity integrity = root.AddComponent<ShipIntegrity>();
+        SetPrivateField(integrity, "integrityProfile", integrityProfile);
         root.AddComponent<ShipCombatState>();
         root.AddComponent<ShipCombatGeometry>();
         ShipArtDefinition artDefinition =
@@ -227,6 +245,7 @@ public class ShipFireEligibilityPlayModeTests
             "centerReference",
             center.transform
         );
+        root.SetActive(true);
         return root;
     }
 

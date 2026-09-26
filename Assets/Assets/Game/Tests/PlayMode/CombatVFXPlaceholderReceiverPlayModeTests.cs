@@ -237,7 +237,12 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
             HashSet<GameObject> before = CaptureGameObjects();
 
             receiver.OnHullImpact(
-                new CombatHullImpactEvent(position, normal, targetShip)
+                new CombatHullImpactEvent(
+                    position,
+                    normal,
+                    targetShip,
+                    CombatHullRegion.Midship
+                )
             );
             GameObject placeholder = CaptureSpawnedObject(before);
 
@@ -295,7 +300,8 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
             CombatHullImpactEvent hullEvent = new CombatHullImpactEvent(
                 new Vector3(7f, 8f, 9f),
                 Vector3.forward,
-                targetShip
+                targetShip,
+                CombatHullRegion.Bow
             );
             Vector3 receiverPosition = receiverObject.transform.position;
             Quaternion receiverRotation = receiverObject.transform.rotation;

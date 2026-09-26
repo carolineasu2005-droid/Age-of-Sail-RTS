@@ -75,7 +75,8 @@ public class CombatVFXEventContractTests
             CombatHullImpactEvent eventData = new CombatHullImpactEvent(
                 position,
                 normal,
-                targetShip
+                targetShip,
+                CombatHullRegion.Stern
             );
 
             position = Vector3.zero;
@@ -84,6 +85,10 @@ public class CombatVFXEventContractTests
             Assert.That(eventData.PositionWorld, Is.EqualTo(new Vector3(-12f, 3f, 8f)));
             Assert.That(eventData.NormalWorld, Is.EqualTo(new Vector3(0.8f, 0.1f, -0.4f)));
             Assert.That(eventData.TargetShip, Is.SameAs(targetShip));
+            Assert.That(
+                eventData.HitRegion,
+                Is.EqualTo(CombatHullRegion.Stern)
+            );
         }
         finally
         {
@@ -143,7 +148,8 @@ public class CombatVFXEventContractTests
                 _ = new CombatHullImpactEvent(
                     Vector3.one,
                     Vector3.right,
-                    targetShip
+                    targetShip,
+                    CombatHullRegion.Bow
                 );
             });
         }

@@ -20,6 +20,7 @@ public class ShipBlindFireEligibilityTests
     public void SetUp()
     {
         shooterRoot = new GameObject("Blind Fire Shooter Root");
+        CombatLifecycleTestUtility.AddOperationalIntegrity(shooterRoot);
         combatState = shooterRoot.AddComponent<ShipCombatState>();
         eligibility = shooterRoot.AddComponent<ShipFireEligibility>();
         SetEligibilityConfiguration(100f, 200f);
@@ -481,6 +482,7 @@ public class ShipBlindFireEligibilityTests
         try
         {
             targetRoot.AddComponent<ShipCombatState>();
+            CombatLifecycleTestUtility.AddOperationalIntegrity(targetRoot);
             targetRoot.AddComponent<ShipCombatGeometry>();
             ConfigureArtCenter(targetRoot);
             targetRoot.transform.position = Vector3.right * 50f;

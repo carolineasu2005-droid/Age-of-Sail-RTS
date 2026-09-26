@@ -113,7 +113,8 @@ public sealed class CombatVFXDebugTrigger : MonoBehaviour
             new CombatHullImpactEvent(
                 impactReference.position,
                 impactReference.up,
-                hullTargetShip
+                hullTargetShip,
+                CombatHullRegion.Midship
             )
         );
     }

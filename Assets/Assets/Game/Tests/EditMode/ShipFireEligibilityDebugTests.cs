@@ -289,6 +289,7 @@ public class ShipFireEligibilityDebugTests
     )
     {
         GameObject root = new GameObject(name);
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
         root.AddComponent<ShipCombatState>();
         root.AddComponent<ShipCombatGeometry>();
         ShipArtDefinition artDefinition =

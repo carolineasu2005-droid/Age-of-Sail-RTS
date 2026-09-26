@@ -5,6 +5,24 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class ShipBroadsideFireExecutor : MonoBehaviour
 {
+    private sealed class TerminalResolutionGate
+    {
+        private bool consumed;
+
+
+        public bool TryConsume()
+        {
+            if (consumed)
+            {
+                return false;
+            }
+
+            consumed = true;
+            return true;
+        }
+    }
+
+
     private const uint InitialPortSeedState = 0xA341316Cu;
     private const uint InitialStarboardSeedState = 0xC8013EA4u;
     private const float MinimumDirectionSqrMagnitude = 0.000001f;
@@ -17,12 +35,20 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
     [SerializeField]
     private MonoBehaviour combatVFXReceiver;
 
+    [SerializeField]
+    private CombatDamageProfile combatDamageProfile;
+
     private uint portSeedState = InitialPortSeedState;
     private uint starboardSeedState = InitialStarboardSeedState;
     private uint executionSequence;
     private int lastHullHitCount;
     private int lastWaterMissCount;
     private int lastExpiredCount;
+    private bool hasLastTerminalResolution;
+    private CombatTerminalResolutionDiagnostics lastTerminalResolution;
+    private readonly Dictionary<CombatProjectile, TerminalResolutionGate>
+        terminalResolutionGates =
+            new Dictionary<CombatProjectile, TerminalResolutionGate>();
 
 
     public CombatProjectile ProjectilePrefab => projectilePrefab;
@@ -30,11 +56,19 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
     public ICombatVFXEventReceiver CombatVFXReceiver =>
         combatVFXReceiver as ICombatVFXEventReceiver;
 
+    public CombatDamageProfile CombatDamageProfile => combatDamageProfile;
+
     public int LastHullHitCount => lastHullHitCount;
 
     public int LastWaterMissCount => lastWaterMissCount;
 
     public int LastExpiredCount => lastExpiredCount;
+
+    public bool HasLastTerminalResolution =>
+        hasLastTerminalResolution;
+
+    public CombatTerminalResolutionDiagnostics LastTerminalResolution =>
+        lastTerminalResolution;
 
 
     public bool TryExecute(
@@ -151,8 +185,8 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
             }
 
             spawnedCount++;
-            projectile.Terminated += contact => HandleTerminalContact(
-                contact,
+            SubscribeToTerminalResolution(
+                projectile,
                 currentSequence,
                 receiver
             );
@@ -199,6 +233,40 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
     }
 
 
+    private void SubscribeToTerminalResolution(
+        CombatProjectile projectile,
+        uint contactExecutionSequence,
+        ICombatVFXEventReceiver receiver
+    )
+    {
+        if (projectile == null
+            || terminalResolutionGates.ContainsKey(projectile))
+        {
+            return;
+        }
+
+        TerminalResolutionGate gate = new TerminalResolutionGate();
+        terminalResolutionGates.Add(projectile, gate);
+        System.Action<ProjectileTerminalContact> handler = null;
+        handler = contact =>
+        {
+            if (!gate.TryConsume())
+            {
+                return;
+            }
+
+            projectile.Terminated -= handler;
+            terminalResolutionGates.Remove(projectile);
+            HandleTerminalContact(
+                contact,
+                contactExecutionSequence,
+                receiver
+            );
+        };
+        projectile.Terminated += handler;
+    }
+
+
     private void HandleTerminalContact(
         ProjectileTerminalContact contact,
         uint contactExecutionSequence,
@@ -230,6 +298,20 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
             }
         }
 
+        bool damageResolutionSucceeded =
+            CombatDamageResolver.TryResolveAndApply(
+                outcome,
+                combatDamageProfile,
+                out CombatDamageResult damageResult,
+                out CombatDamageResolutionFailure damageFailure
+            );
+        lastTerminalResolution = new CombatTerminalResolutionDiagnostics(
+            outcome,
+            damageResolutionSucceeded,
+            damageResult,
+            damageFailure
+        );
+        hasLastTerminalResolution = true;
         CombatOutcomeVFXBridge.TryEmitResolvedOutcome(outcome, receiver);
     }
 

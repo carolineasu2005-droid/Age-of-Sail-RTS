@@ -16,6 +16,24 @@ public class BroadsideShotSamplerTests
     private const BindingFlags PrivateInstance =
         BindingFlags.Instance | BindingFlags.NonPublic;
 
+    private readonly List<GameObject> createdShips =
+        new List<GameObject>();
+
+
+    [TearDown]
+    public void TearDown()
+    {
+        for (int index = createdShips.Count - 1; index >= 0; index--)
+        {
+            if (createdShips[index] != null)
+            {
+                UnityEngine.Object.DestroyImmediate(createdShips[index]);
+            }
+        }
+
+        createdShips.Clear();
+    }
+
 
     [TestCase(CombatSide.Port)]
     [TestCase(CombatSide.Starboard)]
@@ -23,7 +41,7 @@ public class BroadsideShotSamplerTests
         CombatSide side
     )
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         FireAimBasis basis = BuildBlindFireBasis(sourceRoot, side, 100f);
 
         BroadsideShotSamplingResult result = Sample(
@@ -50,7 +68,7 @@ public class BroadsideShotSamplerTests
         CombatSide side
     )
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         ShipMuzzleSockets sockets =
             sourceRoot.GetComponent<ShipMuzzleSockets>();
         IReadOnlyList<Transform> selected = side == CombatSide.Port
@@ -94,7 +112,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void SameSeedAndState_ReproducesEverySampleExactly()
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         FireAimBasis basis = BuildBlindFireBasis(
             sourceRoot,
             CombatSide.Starboard,
@@ -127,7 +145,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void DifferentSeed_ChangesAtLeastOneMappedSamplePoint()
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         FireAimBasis basis = BuildBlindFireBasis(
             sourceRoot,
             CombatSide.Port,
@@ -156,7 +174,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void EverySample_UsesCommonBasisAndLiesInsideCommonEllipse()
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         FireAimBasis basis = BuildBlindFireBasis(
             sourceRoot,
             CombatSide.Starboard,
@@ -206,7 +224,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void BallisticSnapshots_UseFrozenFlightTimeVelocityAndGravity()
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         ProjectileFlightProfile profile = sourceRoot
             .GetComponent<ShipProjectileFlightConfiguration>()
             .ProjectileFlightProfile;
@@ -257,9 +275,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void SamplesRemainFrozenAfterRootMuzzleAndWaterlineMove()
     {
-        GameObject instance = UnityEngine.Object.Instantiate(
-            LoadCombatPrefab()
-        );
+        GameObject instance = CreateOperationalCombatShip();
         ProjectileFlightProfile mutableFlightProfile =
             UnityEngine.Object.Instantiate(
                 instance
@@ -346,7 +362,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void ShotAndBroadsideValues_AreImmutableAndCollectionIsReadOnly()
     {
-        GameObject sourceRoot = LoadCombatPrefab();
+        GameObject sourceRoot = CreateOperationalCombatShip();
         BroadsideShotSamplingResult result = Sample(
             sourceRoot,
             BuildBlindFireBasis(sourceRoot, CombatSide.Port, 100f),
@@ -379,9 +395,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void Sampling_DoesNotMutateCombatStateOrRootPose()
     {
-        GameObject instance = UnityEngine.Object.Instantiate(
-            LoadCombatPrefab()
-        );
+        GameObject instance = CreateOperationalCombatShip();
 
         try
         {
@@ -414,9 +428,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void MissingSelectedMuzzleCollection_FailsWithoutPartialResult()
     {
-        GameObject instance = UnityEngine.Object.Instantiate(
-            LoadCombatPrefab()
-        );
+        GameObject instance = CreateOperationalCombatShip();
 
         try
         {
@@ -458,9 +470,7 @@ public class BroadsideShotSamplerTests
     [Test]
     public void NullEntryInSelectedCollection_FailsWithoutPartialResult()
     {
-        GameObject instance = UnityEngine.Object.Instantiate(
-            LoadCombatPrefab()
-        );
+        GameObject instance = CreateOperationalCombatShip();
 
         try
         {
@@ -590,6 +600,17 @@ public class BroadsideShotSamplerTests
         );
         Assert.That(failure, Is.EqualTo(FireAimBasisFailure.None));
         return basis;
+    }
+
+
+    private GameObject CreateOperationalCombatShip()
+    {
+        GameObject instance = UnityEngine.Object.Instantiate(
+            LoadCombatPrefab()
+        );
+        CombatLifecycleTestUtility.EnsureOperational(instance);
+        createdShips.Add(instance);
+        return instance;
     }
 
 

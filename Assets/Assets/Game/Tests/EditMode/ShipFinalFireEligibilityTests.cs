@@ -240,20 +240,72 @@ public class ShipFinalFireEligibilityTests
 
 
     [Test]
-    public void LifecycleAbsent_DefaultsToAllowsFireWithoutStateOwner()
+    public void LifecycleAbsent_FailsClosedWithoutStateOwner()
     {
-        FireEligibilityResult result = Evaluate(targetRoot, true);
+        Object.DestroyImmediate(
+            shooterRoot.GetComponent<ShipIntegrity>()
+        );
 
-        Assert.That(result.LifecycleAllowsFire, Is.True);
+        bool evaluated = eligibility.TryEvaluate(
+            targetRoot,
+            true,
+            out FireEligibilityResult result
+        );
+
+        Assert.That(evaluated, Is.False);
+        Assert.That(result.LifecycleAllowsFire, Is.False);
+        Assert.That(result.CanFire, Is.False);
+        Assert.That(
+            shooterState.PortBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(
+            shooterState.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(
+            Object.FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ),
+            Is.Empty
+        );
+    }
+
+
+    [Test]
+    public void LifecycleUninitialized_FailsClosedWithoutPermission()
+    {
+        Object.DestroyImmediate(
+            shooterRoot.GetComponent<ShipIntegrity>()
+        );
+        ShipIntegrity uninitialized =
+            shooterRoot.AddComponent<ShipIntegrity>();
+        Assert.That(uninitialized.IsInitialized, Is.False);
+
+        bool evaluated = eligibility.TryEvaluate(
+            targetRoot,
+            true,
+            out FireEligibilityResult result
+        );
+
+        Assert.That(evaluated, Is.True);
+        Assert.That(result.LifecycleAllowsFire, Is.False);
+        Assert.That(result.CanFire, Is.False);
         Assert.That(
             result.FailureReasons.HasFlag(
                 FireEligibilityFailure.LifecycleDisallowsFire
             ),
-            Is.False
+            Is.True
         );
         Assert.That(
-            typeof(ShipCombatState).GetProperty("IsDisabled"),
-            Is.Null
+            shooterState.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(
+            Object.FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ),
+            Is.Empty
         );
     }
 
@@ -335,6 +387,7 @@ public class ShipFinalFireEligibilityTests
     )
     {
         GameObject root = new GameObject(name);
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
         root.AddComponent<ShipCombatState>();
         ShipArtDefinition artDefinition =
             root.AddComponent<ShipArtDefinition>();

@@ -28,6 +28,7 @@ public class ShipBlindFireExecutionTests
         );
         Assert.That(prefab, Is.Not.Null);
         shooterRoot = UnityEngine.Object.Instantiate(prefab);
+        CombatLifecycleTestUtility.EnsureOperational(shooterRoot);
         shooterRoot.name = "Blind Fire Shooter Root";
         targetRoot = new GameObject("Existing Manual Target Root");
         combatState = shooterRoot.GetComponent<ShipCombatState>();

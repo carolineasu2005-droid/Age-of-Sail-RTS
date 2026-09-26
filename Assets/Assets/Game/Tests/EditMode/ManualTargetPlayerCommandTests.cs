@@ -499,6 +499,7 @@ public class ManualTargetPlayerCommandTests
     {
         GameObject root = new GameObject(name);
         createdRoots.Add(root);
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
         root.AddComponent<ShipDestinationController>();
         root.AddComponent<ShipCombatState>();
         ShipArtDefinition artDefinition =

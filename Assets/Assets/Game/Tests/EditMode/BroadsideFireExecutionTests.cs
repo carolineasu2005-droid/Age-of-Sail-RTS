@@ -288,14 +288,28 @@ public class BroadsideFireExecutionTests
 
 
     [Test]
-    public void Executor_HasNoMovementDamagePerGunReloadOrHitChanceAuthority()
+    public void Executor_DelegatesDamageWithoutDirectIntegrityAuthority()
     {
         string source = ReadCombatSource("ShipBroadsideFireExecutor.cs");
 
         Assert.That(source, Does.Not.Contain("ShipDestinationController"));
         Assert.That(source, Does.Not.Contain("ShipTurning"));
-        Assert.That(source, Does.Not.Contain("Damage"));
-        Assert.That(source, Does.Not.Contain("Integrity"));
+        Assert.That(source, Does.Contain(
+            "CombatDamageResolver.TryResolveAndApply"
+        ));
+        Assert.That(source, Does.Contain("TerminalResolutionGate"));
+        Assert.That(source, Does.Contain(
+            "terminalResolutionGates.ContainsKey(projectile)"
+        ));
+        Assert.That(source, Does.Contain("gate.TryConsume()"));
+        Assert.That(source, Does.Contain(
+            "CombatOutcomeVFXBridge.TryEmitResolvedOutcome(outcome"
+        ));
+        Assert.That(source, Does.Contain(
+            "new CombatTerminalResolutionDiagnostics("
+        ));
+        Assert.That(source, Does.Not.Contain("ShipIntegrity"));
+        Assert.That(source, Does.Not.Contain("TryApplyIntegrityLoss"));
         Assert.That(source, Does.Not.Contain("HitChance"));
         Assert.That(source, Does.Not.Contain("UnityEngine.Random"));
         Assert.That(source, Does.Not.Contain("transform.rotation ="));
@@ -401,6 +415,7 @@ public class BroadsideFireExecutionTests
         );
         Assert.That(prefab, Is.Not.Null);
         GameObject instance = UnityEngine.Object.Instantiate(prefab);
+        CombatLifecycleTestUtility.EnsureOperational(instance);
         instance.transform.position = position;
         instance.GetComponent<CombatVFXPlaceholderReceiver>()
             .VisualSpawningEnabled = false;

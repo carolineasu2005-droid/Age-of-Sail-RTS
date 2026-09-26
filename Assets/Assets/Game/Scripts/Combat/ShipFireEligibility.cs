@@ -45,16 +45,20 @@ public sealed class ShipFireEligibility : MonoBehaviour
         if (!HasValidConfiguration()
             || !TryGetShooterDependencies(
                 out ShipCombatState combatState,
+                out ShipIntegrity shooterIntegrity,
                 out Vector3 obstructionOriginWorld
             ))
         {
             return false;
         }
 
-        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire();
+        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire(
+            shooterIntegrity
+        );
 
         if (!TryGetTargetSpatialIdentity(
             targetShipRoot,
+            out ShipIntegrity targetIntegrity,
             out Vector3 obstructionDestinationWorld
         ))
         {
@@ -73,7 +77,9 @@ public sealed class ShipFireEligibility : MonoBehaviour
             return false;
         }
 
-        bool targetLegal = targetRelationshipAllowsFire;
+        bool targetLifecycleLegal = !targetIntegrity.IsSinking;
+        bool targetLegal = targetRelationshipAllowsFire
+            && targetLifecycleLegal;
         bool reloadReady = geometryResult.Side.HasValue
             && IsBroadsideReady(combatState, geometryResult.Side.Value);
         bool blocked = TryFindBlockingCollider(
@@ -85,6 +91,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
         );
         FireEligibilityFailure failureReasons = GetFailureReasons(
             targetLegal,
+            targetLifecycleLegal,
             geometryResult,
             reloadReady,
             lifecycleAllowsFire,
@@ -93,6 +100,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
         result = new FireEligibilityResult(
             targetLegal,
+            targetLifecycleLegal,
             geometryResult.Side,
             geometryResult.InBroadsideArc,
             geometryResult.TargetLocalBearingDegrees,
@@ -120,12 +128,17 @@ public sealed class ShipFireEligibility : MonoBehaviour
         result = default;
 
         if (!HasValidConfiguration()
-            || !TryGetBlindFireDependencies(out ShipCombatState combatState))
+            || !TryGetBlindFireDependencies(
+                out ShipCombatState combatState,
+                out ShipIntegrity shooterIntegrity
+            ))
         {
             return false;
         }
 
-        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire();
+        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire(
+            shooterIntegrity
+        );
 
         if (!IsFinite(worldAimPoint))
         {
@@ -196,12 +209,17 @@ public sealed class ShipFireEligibility : MonoBehaviour
         result = default;
 
         if (!HasValidConfiguration()
-            || !TryGetBlindFireDependencies(out ShipCombatState combatState))
+            || !TryGetBlindFireDependencies(
+                out ShipCombatState combatState,
+                out ShipIntegrity shooterIntegrity
+            ))
         {
             return false;
         }
 
-        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire();
+        bool lifecycleAllowsFire = EvaluateLifecycleAllowsFire(
+            shooterIntegrity
+        );
 
         if (!TryEvaluateBroadsideGeometry(
             worldAimDirection,
@@ -266,6 +284,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
         result = new FireEligibilityResult(
             false,
+            false,
             geometry.Side,
             geometry.InBroadsideArc,
             geometry.LocalBearingDegrees,
@@ -301,12 +320,15 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
 
     private bool TryGetBlindFireDependencies(
-        out ShipCombatState combatState
+        out ShipCombatState combatState,
+        out ShipIntegrity shooterIntegrity
     )
     {
         combatState = GetComponent<ShipCombatState>();
+        shooterIntegrity = GetComponent<ShipIntegrity>();
 
         return combatState != null
+            && shooterIntegrity != null
             && IsFinite(transform.position)
             && IsFinite(transform.forward)
             && IsFinite(transform.right);
@@ -315,14 +337,17 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
     private bool TryGetShooterDependencies(
         out ShipCombatState combatState,
+        out ShipIntegrity shooterIntegrity,
         out Vector3 obstructionOriginWorld
     )
     {
         combatState = GetComponent<ShipCombatState>();
+        shooterIntegrity = GetComponent<ShipIntegrity>();
         obstructionOriginWorld = default;
         ShipArtDefinition artDefinition = GetComponent<ShipArtDefinition>();
 
         if (combatState == null
+            || shooterIntegrity == null
             || artDefinition == null
             || artDefinition.CenterReference == null
             || !IsFinite(transform.position)
@@ -338,9 +363,11 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
     private bool TryGetTargetSpatialIdentity(
         GameObject targetShipRoot,
+        out ShipIntegrity targetIntegrity,
         out Vector3 obstructionDestinationWorld
     )
     {
+        targetIntegrity = null;
         obstructionDestinationWorld = default;
 
         if (targetShipRoot == null || targetShipRoot == gameObject)
@@ -350,12 +377,15 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
         ShipCombatState targetCombatState =
             targetShipRoot.GetComponent<ShipCombatState>();
+        targetIntegrity = targetShipRoot.GetComponent<ShipIntegrity>();
         ShipArtDefinition targetArtDefinition =
             targetShipRoot.GetComponent<ShipArtDefinition>();
         ShipCombatGeometry targetCombatGeometry =
             targetShipRoot.GetComponent<ShipCombatGeometry>();
 
         if (targetCombatState == null
+            || targetIntegrity == null
+            || !targetIntegrity.IsInitialized
             || targetArtDefinition == null
             || targetArtDefinition.CenterReference == null
             || targetCombatGeometry == null
@@ -383,11 +413,14 @@ public sealed class ShipFireEligibility : MonoBehaviour
     }
 
 
-    private static bool EvaluateLifecycleAllowsFire()
+    private static bool EvaluateLifecycleAllowsFire(
+        ShipIntegrity shooterIntegrity
+    )
     {
-        // Phase 7 will replace this bridge with the registered lifecycle
-        // Source of Truth. Foundation ships currently have no lifecycle state.
-        return true;
+        return shooterIntegrity != null
+            && shooterIntegrity.IsInitialized
+            && shooterIntegrity.LifecycleState
+                == ShipCombatLifecycleState.Operational;
     }
 
 
@@ -482,6 +515,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
     {
         return new FireEligibilityResult(
             false,
+            false,
             null,
             false,
             0f,
@@ -502,6 +536,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
     private static FireEligibilityFailure GetFailureReasons(
         bool targetLegal,
+        bool targetLifecycleLegal,
         FireEligibilityResult geometryResult,
         bool reloadReady,
         bool lifecycleAllowsFire,
@@ -513,6 +548,11 @@ public sealed class ShipFireEligibility : MonoBehaviour
         if (!targetLegal)
         {
             reasons |= FireEligibilityFailure.TargetIllegal;
+        }
+
+        if (!targetLifecycleLegal)
+        {
+            reasons |= FireEligibilityFailure.TargetLifecycleIllegal;
         }
 
         if (!geometryResult.Side.HasValue

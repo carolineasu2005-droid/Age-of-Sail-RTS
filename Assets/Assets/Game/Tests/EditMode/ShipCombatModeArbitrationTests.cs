@@ -279,6 +279,7 @@ public class ShipCombatModeArbitrationTests
     )
     {
         GameObject root = CreateObject(name);
+        CombatLifecycleTestUtility.AddOperationalIntegrity(root);
         root.AddComponent<ShipCombatState>();
         ShipArtDefinition artDefinition =
             root.AddComponent<ShipArtDefinition>();

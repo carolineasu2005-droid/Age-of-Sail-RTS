@@ -1589,6 +1589,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       insertIndex: -1
       addedObject: {fileID: 910000000000000025}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 910000000000000026}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 910000000000000027}
   m_SourcePrefab: {fileID: 100100000, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
 --- !u!4 &494498070062832346 stripped
 Transform:
@@ -1758,6 +1764,33 @@ MonoBehaviour:
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipBroadsideFireExecutor
   projectilePrefab: {fileID: 1140000000000000001, guid: 3deece9623454552b744b0b2373e25d1, type: 3}
   combatVFXReceiver: {fileID: 910000000000000019}
+  combatDamageProfile: {fileID: 11400000, guid: 9c38bcd5dacc48dabaca229f5ec08cb6, type: 2}
+--- !u!114 &910000000000000026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729339577121133683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67687edbad1744bc81e559e54b962848, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipIntegrity
+  integrityProfile: {fileID: 11400000, guid: b9752c8f3f754871aaa28f0bcfa6d873, type: 2}
+--- !u!114 &910000000000000027
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729339577121133683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e54a9d52522c413e9afd756c01f94c35, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipSinkingPresentation
+  presentationProfile: {fileID: 11400000, guid: 58bfb5bc8d9944aab79ef04a793f465a, type: 2}
 --- !u!4 &6891163026523442319 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}

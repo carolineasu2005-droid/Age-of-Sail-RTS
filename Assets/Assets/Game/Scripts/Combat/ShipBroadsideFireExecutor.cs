@@ -38,6 +38,9 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
     [SerializeField]
     private CombatDamageProfile combatDamageProfile;
 
+    [SerializeField]
+    private CombatRakingProfile combatRakingProfile;
+
     private uint portSeedState = InitialPortSeedState;
     private uint starboardSeedState = InitialStarboardSeedState;
     private uint executionSequence;
@@ -57,6 +60,8 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
         combatVFXReceiver as ICombatVFXEventReceiver;
 
     public CombatDamageProfile CombatDamageProfile => combatDamageProfile;
+
+    public CombatRakingProfile CombatRakingProfile => combatRakingProfile;
 
     public int LastHullHitCount => lastHullHitCount;
 
@@ -302,6 +307,7 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
             CombatDamageResolver.TryResolveAndApply(
                 outcome,
                 combatDamageProfile,
+                combatRakingProfile,
                 out CombatDamageResult damageResult,
                 out CombatDamageResolutionFailure damageFailure
             );

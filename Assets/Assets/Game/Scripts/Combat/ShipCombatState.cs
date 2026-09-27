@@ -22,7 +22,7 @@ public sealed class ShipCombatState : MonoBehaviour
 
     [SerializeField]
     [Min(MinimumReloadDurationSeconds)]
-    private float broadsideReloadDurationSeconds = 30f;
+    private float broadsideReloadDurationSeconds = 10f;
 
     private bool autoFireEnabled;
 

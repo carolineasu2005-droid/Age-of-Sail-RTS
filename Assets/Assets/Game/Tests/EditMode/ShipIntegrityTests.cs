@@ -509,7 +509,15 @@ public class ShipIntegrityTests
         ));
 
         Assert.That(asset, Is.Not.Null);
-        Assert.That(asset.MaximumIntegrity, Is.EqualTo(1000f));
+        Assert.That(asset.MaximumIntegrity, Is.EqualTo(10000f));
+        Assert.That(
+            asset.CombatDisabledThresholdNormalized,
+            Is.EqualTo(0.25f)
+        );
+        Assert.That(
+            asset.SinkingThresholdNormalized,
+            Is.EqualTo(0.05f)
+        );
         Assert.That(
             asset.SinkingThresholdNormalized,
             Is.LessThanOrEqualTo(asset.CombatDisabledThresholdNormalized)

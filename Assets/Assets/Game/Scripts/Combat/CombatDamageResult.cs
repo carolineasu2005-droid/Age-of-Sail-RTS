@@ -9,6 +9,8 @@ public readonly struct CombatDamageResult
         GameObject targetShipRoot,
         bool hasHitRegion,
         CombatHullRegion hitRegion,
+        bool hasRakingResult,
+        CombatRakingResult rakingResult,
         float requestedDamage,
         float appliedDamage,
         bool hasIntegrityTransition,
@@ -21,6 +23,8 @@ public readonly struct CombatDamageResult
         TargetShipRoot = targetShipRoot;
         HasHitRegion = hasHitRegion;
         HitRegion = hitRegion;
+        HasRakingResult = hasRakingResult;
+        RakingResult = rakingResult;
         RequestedDamage = requestedDamage;
         AppliedDamage = appliedDamage;
         HasIntegrityTransition = hasIntegrityTransition;
@@ -39,6 +43,26 @@ public readonly struct CombatDamageResult
     public bool HasHitRegion { get; }
 
     public CombatHullRegion HitRegion { get; }
+
+    public bool HasRakingResult { get; }
+
+    public CombatRakingResult RakingResult { get; }
+
+    public bool IsRaking =>
+        HasRakingResult && RakingResult.IsRaking;
+
+    public CombatRakingType RakingType =>
+        HasRakingResult
+            ? RakingResult.Type
+            : CombatRakingType.None;
+
+    public float LongitudinalAngleDegrees =>
+        HasRakingResult
+            ? RakingResult.LongitudinalAngleDegrees
+            : 0f;
+
+    public float RakingMultiplier =>
+        HasRakingResult ? RakingResult.DamageMultiplier : 0f;
 
     public float RequestedDamage { get; }
 

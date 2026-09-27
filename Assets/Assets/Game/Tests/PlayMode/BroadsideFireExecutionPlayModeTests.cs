@@ -237,14 +237,21 @@ public class BroadsideFireExecutionPlayModeTests
             .VisualRoot;
         ShipCombatState shooterState =
             shooter.GetComponent<ShipCombatState>();
+        ShipBroadsideFireExecutor executor =
+            shooter.GetComponent<ShipBroadsideFireExecutor>();
+        CombatDamageProfile damageProfile = executor.CombatDamageProfile;
         Physics.SyncTransforms();
 
-        for (int hitIndex = 1; hitIndex <= 10; hitIndex++)
+        const int sinkingBroadsideIndex = 8;
+
+        for (int broadsideIndex = 1;
+            broadsideIndex <= sinkingBroadsideIndex;
+            broadsideIndex++)
         {
             TargetedFireExecutionResult execution = ExecuteTargeted(
                 shooter,
                 target,
-                (uint)(7000 + hitIndex)
+                (uint)(7000 + broadsideIndex)
             );
             Assert.That(
                 execution.BroadsideExecution.ShotCount,
@@ -262,32 +269,35 @@ public class BroadsideFireExecutionPlayModeTests
                 projectile.enabled = false;
             }
 
-            CombatProjectile observed = projectiles[0];
-            float integrityBeforeHit = integrity.CurrentIntegrity;
-            SimulateUntilTerminal(observed);
-            Assert.That(
-                integrity.CurrentIntegrity,
-                Is.LessThan(integrityBeforeHit)
-            );
+            float integrityBeforeBroadside = integrity.CurrentIntegrity;
 
             foreach (CombatProjectile projectile in projectiles)
             {
-                if (projectile != null && projectile != observed)
-                {
-                    UnityEngine.Object.Destroy(projectile.gameObject);
-                }
+                SimulateUntilTerminal(projectile);
             }
+
+            Assert.That(
+                integrity.CurrentIntegrity,
+                Is.EqualTo(Mathf.Max(
+                    0f,
+                    integrityBeforeBroadside
+                        - projectiles.Length
+                        * damageProfile.RoundShotBaseDamage
+                ))
+            );
+            Assert.That(executor.LastHullHitCount, Is.EqualTo(13));
+            Assert.That(executor.LastWaterMissCount, Is.Zero);
 
             yield return null;
 
-            if (hitIndex == 7)
+            if (broadsideIndex <= 5)
             {
                 Assert.That(
                     integrity.LifecycleState,
                     Is.EqualTo(ShipCombatLifecycleState.Operational)
                 );
             }
-            else if (hitIndex == 8 || hitIndex == 9)
+            else if (broadsideIndex == 6 || broadsideIndex == 7)
             {
                 Assert.That(
                     integrity.LifecycleState,
@@ -296,7 +306,7 @@ public class BroadsideFireExecutionPlayModeTests
                 Assert.That(presentation.HasStarted, Is.False);
             }
 
-            if (hitIndex < 10)
+            if (broadsideIndex < sinkingBroadsideIndex)
             {
                 AdvanceReloadsToReady(shooterState);
             }

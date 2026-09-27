@@ -631,6 +631,10 @@ public class ShipCombatStateTests
         Assert.That(owners[0].gameObject, Is.SameAs(prefab));
         Assert.That(owners[0].transform, Is.SameAs(prefab.transform));
         Assert.That(
+            owners[0].BroadsideReloadDurationSeconds,
+            Is.EqualTo(10f)
+        );
+        Assert.That(
             owners[0].PortBroadsideState,
             Is.EqualTo(BroadsideReloadState.Ready)
         );

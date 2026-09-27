@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -481,7 +482,7 @@ public class ShipTestPanelTests
         ShipIntegrity integrity =
             CombatLifecycleTestUtility.AddOperationalIntegrity(ship);
         Assert.That(
-            integrity.TryApplyIntegrityLoss(750f, out _),
+            integrity.TryApplyIntegrityLoss(7500f, out _),
             Is.True
         );
 
@@ -491,7 +492,7 @@ public class ShipTestPanelTests
             false
         );
 
-        Assert.That(summary, Does.Contain("Integrity: 250.0 / 1000.0"));
+        Assert.That(summary, Does.Contain("Integrity: 2500.0 / 10000.0"));
         Assert.That(summary, Does.Contain("Lifecycle: Combat Disabled"));
         Assert.That(summary, Does.Contain(
             "Sinking Presentation: UNAVAILABLE"
@@ -527,6 +528,15 @@ public class ShipTestPanelTests
         Assert.That(diagnosticsMethod, Does.Contain(
             "diagnostics.DamageResult"
         ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "damage.RakingType"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "damage.LongitudinalAngleDegrees"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "damage.RakingMultiplier"
+        ));
         Assert.That(diagnosticsMethod, Does.Contain("damage.AppliedDamage"));
         Assert.That(diagnosticsMethod, Does.Contain(
             "damage.PreviousIntegrity"
@@ -542,6 +552,61 @@ public class ShipTestPanelTests
         ));
         Assert.That(diagnosticsMethod, Does.Not.Contain("Threshold"));
         Assert.That(diagnosticsMethod, Does.Not.Contain("GetRegionMultiplier"));
+        Assert.That(diagnosticsMethod, Does.Not.Contain(
+            "CombatRakingEvaluator"
+        ));
+    }
+
+
+    [Test]
+    public void PhaseEightDiagnostics_FormatActualResolvedRakingFields()
+    {
+        StringBuilder rakingSummary = new StringBuilder();
+        CombatDamageResult rakingDamage = CreateDamageResult(
+            CombatRakingType.Stern,
+            6.2f,
+            2f,
+            200f
+        );
+
+        InvokePrivateStatic<object>(
+            "AppendDamageDiagnostics",
+            rakingSummary,
+            rakingDamage
+        );
+
+        string rakingText = rakingSummary.ToString();
+        Assert.That(rakingText, Does.Contain("Raking: YES"));
+        Assert.That(rakingText, Does.Contain("Raking Type: STERN"));
+        Assert.That(
+            rakingText,
+            Does.Contain("Longitudinal Angle: 6.2 deg")
+        );
+        Assert.That(
+            rakingText,
+            Does.Contain("Raking Multiplier: 2.00x")
+        );
+        Assert.That(rakingText, Does.Contain("Applied Damage: 200.0"));
+
+        StringBuilder normalSummary = new StringBuilder();
+        CombatDamageResult normalDamage = CreateDamageResult(
+            CombatRakingType.None,
+            87.4f,
+            1f,
+            100f
+        );
+
+        InvokePrivateStatic<object>(
+            "AppendDamageDiagnostics",
+            normalSummary,
+            normalDamage
+        );
+
+        string normalText = normalSummary.ToString();
+        Assert.That(normalText, Does.Contain("Raking: NO"));
+        Assert.That(normalText, Does.Contain("Raking Type: NONE"));
+        Assert.That(normalText, Does.Contain("Raking Multiplier: 1.00x"));
+        Assert.That(normalText, Does.Contain("Applied Damage: 100.0"));
     }
 
 
@@ -723,6 +788,47 @@ public class ShipTestPanelTests
         Assert.That(start, Is.GreaterThanOrEqualTo(0));
         Assert.That(end, Is.GreaterThan(start));
         return source.Substring(start, end - start);
+    }
+
+
+    private CombatDamageResult CreateDamageResult(
+        CombatRakingType type,
+        float longitudinalAngleDegrees,
+        float rakingMultiplier,
+        float appliedDamage
+    )
+    {
+        ConstructorInfo rakingConstructor = typeof(CombatRakingResult)
+            .GetConstructors(
+                BindingFlags.Instance | BindingFlags.NonPublic
+            )[0];
+        CombatRakingResult rakingResult =
+            (CombatRakingResult)rakingConstructor.Invoke(new object[]
+            {
+                true,
+                type,
+                longitudinalAngleDegrees,
+                rakingMultiplier
+            });
+        ConstructorInfo damageConstructor = typeof(CombatDamageResult)
+            .GetConstructors(
+                BindingFlags.Instance | BindingFlags.NonPublic
+            )[0];
+        return (CombatDamageResult)damageConstructor.Invoke(new object[]
+        {
+            true,
+            true,
+            default(ShotSample),
+            shipRoot,
+            true,
+            CombatHullRegion.Midship,
+            true,
+            rakingResult,
+            appliedDamage,
+            appliedDamage,
+            false,
+            default(ShipIntegrityTransition)
+        });
     }
 
 

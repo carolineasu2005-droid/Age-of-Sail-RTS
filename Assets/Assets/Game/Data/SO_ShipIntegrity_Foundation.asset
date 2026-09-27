@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d7a6a367ab9477a9439184ae100fb49, type: 3}
   m_Name: SO_ShipIntegrity_Foundation
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipIntegrityProfile
-  maximumIntegrity: 1000
+  maximumIntegrity: 10000
   combatDisabledThresholdNormalized: 0.25
   sinkingThresholdNormalized: 0.05

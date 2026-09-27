@@ -310,8 +310,7 @@ public sealed class ShipTestPanel : EditorWindow
         }
 
         CombatDamageResult damage = diagnostics.DamageResult;
-        summary.Append("Applied Damage: ")
-            .AppendLine(damage.AppliedDamage.ToString("F1"));
+        AppendDamageDiagnostics(summary, damage);
 
         if (damage.HasIntegrityTransition)
         {
@@ -330,6 +329,39 @@ public sealed class ShipTestPanel : EditorWindow
         }
 
         return summary.ToString();
+    }
+
+
+    private static void AppendDamageDiagnostics(
+        StringBuilder summary,
+        CombatDamageResult damage
+    )
+    {
+        if (damage.HasRakingResult)
+        {
+            summary.Append("Raking: ")
+                .AppendLine(damage.IsRaking ? "YES" : "NO");
+            summary.Append("Raking Type: ")
+                .AppendLine(
+                    damage.RakingType.ToString().ToUpperInvariant()
+                );
+            summary.Append("Longitudinal Angle: ")
+                .Append(damage.LongitudinalAngleDegrees.ToString("F1"))
+                .AppendLine(" deg");
+            summary.Append("Raking Multiplier: ")
+                .Append(damage.RakingMultiplier.ToString("F2"))
+                .AppendLine("x");
+        }
+        else
+        {
+            summary.AppendLine("Raking: N/A");
+            summary.AppendLine("Raking Type: N/A");
+            summary.AppendLine("Longitudinal Angle: N/A");
+            summary.AppendLine("Raking Multiplier: N/A");
+        }
+
+        summary.Append("Applied Damage: ")
+            .AppendLine(damage.AppliedDamage.ToString("F1"));
     }
 
 

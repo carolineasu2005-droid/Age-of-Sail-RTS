@@ -330,6 +330,8 @@ public class BroadsideFireExecutionTests
         Assert.That(executor, Is.Not.Null);
         Assert.That(executor.ProjectilePrefab, Is.Not.Null);
         Assert.That(executor.CombatVFXReceiver, Is.Not.Null);
+        Assert.That(executor.CombatDamageProfile, Is.Not.Null);
+        Assert.That(executor.CombatRakingProfile, Is.Not.Null);
 
         string[] movementProxyPaths =
         {

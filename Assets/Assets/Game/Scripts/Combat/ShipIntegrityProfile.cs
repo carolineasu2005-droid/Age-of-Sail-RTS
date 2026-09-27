@@ -12,7 +12,7 @@ public sealed class ShipIntegrityProfile : ScriptableObject
 
     [SerializeField]
     [Min(0.01f)]
-    private float maximumIntegrity = 1000f;
+    private float maximumIntegrity = 10000f;
 
     [SerializeField]
     [Range(0f, 1f)]

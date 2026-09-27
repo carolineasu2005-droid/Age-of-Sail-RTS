@@ -8,6 +8,8 @@ public enum CombatDamageResolutionFailure
     UnsupportedAmmunition,
     MissingDamageProfile,
     InvalidDamageProfile,
+    MissingRakingProfile,
+    RakingEvaluationFailed,
     MissingTargetIntegrity,
     IntegrityMutationRejected
 }
@@ -17,6 +19,7 @@ public static class CombatDamageResolver
     public static bool TryResolveAndApply(
         FoundationShotOutcome outcome,
         CombatDamageProfile damageProfile,
+        CombatRakingProfile rakingProfile,
         out CombatDamageResult result,
         out CombatDamageResolutionFailure failure
     )
@@ -80,6 +83,26 @@ public static class CombatDamageResolver
             return false;
         }
 
+        if (rakingProfile == null)
+        {
+            failure = CombatDamageResolutionFailure.MissingRakingProfile;
+            return false;
+        }
+
+        if (!CombatRakingEvaluator.TryEvaluate(
+                context,
+                rakingProfile,
+                out CombatRakingResult rakingResult
+            )
+            || !rakingResult.IsValid
+            || !IsFinite(rakingResult.DamageMultiplier)
+            || rakingResult.DamageMultiplier < 0f)
+        {
+            failure = CombatDamageResolutionFailure
+                .RakingEvaluationFailed;
+            return false;
+        }
+
         float regionMultiplier = damageProfile.GetRegionMultiplier(
             context.Region
         );
@@ -92,10 +115,11 @@ public static class CombatDamageResolver
             return false;
         }
 
-        float requestedDamage =
-            damageProfile.RoundShotBaseDamage * regionMultiplier;
+        float requestedDamage = damageProfile.RoundShotBaseDamage
+            * regionMultiplier
+            * rakingResult.DamageMultiplier;
 
-        if (!IsFinite(requestedDamage) || requestedDamage <= 0f)
+        if (!IsFinite(requestedDamage) || requestedDamage < 0f)
         {
             failure = CombatDamageResolutionFailure.InvalidDamageProfile;
             return false;
@@ -123,6 +147,29 @@ public static class CombatDamageResolver
             result = CreateHullResult(
                 outcome.SourceShot,
                 context,
+                rakingResult,
+                requestedDamage,
+                0f,
+                false,
+                unchangedTransition
+            );
+            failure = CombatDamageResolutionFailure.None;
+            return true;
+        }
+
+        if (requestedDamage == 0f)
+        {
+            ShipIntegrityTransition unchangedTransition =
+                new ShipIntegrityTransition(
+                    integrity.CurrentIntegrity,
+                    integrity.CurrentIntegrity,
+                    integrity.LifecycleState,
+                    integrity.LifecycleState
+                );
+            result = CreateHullResult(
+                outcome.SourceShot,
+                context,
+                rakingResult,
                 requestedDamage,
                 0f,
                 false,
@@ -147,6 +194,7 @@ public static class CombatDamageResolver
         result = CreateHullResult(
             outcome.SourceShot,
             context,
+            rakingResult,
             requestedDamage,
             appliedDamage,
             appliedDamage > 0f,
@@ -168,6 +216,8 @@ public static class CombatDamageResolver
             null,
             false,
             default,
+            false,
+            default,
             0f,
             0f,
             false,
@@ -179,6 +229,7 @@ public static class CombatDamageResolver
     private static CombatDamageResult CreateHullResult(
         ShotSample sourceShot,
         CombatHitContext context,
+        CombatRakingResult rakingResult,
         float requestedDamage,
         float appliedDamage,
         bool applied,
@@ -192,6 +243,8 @@ public static class CombatDamageResolver
             context.TargetShipRoot,
             true,
             context.Region,
+            true,
+            rakingResult,
             requestedDamage,
             appliedDamage,
             true,

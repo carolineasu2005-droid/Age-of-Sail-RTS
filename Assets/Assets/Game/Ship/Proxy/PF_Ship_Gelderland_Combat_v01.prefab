@@ -1695,7 +1695,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 58a71be03cf34f44ab18d9130640dbd7, type: 3}
   m_Name:
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipCombatState
-  broadsideReloadDurationSeconds: 30
+  broadsideReloadDurationSeconds: 10
 --- !u!114 &910000000000000021
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1766,6 +1766,7 @@ MonoBehaviour:
   projectilePrefab: {fileID: 1140000000000000001, guid: 3deece9623454552b744b0b2373e25d1, type: 3}
   combatVFXReceiver: {fileID: 910000000000000019}
   combatDamageProfile: {fileID: 11400000, guid: 9c38bcd5dacc48dabaca229f5ec08cb6, type: 2}
+  combatRakingProfile: {fileID: 11400000, guid: a3c66877ea0c41638eccae8508072127, type: 2}
 --- !u!114 &910000000000000026
 MonoBehaviour:
   m_ObjectHideFlags: 0

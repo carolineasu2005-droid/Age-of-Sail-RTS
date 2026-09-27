@@ -55,9 +55,10 @@ public class ShipSinkingPresentationPlayModeTests
         ShipIntegrity integrity = root.GetComponent<ShipIntegrity>();
         Assert.That(integrity, Is.Not.Null);
         Assert.That(integrity.IsInitialized, Is.True);
+        Assert.That(integrity.MaximumIntegrity, Is.EqualTo(10000f));
         Assert.That(
             integrity.CurrentIntegrity,
-            Is.EqualTo(integrity.MaximumIntegrity)
+            Is.EqualTo(10000f)
         );
         Assert.That(
             integrity.LifecycleState,

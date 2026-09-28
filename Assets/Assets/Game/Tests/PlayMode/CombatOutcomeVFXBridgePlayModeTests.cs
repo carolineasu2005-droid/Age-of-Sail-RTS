@@ -30,6 +30,8 @@ public class CombatOutcomeVFXBridgePlayModeTests
 
         try
         {
+            SetTeamId(source, 1);
+            SetTeamId(target, 2);
             ShotSample shot = CreateShotSample(source);
             ShipCombatGeometry geometry =
                 target.GetComponent<ShipCombatGeometry>();
@@ -147,6 +149,25 @@ public class CombatOutcomeVFXBridgePlayModeTests
             failure.ToString()
         );
         return outcome;
+    }
+
+
+    private static void SetTeamId(GameObject shipRoot, int teamId)
+    {
+        ShipCombatAffiliation affiliation =
+            shipRoot.GetComponent<ShipCombatAffiliation>();
+
+        if (affiliation == null)
+        {
+            affiliation = shipRoot.AddComponent<ShipCombatAffiliation>();
+        }
+
+        FieldInfo field = typeof(ShipCombatAffiliation).GetField(
+            "teamId",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null);
+        field.SetValue(affiliation, teamId);
     }
 
 

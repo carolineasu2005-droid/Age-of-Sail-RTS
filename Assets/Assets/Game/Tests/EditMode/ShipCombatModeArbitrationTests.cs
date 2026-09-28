@@ -25,6 +25,7 @@ public class ShipCombatModeArbitrationTests
         targetRoot = CreateCombatShip("Target Root", true);
         secondTargetRoot = CreateCombatShip("Second Target Root", true);
         combatState = shooterRoot.GetComponent<ShipCombatState>();
+        AddMuzzleSockets(shooterRoot);
         eligibility = shooterRoot.AddComponent<ShipFireEligibility>();
         SetPrivateField(eligibility, "effectiveRangeMeters", 100f);
         SetPrivateField(eligibility, "maximumRangeMeters", 200f);
@@ -193,12 +194,16 @@ public class ShipCombatModeArbitrationTests
     {
         combatState.AssignManualTarget(targetRoot);
         targetRoot.transform.position = Vector3.right * 50f;
-        GameObject blocker = CreateObject("Blocking Combat Geometry");
-        blocker.layer = 8;
-        blocker.transform.position = Vector3.right * 25f;
+        GameObject blocker = CreateObject("World Combat Obstruction");
+        blocker.layer = CombatObstructionVolume.LayerIndex;
+        blocker.transform.position =
+            Vector3.right * 25f + Vector3.up * 2f;
         BoxCollider collider = blocker.AddComponent<BoxCollider>();
         collider.isTrigger = true;
-        collider.size = new Vector3(4f, 4f, 4f);
+        collider.size = new Vector3(4f, 10f, 40f);
+        CombatObstructionVolume volume =
+            blocker.AddComponent<CombatObstructionVolume>();
+        SetPrivateField(volume, "queryCollider", collider);
 
         FireEligibilityResult result = Evaluate(targetRoot);
 
@@ -290,6 +295,45 @@ public class ShipCombatModeArbitrationTests
             "centerReference",
             center.transform
         );
+        SetArtReference(
+            root,
+            artDefinition,
+            "waterlineReference",
+            Vector3.zero
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "deckReference",
+            Vector3.up * 4f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "bowReference",
+            Vector3.forward * 15f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "sternReference",
+            Vector3.back * 15f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "portReference",
+            Vector3.left * 5f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "starboardReference",
+            Vector3.right * 5f
+        );
+        ShipExposureReference exposure =
+            root.AddComponent<ShipExposureReference>();
+        SetPrivateField(exposure, "shipArtDefinition", artDefinition);
 
         if (includeCombatGeometry)
         {
@@ -297,6 +341,46 @@ public class ShipCombatModeArbitrationTests
         }
 
         return root;
+    }
+
+
+    private static void AddMuzzleSockets(GameObject root)
+    {
+        ShipMuzzleSockets sockets = root.AddComponent<ShipMuzzleSockets>();
+        Transform port = new GameObject("Port").transform;
+        port.SetParent(root.transform, false);
+        Transform starboard = new GameObject("Starboard").transform;
+        starboard.SetParent(root.transform, false);
+
+        for (int index = 0; index < 13; index++)
+        {
+            float z = 12f - index * 2f;
+            Transform portMuzzle = new GameObject($"P{index + 1:00}")
+                .transform;
+            portMuzzle.SetParent(port, false);
+            portMuzzle.localPosition = new Vector3(-5f, 2f, z);
+            Transform starboardMuzzle =
+                new GameObject($"S{index + 1:00}").transform;
+            starboardMuzzle.SetParent(starboard, false);
+            starboardMuzzle.localPosition = new Vector3(5f, 2f, z);
+        }
+
+        SetPrivateField(sockets, "portMuzzlesContainer", port);
+        SetPrivateField(sockets, "starboardMuzzlesContainer", starboard);
+    }
+
+
+    private static void SetArtReference(
+        GameObject root,
+        ShipArtDefinition art,
+        string fieldName,
+        Vector3 localPosition
+    )
+    {
+        Transform reference = new GameObject(fieldName).transform;
+        reference.SetParent(root.transform, false);
+        reference.localPosition = localPosition;
+        SetPrivateField(art, fieldName, reference);
     }
 
 

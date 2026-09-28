@@ -7,6 +7,9 @@ public class GelderlandFireEligibilityPrefabTests
     private const string CombatPrefabPath =
         "Assets/Assets/Game/Ship/Proxy/"
         + "PF_Ship_Gelderland_Combat_v01.prefab";
+    private const string ObstructionProfilePath =
+        "Assets/Assets/Game/Data/"
+        + "SO_CombatObstruction_Foundation.asset";
 
     private static readonly string[] GenericProxyPaths =
     {
@@ -42,12 +45,31 @@ public class GelderlandFireEligibilityPrefabTests
         );
         ShipFireEligibility evaluator =
             prefab.GetComponent<ShipFireEligibility>();
+        CombatObstructionProfile expectedProfile =
+            AssetDatabase.LoadAssetAtPath<CombatObstructionProfile>(
+                ObstructionProfilePath
+            );
 
         Assert.That(evaluator, Is.Not.Null);
+        Assert.That(expectedProfile, Is.Not.Null);
         Assert.That(evaluator.ForwardArcLimitDegrees, Is.EqualTo(80f));
         Assert.That(evaluator.AftArcLimitDegrees, Is.EqualTo(70f));
         Assert.That(evaluator.EffectiveRangeMeters, Is.EqualTo(300f));
         Assert.That(evaluator.MaximumRangeMeters, Is.EqualTo(500f));
+        Assert.That(
+            evaluator.CombatObstructionProfile,
+            Is.SameAs(expectedProfile)
+        );
+        Assert.That(
+            evaluator.CombatObstructionProfile
+                .TargetedAutoAllowedBlockedRayFraction,
+            Is.Zero
+        );
+        Assert.That(
+            evaluator.CombatObstructionProfile
+                .BlindFireFriendlyEdgeTolerance,
+            Is.Zero
+        );
     }
 
 

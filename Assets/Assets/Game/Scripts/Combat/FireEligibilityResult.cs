@@ -30,8 +30,7 @@ public readonly struct FireEligibilityResult
         bool hasObstructionPath,
         Vector3 obstructionOriginWorld,
         Vector3 obstructionDestinationWorld,
-        bool blocked,
-        Collider blockingCollider,
+        CombatFireObstructionResult obstruction,
         FireEligibilityFailure failureReasons
     )
     {
@@ -48,8 +47,9 @@ public readonly struct FireEligibilityResult
         HasObstructionPath = hasObstructionPath;
         ObstructionOriginWorld = obstructionOriginWorld;
         ObstructionDestinationWorld = obstructionDestinationWorld;
-        Blocked = blocked;
-        BlockingCollider = blockingCollider;
+        Obstruction = obstruction;
+        Blocked = obstruction.IsBlocked;
+        BlockingCollider = obstruction.RepresentativeCollider;
         FailureReasons = failureReasons;
     }
 
@@ -79,6 +79,8 @@ public readonly struct FireEligibilityResult
     public Vector3 ObstructionOriginWorld { get; }
 
     public Vector3 ObstructionDestinationWorld { get; }
+
+    public CombatFireObstructionResult Obstruction { get; }
 
     public bool Blocked { get; }
 

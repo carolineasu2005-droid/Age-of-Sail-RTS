@@ -41,7 +41,9 @@ public static class CombatDamageResolver
         }
 
         if (outcome.Kind == FoundationShotOutcomeKind.WaterMiss
-            || outcome.Kind == FoundationShotOutcomeKind.ExpiredNonHit)
+            || outcome.Kind == FoundationShotOutcomeKind.ExpiredNonHit
+            || outcome.Kind
+                == FoundationShotOutcomeKind.WorldObstructionBlocked)
         {
             if (outcome.HasHitContext)
             {
@@ -50,6 +52,40 @@ public static class CombatDamageResolver
             }
 
             result = CreateNoDamageResult(outcome.SourceShot);
+            failure = CombatDamageResolutionFailure.None;
+            return true;
+        }
+
+        if (outcome.Kind
+                == FoundationShotOutcomeKind.FriendlyShipBlocked
+            || outcome.Kind
+                == FoundationShotOutcomeKind.UnknownShipBlocked)
+        {
+            if (!outcome.HasHitContext
+                || !HasValidHitContext(
+                    outcome,
+                    outcome.HitContext
+                ))
+            {
+                failure = CombatDamageResolutionFailure.InvalidHitContext;
+                return false;
+            }
+
+            CombatRelationship relationship = ResolveRelationship(
+                outcome.HitContext
+            );
+            bool relationshipMatches = outcome.Kind
+                    == FoundationShotOutcomeKind.FriendlyShipBlocked
+                ? relationship == CombatRelationship.Friendly
+                : relationship == CombatRelationship.Unknown;
+
+            if (!relationshipMatches)
+            {
+                failure = CombatDamageResolutionFailure.InvalidOutcome;
+                return false;
+            }
+
+            result = CreateNoDamageResult(outcome);
             failure = CombatDamageResolutionFailure.None;
             return true;
         }
@@ -66,6 +102,12 @@ public static class CombatDamageResolver
         if (!HasValidHitContext(outcome, context))
         {
             failure = CombatDamageResolutionFailure.InvalidHitContext;
+            return false;
+        }
+
+        if (ResolveRelationship(context) != CombatRelationship.Hostile)
+        {
+            failure = CombatDamageResolutionFailure.InvalidOutcome;
             return false;
         }
 
@@ -226,6 +268,28 @@ public static class CombatDamageResolver
     }
 
 
+    private static CombatDamageResult CreateNoDamageResult(
+        FoundationShotOutcome outcome
+    )
+    {
+        CombatHitContext context = outcome.HitContext;
+        return new CombatDamageResult(
+            true,
+            false,
+            outcome.SourceShot,
+            context.TargetShipRoot,
+            true,
+            context.Region,
+            false,
+            default,
+            0f,
+            0f,
+            false,
+            default
+        );
+    }
+
+
     private static CombatDamageResult CreateHullResult(
         ShotSample sourceShot,
         CombatHitContext context,
@@ -273,6 +337,19 @@ public static class CombatDamageResolver
             && context.HitRegion.Owner
                 == context.TargetCombatGeometry
             && context.HitRegion.Region == context.Region;
+    }
+
+
+    private static CombatRelationship ResolveRelationship(
+        CombatHitContext context
+    )
+    {
+        return CombatRelationshipResolver.Resolve(
+            context.SourceShot.SourceShipRootIdentity
+                .GetComponent<ShipCombatAffiliation>(),
+            context.TargetShipRoot
+                .GetComponent<ShipCombatAffiliation>()
+        );
     }
 
 

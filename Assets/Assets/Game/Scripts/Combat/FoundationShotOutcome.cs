@@ -4,7 +4,10 @@ public enum FoundationShotOutcomeKind
 {
     HullHit,
     WaterMiss,
-    ExpiredNonHit
+    ExpiredNonHit,
+    FriendlyShipBlocked,
+    UnknownShipBlocked,
+    WorldObstructionBlocked
 }
 
 public readonly struct FoundationShotOutcome

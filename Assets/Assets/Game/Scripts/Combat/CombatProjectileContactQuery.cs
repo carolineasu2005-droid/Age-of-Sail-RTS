@@ -4,6 +4,9 @@ public static class CombatProjectileContactQuery
 {
     private const float MinimumSegmentLengthMeters = 0.000001f;
     private const float ContactTieEpsilon = 0.00001f;
+    private const int PhysicalContactMask =
+        CombatPhysicsQuery.CombatGeometryMask
+        | (1 << CombatObstructionVolume.LayerIndex);
 
 
     public static bool TryFindEarliestContact(
@@ -28,13 +31,14 @@ public static class CombatProjectileContactQuery
 
         Vector3 segment = nextPositionWorld - previousPositionWorld;
         float segmentLengthMeters = segment.magnitude;
-        bool hasHull = TryFindHullContact(
+        bool hasPhysicalContact = TryFindPhysicalContact(
             shotSample,
             previousPositionWorld,
             segment,
             segmentLengthMeters,
-            out RaycastHit hullHit,
-            out float hullFraction
+            out RaycastHit physicalHit,
+            out ProjectileTerminalContactKind physicalContactKind,
+            out float physicalFraction
         );
         bool hasWater = TryFindWaterContact(
             previousPositionWorld,
@@ -44,25 +48,27 @@ public static class CombatProjectileContactQuery
             out float waterFraction
         );
 
-        if (!hasHull && !hasWater)
+        if (!hasPhysicalContact && !hasWater)
         {
             return false;
         }
 
         float timeRangeSeconds = currentTimeSeconds - previousTimeSeconds;
 
-        if (hasHull
+        if (hasPhysicalContact
             && (!hasWater
-                || hullFraction <= waterFraction + ContactTieEpsilon))
+                || physicalFraction
+                    <= waterFraction + ContactTieEpsilon))
         {
             contact = new ProjectileTerminalContact(
-                ProjectileTerminalContactKind.CombatGeometryContact,
+                physicalContactKind,
                 shotSample,
-                hullHit.point,
-                hullHit.normal,
-                hullHit.collider,
-                hullFraction,
-                previousTimeSeconds + timeRangeSeconds * hullFraction
+                physicalHit.point,
+                physicalHit.normal,
+                physicalHit.collider,
+                physicalFraction,
+                previousTimeSeconds
+                    + timeRangeSeconds * physicalFraction
             );
             return true;
         }
@@ -80,16 +86,18 @@ public static class CombatProjectileContactQuery
     }
 
 
-    private static bool TryFindHullContact(
+    private static bool TryFindPhysicalContact(
         ShotSample shotSample,
         Vector3 previousPositionWorld,
         Vector3 segment,
         float segmentLengthMeters,
-        out RaycastHit hullHit,
+        out RaycastHit physicalHit,
+        out ProjectileTerminalContactKind contactKind,
         out float segmentFraction
     )
     {
-        hullHit = default;
+        physicalHit = default;
+        contactKind = default;
         segmentFraction = 0f;
 
         if (!IsFinite(segmentLengthMeters)
@@ -101,10 +109,11 @@ public static class CombatProjectileContactQuery
         Transform sourceRoot = shotSample.SourceShipRootIdentity != null
             ? shotSample.SourceShipRootIdentity.transform
             : null;
-        RaycastHit[] hits = CombatPhysicsQuery.RaycastAllCombatGeometry(
+        RaycastHit[] hits = CombatPhysicsQuery.RaycastAll(
             previousPositionWorld,
             segment / segmentLengthMeters,
-            segmentLengthMeters
+            segmentLengthMeters,
+            PhysicalContactMask
         );
 
         foreach (RaycastHit hit in hits)
@@ -112,14 +121,31 @@ public static class CombatProjectileContactQuery
             Collider candidate = hit.collider;
 
             if (candidate == null
-                || candidate.gameObject.layer
-                    != CombatPhysicsQuery.CombatGeometryLayer
                 || CombatPhysicsQuery.IsInHierarchy(candidate, sourceRoot))
             {
                 continue;
             }
 
-            hullHit = hit;
+            if (candidate.gameObject.layer
+                == CombatPhysicsQuery.CombatGeometryLayer)
+            {
+                contactKind = ProjectileTerminalContactKind
+                    .CombatGeometryContact;
+            }
+            else if (!CombatObstructionVolume.TryResolve(
+                candidate,
+                out _
+            ))
+            {
+                continue;
+            }
+            else
+            {
+                contactKind = ProjectileTerminalContactKind
+                    .WorldObstructionContact;
+            }
+
+            physicalHit = hit;
             segmentFraction = Mathf.Clamp01(
                 hit.distance / segmentLengthMeters
             );

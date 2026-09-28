@@ -25,6 +25,46 @@ public static class ShipFireAimBasisBuilder
             return false;
         }
 
+        if (!TryGetTargetAimCenterWorld(
+            shooterShipRoot,
+            targetShipRoot,
+            out Vector3 targetAimCenterWorld
+        ))
+        {
+            failure = FireAimBasisFailure.ExposureUnavailable;
+            return false;
+        }
+
+        Vector3 horizontalDirection =
+            targetAimCenterWorld - shooterShipRoot.transform.position;
+
+        return TryCreate(
+            fireEligibility.Side.Value,
+            FireAimSourceKind.Targeted,
+            targetAimCenterWorld,
+            horizontalDirection,
+            fireEligibility.DistanceMeters,
+            out basis,
+            out failure
+        );
+    }
+
+
+    internal static bool TryGetTargetAimCenterWorld(
+        GameObject shooterShipRoot,
+        GameObject targetShipRoot,
+        out Vector3 targetAimCenterWorld
+    )
+    {
+        targetAimCenterWorld = default;
+
+        if (shooterShipRoot == null
+            || targetShipRoot == null
+            || shooterShipRoot == targetShipRoot)
+        {
+            return false;
+        }
+
         ShipExposureReference exposureReference =
             targetShipRoot.GetComponent<ShipExposureReference>();
 
@@ -32,24 +72,14 @@ public static class ShipFireAimBasisBuilder
             || !exposureReference.TryCalculateExposure(
                 shooterShipRoot.transform.position,
                 out ExposureRect exposure
-            ))
+            )
+            || !IsFinite(exposure.CenterWorld))
         {
-            failure = FireAimBasisFailure.ExposureUnavailable;
             return false;
         }
 
-        Vector3 horizontalDirection =
-            exposure.CenterWorld - shooterShipRoot.transform.position;
-
-        return TryCreate(
-            fireEligibility.Side.Value,
-            FireAimSourceKind.Targeted,
-            exposure.CenterWorld,
-            horizontalDirection,
-            fireEligibility.DistanceMeters,
-            out basis,
-            out failure
-        );
+        targetAimCenterWorld = exposure.CenterWorld;
+        return true;
     }
 
 

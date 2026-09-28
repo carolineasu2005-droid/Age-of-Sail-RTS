@@ -16,6 +16,7 @@ public class CombatProjectilePlayModeTests
         "Assets/Assets/Game/Combat/Prefabs/"
         + "PF_CombatProjectile_Foundation_v01.prefab";
     private const int CombatGeometryLayer = 8;
+    private const int CombatObstructionLayer = 9;
     private const float Tolerance = 0.0001f;
 
     private readonly List<GameObject> createdObjects =
@@ -114,6 +115,12 @@ public class CombatProjectilePlayModeTests
             Vector3.one,
             CombatGeometryLayer,
             true
+        );
+        CreateWorldObstruction(
+            "Source World Obstruction",
+            sourceRoot.transform,
+            new Vector3(3f, 5f, 0f),
+            Vector3.one
         );
         Collider thirdParty = CreateCollider(
             "Third Party Combat Geometry",
@@ -301,6 +308,123 @@ public class CombatProjectilePlayModeTests
 
 
     [UnityTest]
+    public IEnumerator WorldObstructionBeforeWater_ChoosesObstruction()
+    {
+        Collider obstruction = CreateWorldObstruction(
+            "World Before Water",
+            null,
+            new Vector3(2.5f, 0f, 0f),
+            new Vector3(1f, 100f, 1f)
+        );
+
+        ProjectileTerminalContact contact = QueryOrderingSegment();
+
+        Assert.That(
+            contact.Kind,
+            Is.EqualTo(
+                ProjectileTerminalContactKind.WorldObstructionContact
+            )
+        );
+        Assert.That(contact.ContactedCollider, Is.SameAs(obstruction));
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator WaterBeforeWorldObstruction_ChoosesWater()
+    {
+        CreateWorldObstruction(
+            "World After Water",
+            null,
+            new Vector3(8.5f, 0f, 0f),
+            new Vector3(1f, 100f, 1f)
+        );
+
+        ProjectileTerminalContact contact = QueryOrderingSegment();
+
+        Assert.That(
+            contact.Kind,
+            Is.EqualTo(ProjectileTerminalContactKind.WaterContact)
+        );
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator ShipAndWorldObstruction_ChooseNearestPhysicalContact()
+    {
+        Collider nearShip = CreateOrderingHull(2.5f);
+        CreateWorldObstruction(
+            "Far World Obstruction",
+            null,
+            new Vector3(7.5f, 5f, 0f),
+            new Vector3(1f, 10f, 1f)
+        );
+        ProjectileTerminalContact shipFirst = QueryHorizontalSegment();
+
+        Assert.That(shipFirst.ContactedCollider, Is.SameAs(nearShip));
+        Assert.That(
+            shipFirst.Kind,
+            Is.EqualTo(
+                ProjectileTerminalContactKind.CombatGeometryContact
+            )
+        );
+
+        Object.Destroy(nearShip.gameObject);
+        yield return null;
+        Physics.SyncTransforms();
+        Collider nearWorld = CreateWorldObstruction(
+            "Near World Obstruction",
+            null,
+            new Vector3(2.5f, 5f, 0f),
+            new Vector3(1f, 10f, 1f)
+        );
+        CreateOrderingHull(7.5f);
+        ProjectileTerminalContact worldFirst = QueryHorizontalSegment();
+
+        Assert.That(worldFirst.ContactedCollider, Is.SameAs(nearWorld));
+        Assert.That(
+            worldFirst.Kind,
+            Is.EqualTo(
+                ProjectileTerminalContactKind.WorldObstructionContact
+            )
+        );
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator VisualGeometryDoesNotBlockButGameplayVolumeDoes()
+    {
+        CreateCollider(
+            "Tall VisualRoot Cube",
+            null,
+            new Vector3(2f, 50f, 0f),
+            new Vector3(10f, 100f, 10f),
+            0,
+            false
+        );
+        Collider gameplayVolume = CreateWorldObstruction(
+            "Independent Gameplay Volume",
+            null,
+            new Vector3(6f, 5f, 0f),
+            Vector3.one
+        );
+
+        ProjectileTerminalContact contact = QueryHorizontalSegment();
+
+        Assert.That(contact.ContactedCollider, Is.SameAs(gameplayVolume));
+        Assert.That(
+            contact.Kind,
+            Is.EqualTo(
+                ProjectileTerminalContactKind.WorldObstructionContact
+            )
+        );
+        yield return null;
+    }
+
+
+    [UnityTest]
     public IEnumerator RuntimeProjectile_TerminatesOnceAndDoesNotMutateShip()
     {
         ShipCombatState sourceState =
@@ -469,6 +593,29 @@ public class CombatProjectilePlayModeTests
     }
 
 
+    private ProjectileTerminalContact QueryHorizontalSegment()
+    {
+        ShotSample sample = CreateSample(
+            new Vector3(0f, 5f, 0f),
+            Vector3.right * 10f,
+            Vector3.zero,
+            -100f,
+            5f
+        );
+        Physics.SyncTransforms();
+        bool contacted = CombatProjectileContactQuery.TryFindEarliestContact(
+            sample,
+            new Vector3(0f, 5f, 0f),
+            new Vector3(10f, 5f, 0f),
+            0f,
+            1f,
+            out ProjectileTerminalContact contact
+        );
+        Assert.That(contacted, Is.True);
+        return contact;
+    }
+
+
     private Collider CreateOrderingHull(float centerX)
     {
         return CreateCollider(
@@ -543,6 +690,33 @@ public class CombatProjectilePlayModeTests
         BoxCollider collider = colliderObject.AddComponent<BoxCollider>();
         collider.size = size;
         collider.isTrigger = isTrigger;
+        return collider;
+    }
+
+
+    private Collider CreateWorldObstruction(
+        string name,
+        Transform parent,
+        Vector3 position,
+        Vector3 size
+    )
+    {
+        BoxCollider collider = (BoxCollider)CreateCollider(
+            name,
+            parent,
+            position,
+            size,
+            CombatObstructionLayer,
+            true
+        );
+        CombatObstructionVolume obstruction = collider.gameObject
+            .AddComponent<CombatObstructionVolume>();
+        FieldInfo field = typeof(CombatObstructionVolume).GetField(
+            "queryCollider",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null);
+        field.SetValue(obstruction, collider);
         return collider;
     }
 

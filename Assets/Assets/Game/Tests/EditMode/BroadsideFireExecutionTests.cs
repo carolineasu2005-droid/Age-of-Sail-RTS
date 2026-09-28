@@ -13,6 +13,9 @@ public class BroadsideFireExecutionTests
     private const string CombatPrefabPath =
         "Assets/Assets/Game/Ship/Proxy/"
         + "PF_Ship_Gelderland_Combat_v01.prefab";
+    private const string IslandPrefabPath =
+        "Assets/Assets/Game/Combat/Prefabs/"
+        + "PF_Debug_CombatIsland_v01.prefab";
 
     private readonly List<GameObject> createdShips =
         new List<GameObject>();
@@ -361,6 +364,71 @@ public class BroadsideFireExecutionTests
     }
 
 
+    [Test]
+    public void ObstructedTargetedFire_HoldsBeforeAnyPhysicalCommit()
+    {
+        GameObject shooter = CreateShip(Vector3.zero);
+        GameObject target = CreateShip(Vector3.right * 100f);
+        GameObject islandPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            IslandPrefabPath
+        );
+        Assert.That(islandPrefab, Is.Not.Null);
+        GameObject island = UnityEngine.Object.Instantiate(islandPrefab);
+        island.transform.position = Vector3.right * 50f;
+        createdShips.Add(island);
+        ShipCombatState state = shooter.GetComponent<ShipCombatState>();
+        ShipBroadsideFireExecutor executor =
+            shooter.GetComponent<ShipBroadsideFireExecutor>();
+        CombatVFXCountingReceiver receiver =
+            shooter.AddComponent<CombatVFXCountingReceiver>();
+        SetPrivateField(executor, "combatVFXReceiver", receiver);
+        uint executionSequence = GetPrivateField<uint>(
+            executor,
+            "executionSequence"
+        );
+        Vector3 position = shooter.transform.position;
+        Quaternion rotation = shooter.transform.rotation;
+        Physics.SyncTransforms();
+
+        bool accepted = CreateTargetedCommand(shooter).TryExecute(
+            target,
+            true,
+            91u,
+            out TargetedFireExecutionResult result
+        );
+
+        Assert.That(accepted, Is.False);
+        Assert.That(result.Accepted, Is.False);
+        Assert.That(result.Eligibility.Blocked, Is.True);
+        Assert.That(
+            result.Eligibility.Obstruction.RepresentativeBlockerKind,
+            Is.EqualTo(CombatFireBlockerKind.WorldObstacle)
+        );
+        Assert.That(result.BroadsideExecution.ShotCount, Is.Zero);
+        Assert.That(
+            result.BroadsideExecution.SpawnedProjectileCount,
+            Is.Zero
+        );
+        Assert.That(
+            UnityEngine.Object.FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ),
+            Is.Empty
+        );
+        Assert.That(
+            state.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(receiver.MuzzleFireCount, Is.Zero);
+        Assert.That(
+            GetPrivateField<uint>(executor, "executionSequence"),
+            Is.EqualTo(executionSequence)
+        );
+        Assert.That(shooter.transform.position, Is.EqualTo(position));
+        Assert.That(shooter.transform.rotation, Is.EqualTo(rotation));
+    }
+
+
     private TargetedFireExecutionResult ExecuteTargeted(
         GameObject shooter,
         GameObject target,
@@ -434,6 +502,32 @@ public class BroadsideFireExecutionTests
             shooter.GetComponent<ShipFireEligibility>(),
             shooter.GetComponent<ShipBroadsideFireExecutor>()
         );
+    }
+
+
+    private static void SetPrivateField(
+        object target,
+        string fieldName,
+        object value
+    )
+    {
+        FieldInfo field = target.GetType().GetField(
+            fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null, fieldName);
+        field.SetValue(target, value);
+    }
+
+
+    private static T GetPrivateField<T>(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(
+            fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null, fieldName);
+        return (T)field.GetValue(target);
     }
 
 

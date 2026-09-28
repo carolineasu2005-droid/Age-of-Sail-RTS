@@ -8,7 +8,8 @@ public enum BlindFireEligibilityFailure
     NoBroadsideArc = 1 << 1,
     BeyondMaximumRange = 1 << 2,
     BroadsideReloading = 1 << 3,
-    LifecycleDisallowsFire = 1 << 4
+    LifecycleDisallowsFire = 1 << 4,
+    Obstructed = 1 << 5
 }
 
 public readonly struct BlindFireEligibilityResult
@@ -21,6 +22,8 @@ public readonly struct BlindFireEligibilityResult
         bool? withinMaximumRange,
         bool reloadReady,
         bool lifecycleAllowsFire,
+        bool hasObstructionPath,
+        CombatFireObstructionResult obstruction,
         BlindFireEligibilityFailure failureReasons
     )
     {
@@ -31,6 +34,8 @@ public readonly struct BlindFireEligibilityResult
         WithinMaximumRange = withinMaximumRange;
         ReloadReady = reloadReady;
         LifecycleAllowsFire = lifecycleAllowsFire;
+        HasObstructionPath = hasObstructionPath;
+        Obstruction = obstruction;
         FailureReasons = failureReasons;
     }
 
@@ -53,6 +58,12 @@ public readonly struct BlindFireEligibilityResult
 
     public bool LifecycleAllowsFire { get; }
 
+    public bool HasObstructionPath { get; }
+
+    public CombatFireObstructionResult Obstruction { get; }
+
+    public bool Blocked => Obstruction.IsBlocked;
+
     public BlindFireEligibilityFailure FailureReasons { get; }
 
     public bool CanBlindFire =>
@@ -61,5 +72,6 @@ public readonly struct BlindFireEligibilityResult
         && InBroadsideArc
         && (!RangeApplicable || WithinMaximumRange == true)
         && ReloadReady
-        && LifecycleAllowsFire;
+        && LifecycleAllowsFire
+        && !Blocked;
 }

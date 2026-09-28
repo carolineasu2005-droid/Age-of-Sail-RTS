@@ -291,6 +291,7 @@ public sealed class ShipTestPanel : EditorWindow
         FoundationShotOutcome outcome = diagnostics.Outcome;
         summary.Append("Latest Resolved Outcome: ")
             .AppendLine(outcome.Kind.ToString().ToUpperInvariant());
+        AppendProjectileInterceptionDiagnostics(summary, outcome);
 
         if (outcome.HasHitContext)
         {
@@ -329,6 +330,50 @@ public sealed class ShipTestPanel : EditorWindow
         }
 
         return summary.ToString();
+    }
+
+
+    private static void AppendProjectileInterceptionDiagnostics(
+        StringBuilder summary,
+        FoundationShotOutcome outcome
+    )
+    {
+        summary.Append("Projectile Interception: ")
+            .AppendLine(FormatProjectileInterception(outcome.Kind));
+
+        if (!outcome.HasHitContext)
+        {
+            return;
+        }
+
+        GameObject contactedShip = outcome.HitContext.TargetShipRoot;
+        summary.Append("Contact Ship: ").AppendLine(
+            contactedShip != null ? contactedShip.name : "UNKNOWN"
+        );
+    }
+
+
+    private static string FormatProjectileInterception(
+        FoundationShotOutcomeKind kind
+    )
+    {
+        switch (kind)
+        {
+            case FoundationShotOutcomeKind.HullHit:
+                return "HOSTILE HULL HIT";
+            case FoundationShotOutcomeKind.FriendlyShipBlocked:
+                return "FRIENDLY SHIP BLOCKED";
+            case FoundationShotOutcomeKind.UnknownShipBlocked:
+                return "UNKNOWN SHIP BLOCKED";
+            case FoundationShotOutcomeKind.WorldObstructionBlocked:
+                return "WORLD OBSTRUCTION BLOCKED";
+            case FoundationShotOutcomeKind.WaterMiss:
+                return "WATER MISS";
+            case FoundationShotOutcomeKind.ExpiredNonHit:
+                return "EXPIRED NON-HIT";
+            default:
+                return "UNKNOWN";
+        }
     }
 
 
@@ -1348,7 +1393,11 @@ public sealed class ShipTestPanel : EditorWindow
         summary.Append("Target Lifecycle: ").AppendLine(
             result.TargetLifecycleLegal ? "LEGAL" : "SINKING / INVALID"
         );
-        summary.Append("Blocked: ").AppendLine(FormatBlocked(result));
+        AppendObstructionSummary(
+            summary,
+            result.HasObstructionPath,
+            result.Obstruction
+        );
         summary.Append("Shooter Lifecycle: ").AppendLine(
             result.LifecycleAllowsFire
                 ? "OPERATIONAL"
@@ -1398,6 +1447,11 @@ public sealed class ShipTestPanel : EditorWindow
                 result.BroadsideExecution.SpawnedProjectileCount
                     .ToString()
             );
+        AppendObstructionSummary(
+            summary,
+            result.Eligibility.HasObstructionPath,
+            result.Eligibility.Obstruction
+        );
         summary.Append("Nominal Range: ")
             .Append(
                 result.BroadsideExecution.AimBasis
@@ -1511,6 +1565,11 @@ public sealed class ShipTestPanel : EditorWindow
                 ? "OPERATIONAL"
                 : "BLOCKED"
         );
+        AppendObstructionSummary(
+            summary,
+            result.HasObstructionPath,
+            result.Obstruction
+        );
         summary.Append("CAN BLIND FIRE: ").AppendLine(
             FormatYesNo(result.CanBlindFire)
         );
@@ -1570,6 +1629,8 @@ public sealed class ShipTestPanel : EditorWindow
         AppendFailure(reasons, failures,
             BlindFireEligibilityFailure.LifecycleDisallowsFire,
             "LIFECYCLE_BLOCKED");
+        AppendFailure(reasons, failures,
+            BlindFireEligibilityFailure.Obstructed, "OBSTRUCTED");
     }
 
 
@@ -1734,16 +1795,66 @@ public sealed class ShipTestPanel : EditorWindow
     }
 
 
-    private static string FormatBlocked(FireEligibilityResult result)
+    private static void AppendObstructionSummary(
+        StringBuilder summary,
+        bool hasObstructionPath,
+        CombatFireObstructionResult obstruction
+    )
     {
-        if (!result.Blocked)
+        if (!hasObstructionPath)
         {
-            return "NO (CLEAR)";
+            summary.AppendLine("Obstructed: NOT EVALUATED");
+            summary.AppendLine("Blocked Rays: 0 / 0");
+            summary.AppendLine("Blocked Fraction: 0.000");
+            summary.AppendLine("Blocker Type: NONE");
+            summary.AppendLine("Fire Outcome: NOT EVALUATED");
+            return;
         }
 
-        return result.BlockingObject != null
-            ? $"YES ({result.BlockingObject.name})"
-            : "YES";
+        summary.Append("Obstructed: ").AppendLine(
+            FormatYesNo(obstruction.BlockedRayCount > 0)
+        );
+        summary.Append("Blocked Rays: ")
+            .Append(obstruction.BlockedRayCount)
+            .Append(" / ")
+            .AppendLine(obstruction.ParticipatingRayCount.ToString());
+        summary.Append("Blocked Fraction: ").AppendLine(
+            obstruction.BlockedFraction.ToString("F3")
+        );
+        summary.Append("Blocker Type: ").AppendLine(
+            FormatBlockerKind(obstruction.RepresentativeBlockerKind)
+        );
+
+        if (obstruction.RepresentativeBlockerKind
+            == CombatFireBlockerKind.Ship)
+        {
+            summary.Append("Relationship: ").AppendLine(
+                obstruction.BlockerRelationship
+                    .ToString()
+                    .ToUpperInvariant()
+            );
+        }
+
+        if (!string.IsNullOrEmpty(
+            obstruction.RepresentativeBlockerName
+        ))
+        {
+            summary.Append("Blocker Name: ").AppendLine(
+                obstruction.RepresentativeBlockerName
+            );
+        }
+
+        summary.Append("Fire Outcome: ").AppendLine(
+            obstruction.IsBlocked ? "HOLD FIRE" : "READY"
+        );
+    }
+
+
+    private static string FormatBlockerKind(CombatFireBlockerKind kind)
+    {
+        return kind == CombatFireBlockerKind.WorldObstacle
+            ? "WORLD_OBSTACLE"
+            : kind.ToString().ToUpperInvariant();
     }
 
 

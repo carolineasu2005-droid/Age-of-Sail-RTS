@@ -24,6 +24,11 @@ public sealed class ShipFireEligibility : MonoBehaviour
     [Min(0f)]
     private float maximumRangeMeters = 500f;
 
+    [Header("Obstruction")]
+
+    [SerializeField]
+    private CombatObstructionProfile combatObstructionProfile;
+
 
     public float ForwardArcLimitDegrees => forwardArcLimitDegrees;
 
@@ -32,6 +37,9 @@ public sealed class ShipFireEligibility : MonoBehaviour
     public float EffectiveRangeMeters => effectiveRangeMeters;
 
     public float MaximumRangeMeters => maximumRangeMeters;
+
+    public CombatObstructionProfile CombatObstructionProfile =>
+        combatObstructionProfile;
 
 
     public bool TryEvaluate(
@@ -45,8 +53,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
         if (!HasValidConfiguration()
             || !TryGetShooterDependencies(
                 out ShipCombatState combatState,
-                out ShipIntegrity shooterIntegrity,
-                out Vector3 obstructionOriginWorld
+                out ShipIntegrity shooterIntegrity
             ))
         {
             return false;
@@ -63,8 +70,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
         ))
         {
             result = CreateInvalidTargetResult(
-                lifecycleAllowsFire,
-                obstructionOriginWorld
+                lifecycleAllowsFire
             );
             return true;
         }
@@ -82,13 +88,29 @@ public sealed class ShipFireEligibility : MonoBehaviour
             && targetLifecycleLegal;
         bool reloadReady = geometryResult.Side.HasValue
             && IsBroadsideReady(combatState, geometryResult.Side.Value);
-        bool blocked = TryFindBlockingCollider(
-            obstructionOriginWorld,
-            obstructionDestinationWorld,
-            transform,
-            targetShipRoot.transform,
-            out Collider blockingCollider
-        );
+        bool hasObstructionPath = false;
+        CombatFireObstructionResult obstruction = default;
+
+        if (geometryResult.Side.HasValue
+            && ShipFireAimBasisBuilder.TryGetTargetAimCenterWorld(
+                gameObject,
+                targetShipRoot,
+                out Vector3 targetAimEndpointWorld
+            ))
+        {
+            obstructionDestinationWorld = targetAimEndpointWorld;
+            hasObstructionPath =
+                CombatFireObstructionQuery.TryEvaluateTargeted(
+                    gameObject,
+                    targetShipRoot,
+                    geometryResult.Side.Value,
+                    targetAimEndpointWorld,
+                    combatObstructionProfile,
+                    out obstruction
+                );
+        }
+
+        bool blocked = hasObstructionPath && obstruction.IsBlocked;
         FireEligibilityFailure failureReasons = GetFailureReasons(
             targetLegal,
             targetLifecycleLegal,
@@ -109,11 +131,12 @@ public sealed class ShipFireEligibility : MonoBehaviour
             geometryResult.WithinEffectiveRange,
             reloadReady,
             lifecycleAllowsFire,
-            true,
-            obstructionOriginWorld,
+            hasObstructionPath,
+            hasObstructionPath
+                ? obstruction.RepresentativeRayOriginWorld
+                : Vector3.zero,
             obstructionDestinationWorld,
-            blocked,
-            blockingCollider,
+            obstruction,
             failureReasons
         );
         return true;
@@ -296,8 +319,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
             false,
             Vector3.zero,
             Vector3.zero,
-            false,
-            null,
+            default,
             FireEligibilityFailure.None
         );
         return true;
@@ -337,27 +359,19 @@ public sealed class ShipFireEligibility : MonoBehaviour
 
     private bool TryGetShooterDependencies(
         out ShipCombatState combatState,
-        out ShipIntegrity shooterIntegrity,
-        out Vector3 obstructionOriginWorld
+        out ShipIntegrity shooterIntegrity
     )
     {
         combatState = GetComponent<ShipCombatState>();
         shooterIntegrity = GetComponent<ShipIntegrity>();
-        obstructionOriginWorld = default;
         ShipArtDefinition artDefinition = GetComponent<ShipArtDefinition>();
 
-        if (combatState == null
-            || shooterIntegrity == null
-            || artDefinition == null
-            || artDefinition.CenterReference == null
-            || !IsFinite(transform.position)
-            || !IsFinite(artDefinition.CenterReference.position))
-        {
-            return false;
-        }
-
-        obstructionOriginWorld = artDefinition.CenterReference.position;
-        return true;
+        return combatState != null
+            && shooterIntegrity != null
+            && artDefinition != null
+            && artDefinition.CenterReference != null
+            && IsFinite(transform.position)
+            && IsFinite(artDefinition.CenterReference.position);
     }
 
 
@@ -424,7 +438,7 @@ public sealed class ShipFireEligibility : MonoBehaviour
     }
 
 
-    private static BlindFireEligibilityResult CreateBlindFireResult(
+    private BlindFireEligibilityResult CreateBlindFireResult(
         BlindFireAim aim,
         BroadsideGeometryResult geometry,
         bool? withinMaximumRange,
@@ -434,6 +448,21 @@ public sealed class ShipFireEligibility : MonoBehaviour
     {
         bool reloadReady = geometry.Side.HasValue
             && IsBroadsideReady(combatState, geometry.Side.Value);
+        bool hasObstructionPath = false;
+        CombatFireObstructionResult obstruction = default;
+
+        if (geometry.Side.HasValue && aim.WorldAimPoint.HasValue)
+        {
+            hasObstructionPath =
+                CombatFireObstructionQuery.TryEvaluateBlindFire(
+                    gameObject,
+                    geometry.Side.Value,
+                    aim.WorldAimPoint.Value,
+                    combatObstructionProfile,
+                    out obstruction
+                );
+        }
+
         BlindFireEligibilityFailure failureReasons =
             BlindFireEligibilityFailure.None;
 
@@ -461,6 +490,11 @@ public sealed class ShipFireEligibility : MonoBehaviour
                 BlindFireEligibilityFailure.LifecycleDisallowsFire;
         }
 
+        if (hasObstructionPath && obstruction.IsBlocked)
+        {
+            failureReasons |= BlindFireEligibilityFailure.Obstructed;
+        }
+
         return new BlindFireEligibilityResult(
             aim,
             geometry.Side,
@@ -469,6 +503,8 @@ public sealed class ShipFireEligibility : MonoBehaviour
             withinMaximumRange,
             reloadReady,
             lifecycleAllowsFire,
+            hasObstructionPath,
+            obstruction,
             failureReasons
         );
     }
@@ -503,14 +539,15 @@ public sealed class ShipFireEligibility : MonoBehaviour
             withinMaximumRange,
             false,
             lifecycleAllowsFire,
+            false,
+            default,
             failureReasons
         );
     }
 
 
     private static FireEligibilityResult CreateInvalidTargetResult(
-        bool lifecycleAllowsFire,
-        Vector3 obstructionOriginWorld
+        bool lifecycleAllowsFire
     )
     {
         return new FireEligibilityResult(
@@ -525,10 +562,9 @@ public sealed class ShipFireEligibility : MonoBehaviour
             false,
             lifecycleAllowsFire,
             false,
-            obstructionOriginWorld,
             Vector3.zero,
-            false,
-            null,
+            Vector3.zero,
+            default,
             FireEligibilityFailure.TargetIllegal
         );
     }
@@ -582,55 +618,6 @@ public sealed class ShipFireEligibility : MonoBehaviour
         }
 
         return reasons;
-    }
-
-
-    private static bool TryFindBlockingCollider(
-        Vector3 originWorld,
-        Vector3 destinationWorld,
-        Transform shooterRoot,
-        Transform targetRoot,
-        out Collider blockingCollider
-    )
-    {
-        blockingCollider = null;
-        Vector3 offset = destinationWorld - originWorld;
-        float distance = offset.magnitude;
-
-        if (!IsFinite(distance)
-            || distance <= Mathf.Epsilon)
-        {
-            return false;
-        }
-
-        RaycastHit[] hits = CombatPhysicsQuery.RaycastAllCombatGeometry(
-            originWorld,
-            offset / distance,
-            distance
-        );
-
-        foreach (RaycastHit hit in hits)
-        {
-            Collider candidate = hit.collider;
-
-            if (candidate == null
-                || CombatPhysicsQuery.IsInHierarchy(
-                    candidate,
-                    shooterRoot
-                )
-                || CombatPhysicsQuery.IsInHierarchy(
-                    candidate,
-                    targetRoot
-                ))
-            {
-                continue;
-            }
-
-            blockingCollider = candidate;
-            return true;
-        }
-
-        return false;
     }
 
 

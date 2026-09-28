@@ -395,6 +395,116 @@ public class ShipTestPanelTests
 
 
     [Test]
+    public void PanelSource_DisplaysObstructionResultWithoutRequerying()
+    {
+        string source = ReadPanelSource();
+
+        Assert.That(source, Does.Contain("Obstructed:"));
+        Assert.That(source, Does.Contain("Blocked Rays:"));
+        Assert.That(source, Does.Contain("Blocked Fraction:"));
+        Assert.That(source, Does.Contain("Blocker Type:"));
+        Assert.That(source, Does.Contain("Relationship:"));
+        Assert.That(source, Does.Contain("Blocker Name:"));
+        Assert.That(source, Does.Contain("Fire Outcome:"));
+        Assert.That(
+            source,
+            Does.Not.Contain("CombatFireObstructionQuery")
+        );
+        Assert.That(source, Does.Not.Contain("Physics.Linecast"));
+    }
+
+
+    [Test]
+    public void PhaseNineObstructionDiagnostics_SeparateContactFromHoldFire()
+    {
+        StringBuilder readySummary = new StringBuilder();
+        CombatFireObstructionResult toleratedContact =
+            CreateObstructionResult(
+                false,
+                13,
+                1,
+                CombatFireBlockerKind.Ship,
+                CombatRelationship.Friendly,
+                "Friendly_Blocker"
+            );
+
+        InvokePrivateStatic<object>(
+            "AppendObstructionSummary",
+            readySummary,
+            true,
+            toleratedContact
+        );
+
+        string readyText = readySummary.ToString();
+        Assert.That(readyText, Does.Contain("Obstructed: YES"));
+        Assert.That(readyText, Does.Contain("Blocked Rays: 1 / 13"));
+        Assert.That(readyText, Does.Contain("Blocked Fraction: 0.077"));
+        Assert.That(readyText, Does.Contain("Blocker Type: SHIP"));
+        Assert.That(readyText, Does.Contain("Relationship: FRIENDLY"));
+        Assert.That(
+            readyText,
+            Does.Contain("Blocker Name: Friendly_Blocker")
+        );
+        Assert.That(readyText, Does.Contain("Fire Outcome: READY"));
+
+        StringBuilder heldSummary = new StringBuilder();
+        CombatFireObstructionResult heldContact = CreateObstructionResult(
+            true,
+            13,
+            13,
+            CombatFireBlockerKind.WorldObstacle,
+            CombatRelationship.Unknown,
+            "PF_Debug_CombatIsland_v01"
+        );
+
+        InvokePrivateStatic<object>(
+            "AppendObstructionSummary",
+            heldSummary,
+            true,
+            heldContact
+        );
+
+        string heldText = heldSummary.ToString();
+        Assert.That(heldText, Does.Contain("Obstructed: YES"));
+        Assert.That(
+            heldText,
+            Does.Contain("Blocker Type: WORLD_OBSTACLE")
+        );
+        Assert.That(heldText, Does.Contain("Fire Outcome: HOLD FIRE"));
+    }
+
+
+    [TestCase(
+        FoundationShotOutcomeKind.FriendlyShipBlocked,
+        "FRIENDLY SHIP BLOCKED"
+    )]
+    [TestCase(
+        FoundationShotOutcomeKind.HullHit,
+        "HOSTILE HULL HIT"
+    )]
+    [TestCase(
+        FoundationShotOutcomeKind.UnknownShipBlocked,
+        "UNKNOWN SHIP BLOCKED"
+    )]
+    [TestCase(
+        FoundationShotOutcomeKind.WorldObstructionBlocked,
+        "WORLD OBSTRUCTION BLOCKED"
+    )]
+    public void PhaseNineDiagnostics_FormatPhysicalInterceptionOutcome(
+        FoundationShotOutcomeKind kind,
+        string expected
+    )
+    {
+        string actual = InvokePrivateStatic<string>(
+            "FormatProjectileInterception",
+            kind
+        );
+
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+
+
+    [Test]
     public void AutoTargetPresentation_ShowsAuthoritativeErvScoreWithoutMath()
     {
         string source = ReadPanelSource();
@@ -524,6 +634,9 @@ public class ShipTestPanelTests
         ));
         Assert.That(diagnosticsMethod, Does.Contain(
             "diagnostics.Outcome"
+        ));
+        Assert.That(diagnosticsMethod, Does.Contain(
+            "AppendProjectileInterceptionDiagnostics"
         ));
         Assert.That(diagnosticsMethod, Does.Contain(
             "diagnostics.DamageResult"
@@ -828,6 +941,33 @@ public class ShipTestPanelTests
             appliedDamage,
             false,
             default(ShipIntegrityTransition)
+        });
+    }
+
+
+    private static CombatFireObstructionResult CreateObstructionResult(
+        bool isBlocked,
+        int participatingRayCount,
+        int blockedRayCount,
+        CombatFireBlockerKind blockerKind,
+        CombatRelationship relationship,
+        string blockerName
+    )
+    {
+        ConstructorInfo constructor = typeof(CombatFireObstructionResult)
+            .GetConstructors(
+                BindingFlags.Instance | BindingFlags.NonPublic
+            )[0];
+        return (CombatFireObstructionResult)constructor.Invoke(new object[]
+        {
+            isBlocked,
+            participatingRayCount,
+            blockedRayCount,
+            blockerKind,
+            relationship,
+            blockerName,
+            null,
+            Vector3.zero
         });
     }
 

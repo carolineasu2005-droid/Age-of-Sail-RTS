@@ -6,6 +6,7 @@ public enum FoundationShotOutcomeFailure
     InvalidShot,
     InvalidSpatialData,
     SemanticHitQueryFailed,
+    InvalidWorldObstructionContact,
     UnknownTerminalKind
 }
 
@@ -41,13 +42,54 @@ public static class FoundationShotOutcomeResolver
                     return false;
                 }
 
+                CombatRelationship relationship =
+                    CombatRelationshipResolver.Resolve(
+                        contact.ShotSample.SourceShipRootIdentity
+                            .GetComponent<ShipCombatAffiliation>(),
+                        hitContext.TargetShipRoot
+                            .GetComponent<ShipCombatAffiliation>()
+                    );
+                FoundationShotOutcomeKind shipOutcomeKind =
+                    relationship == CombatRelationship.Hostile
+                        ? FoundationShotOutcomeKind.HullHit
+                        : relationship == CombatRelationship.Friendly
+                            ? FoundationShotOutcomeKind
+                                .FriendlyShipBlocked
+                            : FoundationShotOutcomeKind
+                                .UnknownShipBlocked;
+
                 outcome = new FoundationShotOutcome(
-                    FoundationShotOutcomeKind.HullHit,
+                    shipOutcomeKind,
                     contact.ShotSample,
                     hitContext.WorldHitPoint,
                     hitContext.WorldHitNormal,
                     hitContext,
                     true
+                );
+                failure = FoundationShotOutcomeFailure.None;
+                return true;
+
+            case ProjectileTerminalContactKind.WorldObstructionContact:
+                if (!IsFinite(contact.PointWorld)
+                    || !IsFinite(contact.NormalWorld)
+                    || contact.NormalWorld.sqrMagnitude <= 0f
+                    || !CombatObstructionVolume.TryResolve(
+                        contact.ContactedCollider,
+                        out _
+                    ))
+                {
+                    failure = FoundationShotOutcomeFailure
+                        .InvalidWorldObstructionContact;
+                    return false;
+                }
+
+                outcome = new FoundationShotOutcome(
+                    FoundationShotOutcomeKind.WorldObstructionBlocked,
+                    contact.ShotSample,
+                    contact.PointWorld,
+                    contact.NormalWorld,
+                    default,
+                    false
                 );
                 failure = FoundationShotOutcomeFailure.None;
                 return true;

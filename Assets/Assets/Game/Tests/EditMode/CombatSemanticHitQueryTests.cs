@@ -26,7 +26,28 @@ public class CombatSemanticHitQueryTests
         );
         Assert.That(prefab, Is.Not.Null);
         targetShip = UnityEngine.Object.Instantiate(prefab);
+        SetTeamId(sourceShip, 1);
+        SetTeamId(targetShip, 2);
         shot = CreateShotSample(sourceShip);
+    }
+
+
+    private static void SetTeamId(GameObject shipRoot, int teamId)
+    {
+        ShipCombatAffiliation affiliation =
+            shipRoot.GetComponent<ShipCombatAffiliation>();
+
+        if (affiliation == null)
+        {
+            affiliation = shipRoot.AddComponent<ShipCombatAffiliation>();
+        }
+
+        FieldInfo field = typeof(ShipCombatAffiliation).GetField(
+            "teamId",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null);
+        field.SetValue(affiliation, teamId);
     }
 
 

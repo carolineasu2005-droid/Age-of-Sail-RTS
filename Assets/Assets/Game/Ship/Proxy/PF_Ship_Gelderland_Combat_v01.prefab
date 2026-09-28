@@ -1595,6 +1595,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
       insertIndex: -1
       addedObject: {fileID: 910000000000000027}
+    - targetCorrespondingSourceObject: {fileID: 2585501335297741279, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 910000000000000028}
   m_SourcePrefab: {fileID: 100100000, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}
 --- !u!4 &494498070062832346 stripped
 Transform:
@@ -1712,6 +1715,7 @@ MonoBehaviour:
   aftArcLimitDegrees: 70
   effectiveRangeMeters: 300
   maximumRangeMeters: 500
+  combatObstructionProfile: {fileID: 11400000, guid: 7d3a1bf410f94e28a5db9f63c2119009, type: 2}
 --- !u!114 &910000000000000022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1793,6 +1797,19 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipSinkingPresentation
   presentationProfile: {fileID: 11400000, guid: 58bfb5bc8d9944aab79ef04a793f465a, type: 2}
+--- !u!114 &910000000000000028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729339577121133683}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d3a1bf410f94e28a5db9f63c2119001, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipCombatAffiliation
+  teamId: -1
 --- !u!4 &6891163026523442319 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8528971060680608035, guid: f767a1e80c8cd1843a0e947ca3c36def, type: 3}

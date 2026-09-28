@@ -450,7 +450,8 @@ public class ShipFireEligibilityTests
             "forwardArcLimitDegrees",
             "aftArcLimitDegrees",
             "effectiveRangeMeters",
-            "maximumRangeMeters"
+            "maximumRangeMeters",
+            "combatObstructionProfile"
         };
 
         Assert.That(

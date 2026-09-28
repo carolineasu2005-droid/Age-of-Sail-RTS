@@ -4,7 +4,8 @@ public enum ProjectileTerminalContactKind
 {
     CombatGeometryContact,
     WaterContact,
-    ExpiredSafetyFallback
+    ExpiredSafetyFallback,
+    WorldObstructionContact
 }
 
 public readonly struct ProjectileTerminalContact

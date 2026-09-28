@@ -436,13 +436,20 @@ public class ShipBlindFireEligibilityTests
 
 
     [Test]
-    public void QueryPerformsNoPhysicsObstructionQuery()
+    public void PointQueryDelegatesToCommonObstructionInfrastructure()
     {
-        string source = GetBlindFireSourceSlice();
+        string pointSource = GetBlindFireSourceSlice();
+        string helperSource = GetBlindFireResultHelperSourceSlice();
 
-        Assert.That(source, Does.Not.Contain("Physics."));
-        Assert.That(source, Does.Not.Contain("Raycast"));
-        Assert.That(source, Does.Not.Contain("BlockingCollider"));
+        Assert.That(pointSource, Does.Not.Contain("Physics."));
+        Assert.That(
+            pointSource,
+            Does.Contain("CreateBlindFireResult(")
+        );
+        Assert.That(
+            helperSource,
+            Does.Contain("CombatFireObstructionQuery.TryEvaluateBlindFire")
+        );
     }
 
 
@@ -650,6 +657,30 @@ public class ShipBlindFireEligibilityTests
         );
         int end = source.IndexOf(
             "private bool TryEvaluateGeometry",
+            start,
+            StringComparison.Ordinal
+        );
+
+        Assert.That(start, Is.GreaterThanOrEqualTo(0));
+        Assert.That(end, Is.GreaterThan(start));
+        return source.Substring(start, end - start);
+    }
+
+
+    private static string GetBlindFireResultHelperSourceSlice()
+    {
+        string path = Path.Combine(
+            Application.dataPath,
+            "Assets/Game/Scripts/Combat/ShipFireEligibility.cs"
+        );
+        string source = File.ReadAllText(path);
+        int start = source.IndexOf(
+            "private BlindFireEligibilityResult CreateBlindFireResult",
+            StringComparison.Ordinal
+        );
+        int end = source.IndexOf(
+            "private static BlindFireEligibilityResult "
+                + "CreateInvalidBlindFireResult",
             start,
             StringComparison.Ordinal
         );

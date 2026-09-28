@@ -16,6 +16,7 @@ public class ShipAutoTargetSelectorTests
     private ShipCombatState shooterState;
     private ShipFireEligibility eligibility;
     private AutoTargetScoringProfile scoringProfile;
+    private CombatObstructionProfile obstructionProfile;
 
 
     [SetUp]
@@ -42,6 +43,15 @@ public class ShipAutoTargetSelectorTests
         );
         SetPrivateField(eligibility, "effectiveRangeMeters", 100f);
         SetPrivateField(eligibility, "maximumRangeMeters", 200f);
+        obstructionProfile = ScriptableObject.CreateInstance<
+            CombatObstructionProfile
+        >();
+        SetPrivateField(
+            eligibility,
+            "combatObstructionProfile",
+            obstructionProfile
+        );
+        AddMuzzleSockets(shooterRoot);
     }
 
 
@@ -55,6 +65,7 @@ public class ShipAutoTargetSelectorTests
 
         createdRoots.Clear();
         Object.DestroyImmediate(scoringProfile);
+        Object.DestroyImmediate(obstructionProfile);
     }
 
 
@@ -436,11 +447,11 @@ public class ShipAutoTargetSelectorTests
     public void BlockedCandidate_IsRejectedOnlyFromApplicableSide()
     {
         EnableAutoFire();
-        GameObject blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        blocker.name = "Port Combat Geometry Blocker";
-        blocker.layer = 8;
-        blocker.transform.position = Vector3.left * 75f;
-        createdRoots.Add(blocker);
+        CreateSemanticShipBlocker(
+            "Port Combat Geometry Blocker",
+            Vector3.left * 75f
+        );
+        Physics.SyncTransforms();
 
         AutoTargetSelectionResult result = Select(
             Candidate(portTarget),
@@ -812,6 +823,46 @@ public class ShipAutoTargetSelectorTests
         }
 
         return root;
+    }
+
+
+    private void CreateSemanticShipBlocker(string name, Vector3 position)
+    {
+        GameObject blockerRoot = CreateShip(name, false);
+        blockerRoot.transform.position = position;
+        ShipCombatGeometry owner =
+            blockerRoot.GetComponent<ShipCombatGeometry>();
+        GameObject regionObject = new GameObject("Blocking Hull");
+        regionObject.transform.SetParent(blockerRoot.transform, false);
+        regionObject.layer = CombatFireObstructionQuery
+            .ShipCombatGeometryLayer;
+        BoxCollider collider = regionObject.AddComponent<BoxCollider>();
+        collider.isTrigger = true;
+        collider.size = new Vector3(10f, 20f, 40f);
+        CombatHitRegion region =
+            regionObject.AddComponent<CombatHitRegion>();
+        SetPrivateField(region, "region", CombatHullRegion.Midship);
+        SetPrivateField(region, "owner", owner);
+        SetPrivateField(region, "queryCollider", collider);
+        SetPrivateField(owner, "midshipRegion", region);
+    }
+
+
+    private static void AddMuzzleSockets(GameObject root)
+    {
+        ShipMuzzleSockets sockets = root.AddComponent<ShipMuzzleSockets>();
+        Transform port = new GameObject("Port Muzzles").transform;
+        port.SetParent(root.transform, false);
+        Transform starboard = new GameObject("Starboard Muzzles").transform;
+        starboard.SetParent(root.transform, false);
+        Transform portMuzzle = new GameObject("P01").transform;
+        portMuzzle.SetParent(port, false);
+        portMuzzle.localPosition = Vector3.left * 5f;
+        Transform starboardMuzzle = new GameObject("S01").transform;
+        starboardMuzzle.SetParent(starboard, false);
+        starboardMuzzle.localPosition = Vector3.right * 5f;
+        SetPrivateField(sockets, "portMuzzlesContainer", port);
+        SetPrivateField(sockets, "starboardMuzzlesContainer", starboard);
     }
 
 

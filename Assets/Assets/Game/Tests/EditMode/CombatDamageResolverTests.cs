@@ -45,6 +45,8 @@ public class CombatDamageResolverTests
         targetShip = UnityEngine.Object.Instantiate(prefab);
         CombatLifecycleTestUtility.EnsureOperational(targetShip);
         temporaryObjects.Add(targetShip);
+        SetTeamId(sourceShip, 1);
+        SetTeamId(targetShip, 2);
 
         foundationProfile =
             AssetDatabase.LoadAssetAtPath<CombatDamageProfile>(
@@ -120,6 +122,124 @@ public class CombatDamageResolverTests
                     - foundationProfile.RoundShotBaseDamage
             )
         );
+    }
+
+
+    [Test]
+    public void FriendlyShipContact_TerminatesAsExplicitZeroDamageOutcome()
+    {
+        SetTeamId(targetShip, 1);
+        ShipIntegrity integrity = targetShip.GetComponent<ShipIntegrity>();
+        float currentIntegrity = integrity.CurrentIntegrity;
+        ShipCombatLifecycleState lifecycle = integrity.LifecycleState;
+        FoundationShotOutcome outcome = ResolveHullOutcome(
+            CombatHullRegion.Midship
+        );
+
+        bool resolved = CombatDamageResolver.TryResolveAndApply(
+            outcome,
+            foundationProfile,
+            foundationRakingProfile,
+            out CombatDamageResult result,
+            out CombatDamageResolutionFailure failure
+        );
+
+        Assert.That(
+            outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.FriendlyShipBlocked)
+        );
+        Assert.That(resolved, Is.True);
+        Assert.That(failure, Is.EqualTo(CombatDamageResolutionFailure.None));
+        Assert.That(result.Accepted, Is.True);
+        Assert.That(result.Applied, Is.False);
+        Assert.That(result.TargetShipRoot, Is.SameAs(targetShip));
+        Assert.That(result.HasHitRegion, Is.True);
+        Assert.That(result.HasRakingResult, Is.False);
+        Assert.That(result.RequestedDamage, Is.Zero);
+        Assert.That(result.AppliedDamage, Is.Zero);
+        Assert.That(result.HasIntegrityTransition, Is.False);
+        Assert.That(integrity.CurrentIntegrity, Is.EqualTo(currentIntegrity));
+        Assert.That(integrity.LifecycleState, Is.EqualTo(lifecycle));
+    }
+
+
+    [Test]
+    public void UnknownShipContact_TerminatesAsExplicitZeroDamageOutcome()
+    {
+        SetTeamId(
+            targetShip,
+            ShipCombatAffiliation.UnconfiguredTeamId
+        );
+        ShipIntegrity integrity = targetShip.GetComponent<ShipIntegrity>();
+        float currentIntegrity = integrity.CurrentIntegrity;
+        FoundationShotOutcome outcome = ResolveHullOutcome(
+            CombatHullRegion.Midship
+        );
+
+        bool resolved = CombatDamageResolver.TryResolveAndApply(
+            outcome,
+            foundationProfile,
+            foundationRakingProfile,
+            out CombatDamageResult result,
+            out CombatDamageResolutionFailure failure
+        );
+
+        Assert.That(
+            outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.UnknownShipBlocked)
+        );
+        Assert.That(resolved, Is.True);
+        Assert.That(failure, Is.EqualTo(CombatDamageResolutionFailure.None));
+        Assert.That(result.Applied, Is.False);
+        Assert.That(result.HasRakingResult, Is.False);
+        Assert.That(result.RequestedDamage, Is.Zero);
+        Assert.That(result.AppliedDamage, Is.Zero);
+        Assert.That(integrity.CurrentIntegrity, Is.EqualTo(currentIntegrity));
+    }
+
+
+    [Test]
+    public void WorldObstructionOutcome_ProducesNoShipDamageOrRaking()
+    {
+        GameObject obstructionObject = new GameObject(
+            "Damage Test World Obstruction"
+        );
+        temporaryObjects.Add(obstructionObject);
+        obstructionObject.layer = CombatObstructionVolume.LayerIndex;
+        BoxCollider collider = obstructionObject.AddComponent<BoxCollider>();
+        collider.isTrigger = true;
+        CombatObstructionVolume obstruction = obstructionObject
+            .AddComponent<CombatObstructionVolume>();
+        SetPrivateField(obstruction, "queryCollider", collider);
+        ProjectileTerminalContact contact = CreateContact(
+            ProjectileTerminalContactKind.WorldObstructionContact,
+            collider,
+            Vector3.one,
+            Vector3.left,
+            0.5f
+        );
+        FoundationShotOutcome outcome = ResolveOutcome(contact);
+
+        bool resolved = CombatDamageResolver.TryResolveAndApply(
+            outcome,
+            foundationProfile,
+            foundationRakingProfile,
+            out CombatDamageResult result,
+            out CombatDamageResolutionFailure failure
+        );
+
+        Assert.That(
+            outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.WorldObstructionBlocked)
+        );
+        Assert.That(outcome.HasHitContext, Is.False);
+        Assert.That(resolved, Is.True);
+        Assert.That(failure, Is.EqualTo(CombatDamageResolutionFailure.None));
+        Assert.That(result.TargetShipRoot, Is.Null);
+        Assert.That(result.Applied, Is.False);
+        Assert.That(result.HasRakingResult, Is.False);
+        Assert.That(result.RequestedDamage, Is.Zero);
+        Assert.That(result.AppliedDamage, Is.Zero);
     }
 
 
@@ -630,6 +750,7 @@ public class CombatDamageResolverTests
         );
         GameObject formalSource = UnityEngine.Object.Instantiate(sourcePrefab);
         temporaryObjects.Add(formalSource);
+        SetTeamId(formalSource, 1);
         shot = CreateShotSample(
             formalSource,
             targetShip.transform.forward * 100f,
@@ -1001,6 +1122,40 @@ public class CombatDamageResolverTests
             0.5f
         );
         return ResolveOutcome(contact);
+    }
+
+
+    private static void SetTeamId(GameObject shipRoot, int teamId)
+    {
+        ShipCombatAffiliation affiliation =
+            shipRoot.GetComponent<ShipCombatAffiliation>();
+
+        if (affiliation == null)
+        {
+            affiliation = shipRoot.AddComponent<ShipCombatAffiliation>();
+        }
+
+        FieldInfo field = typeof(ShipCombatAffiliation).GetField(
+            "teamId",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null);
+        field.SetValue(affiliation, teamId);
+    }
+
+
+    private static void SetPrivateField(
+        object target,
+        string fieldName,
+        object value
+    )
+    {
+        FieldInfo field = target.GetType().GetField(
+            fieldName,
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.That(field, Is.Not.Null);
+        field.SetValue(target, value);
     }
 
 

@@ -62,7 +62,11 @@ public class ShipFireEligibilityDebugTests
         Assert.That(result.HasObstructionPath, Is.True);
         Assert.That(
             result.ObstructionOriginWorld,
-            Is.EqualTo(shooterCenter.position)
+            Is.EqualTo(
+                shooterRoot.GetComponent<ShipMuzzleSockets>()
+                    .StarboardMuzzles[0]
+                    .position
+            )
         );
         Assert.That(
             result.ObstructionDestinationWorld,
@@ -302,13 +306,93 @@ public class ShipFireEligibilityDebugTests
             "centerReference",
             centerReference
         );
+        SetArtReference(
+            root,
+            artDefinition,
+            "waterlineReference",
+            Vector3.down * 5f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "deckReference",
+            Vector3.up * 5f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "bowReference",
+            Vector3.forward * 15f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "sternReference",
+            Vector3.back * 15f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "portReference",
+            Vector3.left * 5f
+        );
+        SetArtReference(
+            root,
+            artDefinition,
+            "starboardReference",
+            Vector3.right * 5f
+        );
+        ShipExposureReference exposure =
+            root.AddComponent<ShipExposureReference>();
+        SetPrivateField(exposure, "shipArtDefinition", artDefinition);
 
         if (includeEvaluator)
         {
+            AddMuzzleSockets(root);
             root.AddComponent<ShipFireEligibility>();
         }
 
         return root;
+    }
+
+
+    private static void AddMuzzleSockets(GameObject root)
+    {
+        ShipMuzzleSockets sockets = root.AddComponent<ShipMuzzleSockets>();
+        Transform port = new GameObject("Port").transform;
+        port.SetParent(root.transform, false);
+        Transform starboard = new GameObject("Starboard").transform;
+        starboard.SetParent(root.transform, false);
+
+        for (int index = 0; index < 13; index++)
+        {
+            Transform portMuzzle = new GameObject($"P{index + 1:00}")
+                .transform;
+            portMuzzle.SetParent(port, false);
+            portMuzzle.localPosition = new Vector3(-5f, 0f, 12f - 2f * index);
+            Transform starboardMuzzle =
+                new GameObject($"S{index + 1:00}").transform;
+            starboardMuzzle.SetParent(starboard, false);
+            starboardMuzzle.localPosition =
+                new Vector3(5f, 0f, 12f - 2f * index);
+        }
+
+        SetPrivateField(sockets, "portMuzzlesContainer", port);
+        SetPrivateField(sockets, "starboardMuzzlesContainer", starboard);
+    }
+
+
+    private static void SetArtReference(
+        GameObject root,
+        ShipArtDefinition art,
+        string fieldName,
+        Vector3 localPosition
+    )
+    {
+        Transform reference = new GameObject(fieldName).transform;
+        reference.SetParent(root.transform, false);
+        reference.localPosition = localPosition;
+        SetPrivateField(art, fieldName, reference);
     }
 
 

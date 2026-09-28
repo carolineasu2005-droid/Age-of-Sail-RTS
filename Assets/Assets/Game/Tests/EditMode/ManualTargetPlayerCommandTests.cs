@@ -243,9 +243,16 @@ public class ManualTargetPlayerCommandTests
     {
         commandInput.TryAssignManualTarget(targetRoot);
         GameObject blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        blocker.name = "Combat Geometry Blocker";
-        blocker.layer = 8;
-        blocker.transform.position = Vector3.right * 25f;
+        blocker.name = "World Combat Obstruction";
+        blocker.layer = CombatObstructionVolume.LayerIndex;
+        blocker.transform.position =
+            Vector3.right * 25f + Vector3.up * 2f;
+        blocker.transform.localScale = new Vector3(4f, 10f, 40f);
+        BoxCollider blockerCollider = blocker.GetComponent<BoxCollider>();
+        blockerCollider.isTrigger = true;
+        CombatObstructionVolume volume =
+            blocker.AddComponent<CombatObstructionVolume>();
+        SetPrivateField(volume, "queryCollider", blockerCollider);
         createdRoots.Add(blocker);
 
         FireEligibilityResult result = EvaluateManualTarget();
@@ -512,10 +519,37 @@ public class ManualTargetPlayerCommandTests
 
         if (includeEligibility)
         {
+            AddMuzzleSockets(root);
             root.AddComponent<ShipFireEligibility>();
         }
 
         return root;
+    }
+
+
+    private static void AddMuzzleSockets(GameObject root)
+    {
+        ShipMuzzleSockets sockets = root.AddComponent<ShipMuzzleSockets>();
+        Transform port = new GameObject("Port").transform;
+        port.SetParent(root.transform, false);
+        Transform starboard = new GameObject("Starboard").transform;
+        starboard.SetParent(root.transform, false);
+
+        for (int index = 0; index < 13; index++)
+        {
+            float z = 12f - index * 2f;
+            Transform portMuzzle = new GameObject($"P{index + 1:00}")
+                .transform;
+            portMuzzle.SetParent(port, false);
+            portMuzzle.localPosition = new Vector3(-5f, 2f, z);
+            Transform starboardMuzzle =
+                new GameObject($"S{index + 1:00}").transform;
+            starboardMuzzle.SetParent(starboard, false);
+            starboardMuzzle.localPosition = new Vector3(5f, 2f, z);
+        }
+
+        SetPrivateField(sockets, "portMuzzlesContainer", port);
+        SetPrivateField(sockets, "starboardMuzzlesContainer", starboard);
     }
 
 

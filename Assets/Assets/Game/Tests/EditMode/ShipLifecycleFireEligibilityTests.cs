@@ -54,7 +54,7 @@ public class ShipLifecycleFireEligibilityTests
         Assert.That(targeted.CanFire, Is.True);
 
         Assert.That(eligibility.TryEvaluateBlindFireAtPoint(
-            Vector3.right * 100f,
+            Vector3.left * 100f,
             out BlindFireEligibilityResult blind
         ), Is.True);
         Assert.That(blind.LifecycleAllowsFire, Is.True);

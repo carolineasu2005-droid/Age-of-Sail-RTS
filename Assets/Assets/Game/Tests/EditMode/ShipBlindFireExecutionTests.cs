@@ -17,6 +17,7 @@ public class ShipBlindFireExecutionTests
     private ShipFireEligibility eligibility;
     private ShipBlindFireCommand command;
     private ShipBroadsideFireExecutor broadsideExecutor;
+    private GameObject obstruction;
 
 
     [SetUp]
@@ -61,6 +62,7 @@ public class ShipBlindFireExecutionTests
         }
 
         UnityEngine.Object.DestroyImmediate(targetRoot);
+        UnityEngine.Object.DestroyImmediate(obstruction);
         UnityEngine.Object.DestroyImmediate(shooterRoot);
     }
 
@@ -584,6 +586,48 @@ public class ShipBlindFireExecutionTests
             Is.EqualTo(BroadsideReloadState.Ready)
         );
         Assert.That(result.BroadsideExecution.SpawnedProjectileCount, Is.Zero);
+        Assert.That(
+            UnityEngine.Object.FindObjectsByType<CombatProjectile>(
+                FindObjectsInactive.Include
+            ),
+            Is.Empty
+        );
+    }
+
+
+    [Test]
+    public void ObstructedPointBlindFire_HoldsBeforePhysicalCommit()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Assets/Game/Combat/Prefabs/"
+                + "PF_Debug_CombatIsland_v01.prefab"
+        );
+        Assert.That(prefab, Is.Not.Null);
+        obstruction = UnityEngine.Object.Instantiate(prefab);
+        obstruction.transform.position = Vector3.right * 75f;
+        CombatVFXCountingReceiver receiver =
+            shooterRoot.AddComponent<CombatVFXCountingReceiver>();
+        SetPrivateField(
+            broadsideExecutor,
+            "combatVFXReceiver",
+            receiver
+        );
+        Physics.SyncTransforms();
+        BlindFireAim aim = PointAim(Vector3.right * 150f);
+
+        BlindFireExecutionResult result = Execute(aim, false);
+
+        Assert.That(result.Eligibility.Blocked, Is.True);
+        Assert.That(result.BroadsideExecution.ShotCount, Is.Zero);
+        Assert.That(
+            result.BroadsideExecution.SpawnedProjectileCount,
+            Is.Zero
+        );
+        Assert.That(
+            combatState.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready)
+        );
+        Assert.That(receiver.MuzzleFireCount, Is.Zero);
         Assert.That(
             UnityEngine.Object.FindObjectsByType<CombatProjectile>(
                 FindObjectsInactive.Include

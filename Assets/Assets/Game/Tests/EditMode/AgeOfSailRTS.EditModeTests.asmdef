@@ -3,6 +3,7 @@
   "references": [
     "AgeOfSailRTS.Runtime",
     "AgeOfSailRTS.Editor",
+    "AgeOfSailRTS.TestSupport",
     "Unity.InputSystem"
   ],
   "includePlatforms": [

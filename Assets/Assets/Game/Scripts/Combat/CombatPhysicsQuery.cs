@@ -13,11 +13,27 @@ internal static class CombatPhysicsQuery
         float distanceMeters
     )
     {
+        return RaycastAll(
+            originWorld,
+            directionWorld,
+            distanceMeters,
+            CombatGeometryMask
+        );
+    }
+
+
+    internal static RaycastHit[] RaycastAll(
+        Vector3 originWorld,
+        Vector3 directionWorld,
+        float distanceMeters,
+        int layerMask
+    )
+    {
         RaycastHit[] hits = Physics.RaycastAll(
             originWorld,
             directionWorld,
             distanceMeters,
-            CombatGeometryMask,
+            layerMask,
             QueryTriggerInteraction.Collide
         );
         Array.Sort(hits, CompareRaycastHits);

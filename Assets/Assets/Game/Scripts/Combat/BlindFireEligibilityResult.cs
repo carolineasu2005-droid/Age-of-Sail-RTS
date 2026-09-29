@@ -72,6 +72,5 @@ public readonly struct BlindFireEligibilityResult
         && InBroadsideArc
         && (!RangeApplicable || WithinMaximumRange == true)
         && ReloadReady
-        && LifecycleAllowsFire
-        && !Blocked;
+        && LifecycleAllowsFire;
 }

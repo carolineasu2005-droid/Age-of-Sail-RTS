@@ -596,7 +596,7 @@ public class ShipBlindFireExecutionTests
 
 
     [Test]
-    public void ObstructedPointBlindFire_HoldsBeforePhysicalCommit()
+    public void WorldObstructedPointBlindFire_FiresFullBroadside()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
             "Assets/Assets/Game/Combat/Prefabs/"
@@ -615,25 +615,66 @@ public class ShipBlindFireExecutionTests
         Physics.SyncTransforms();
         BlindFireAim aim = PointAim(Vector3.right * 150f);
 
-        BlindFireExecutionResult result = Execute(aim, false);
+        BlindFireExecutionResult result = Execute(aim);
 
-        Assert.That(result.Eligibility.Blocked, Is.True);
-        Assert.That(result.BroadsideExecution.ShotCount, Is.Zero);
+        Assert.That(result.Eligibility.HasObstructionPath, Is.False);
+        Assert.That(result.Eligibility.Blocked, Is.False);
+        Assert.That(result.BroadsideExecution.ShotCount, Is.EqualTo(13));
         Assert.That(
             result.BroadsideExecution.SpawnedProjectileCount,
-            Is.Zero
+            Is.EqualTo(13)
         );
         Assert.That(
             combatState.StarboardBroadsideState,
-            Is.EqualTo(BroadsideReloadState.Ready)
+            Is.EqualTo(BroadsideReloadState.Reloading)
         );
-        Assert.That(receiver.MuzzleFireCount, Is.Zero);
+        Assert.That(receiver.MuzzleFireCount, Is.EqualTo(13));
         Assert.That(
             UnityEngine.Object.FindObjectsByType<CombatProjectile>(
                 FindObjectsInactive.Include
             ),
-            Is.Empty
+            Has.Length.EqualTo(13)
         );
+    }
+
+    [Test]
+    public void WorldBlocker_DoesNotBypassRangeArcOrReload()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Assets/Game/Combat/Prefabs/"
+                + "PF_Debug_CombatIsland_v01.prefab"
+        );
+        Assert.That(prefab, Is.Not.Null);
+        obstruction = UnityEngine.Object.Instantiate(prefab);
+        obstruction.transform.position = Vector3.right * 75f;
+        Physics.SyncTransforms();
+
+        BlindFireExecutionResult outOfRange = Execute(
+            PointAim(Vector3.right * 201f), false);
+        Assert.That(outOfRange.Eligibility.FailureReasons.HasFlag(
+            BlindFireEligibilityFailure.BeyondMaximumRange), Is.True);
+
+        obstruction.transform.position = Vector3.forward * 25f;
+        Physics.SyncTransforms();
+        BlindFireExecutionResult wrongArc = Execute(
+            PointAim(Vector3.forward * 50f), false);
+        Assert.That(wrongArc.Eligibility.FailureReasons.HasFlag(
+            BlindFireEligibilityFailure.NoBroadsideArc), Is.True);
+
+        obstruction.transform.position = Vector3.right * 25f;
+        Physics.SyncTransforms();
+        Assert.That(combatState.TryCommitBroadsideFire(
+            CombatSide.Starboard), Is.True);
+        BlindFireExecutionResult reloading = Execute(
+            PointAim(Vector3.right * 50f), false);
+        Assert.That(reloading.Eligibility.FailureReasons.HasFlag(
+            BlindFireEligibilityFailure.BroadsideReloading), Is.True);
+        Assert.That(combatState.PortBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready));
+        Assert.That(combatState.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Reloading));
+        Assert.That(UnityEngine.Object.FindObjectsByType<CombatProjectile>(
+            FindObjectsInactive.Include), Is.Empty);
     }
 
 

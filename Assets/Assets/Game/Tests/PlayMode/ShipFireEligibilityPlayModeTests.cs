@@ -310,7 +310,28 @@ public class ShipFireEligibilityPlayModeTests
 
 
     [UnityTest]
-    public IEnumerator PointBlindFire_UsesCommonWorldObstruction()
+    public IEnumerator AutoTargetSelection_StillRejectsFriendlyObstruction()
+    {
+        ShipCombatState combatState =
+            shooterRoot.GetComponent<ShipCombatState>();
+        combatState.SetAutoFireEnabled(true);
+        CreateShipBlocker("Auto Friendly Blocker",
+            Vector3.right * 50f, 1);
+        Physics.SyncTransforms();
+
+        bool selected = ShipAutoTargetSelector.TrySelect(
+            shooterRoot,
+            new[] { new AutoTargetCandidate(targetRoot, true) },
+            out AutoTargetSelectionResult result);
+
+        Assert.That(selected, Is.False);
+        Assert.That(result.HasAnyTarget, Is.False);
+        Assert.That(combatState.AutoFireEnabled, Is.True);
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator PointBlindFire_WorldObstructionDoesNotHoldFire()
     {
         CreateWorldBlocker(
             "Blind Fire Blocker",
@@ -324,25 +345,19 @@ public class ShipFireEligibilityPlayModeTests
         );
 
         Assert.That(evaluated, Is.True);
-        Assert.That(result.HasObstructionPath, Is.True);
-        Assert.That(result.Obstruction.ParticipatingRayCount, Is.EqualTo(13));
-        Assert.That(result.Obstruction.BlockedRayCount, Is.EqualTo(13));
-        Assert.That(result.Blocked, Is.True);
-        Assert.That(result.CanBlindFire, Is.False);
-        Assert.That(
-            result.FailureReasons.HasFlag(
-                BlindFireEligibilityFailure.Obstructed
-            ),
-            Is.True
-        );
+        Assert.That(result.HasObstructionPath, Is.False);
+        Assert.That(result.Blocked, Is.False);
+        Assert.That(result.CanBlindFire, Is.True);
+        Assert.That(result.FailureReasons,
+            Is.EqualTo(BlindFireEligibilityFailure.None));
         yield return null;
     }
 
 
     [UnityTest]
-    public IEnumerator PointBlindFire_FriendlyShipBlocksAtZeroTolerance()
+    public IEnumerator PointBlindFire_FriendlyShipDoesNotHoldFire()
     {
-        Collider blocker = CreateShipBlocker(
+        CreateShipBlocker(
             "Friendly Blind Fire Blocker",
             Vector3.right * 50f,
             1
@@ -354,26 +369,11 @@ public class ShipFireEligibilityPlayModeTests
         );
 
         Assert.That(evaluated, Is.True);
-        Assert.That(
-            obstructionProfile.BlindFireFriendlyEdgeTolerance,
-            Is.Zero
-        );
-        Assert.That(result.HasObstructionPath, Is.True);
-        Assert.That(result.Blocked, Is.True);
-        Assert.That(result.Obstruction.BlockedRayCount, Is.EqualTo(13));
-        Assert.That(
-            result.Obstruction.RepresentativeBlockerKind,
-            Is.EqualTo(CombatFireBlockerKind.Ship)
-        );
-        Assert.That(
-            result.Obstruction.RepresentativeBlockerName,
-            Is.EqualTo(blocker.transform.root.name)
-        );
-        Assert.That(
-            result.Obstruction.BlockerRelationship,
-            Is.EqualTo(CombatRelationship.Friendly)
-        );
-        Assert.That(result.CanBlindFire, Is.False);
+        Assert.That(result.HasObstructionPath, Is.False);
+        Assert.That(result.Blocked, Is.False);
+        Assert.That(result.CanBlindFire, Is.True);
+        Assert.That(result.FailureReasons,
+            Is.EqualTo(BlindFireEligibilityFailure.None));
         yield return null;
     }
 

@@ -162,6 +162,8 @@ public sealed class ShipTestPanel : EditorWindow
                 true
             );
             EditorGUILayout.Space();
+            DrawCombatAISection(targetShipRoot);
+            EditorGUILayout.Space();
             DrawPhaseSevenDiagnostics(
                 eligibilityTargetShipRoot,
                 "Target",
@@ -197,6 +199,139 @@ public sealed class ShipTestPanel : EditorWindow
             EditorGUILayout.Space();
             DrawTargetedFireSection();
         }
+    }
+
+
+    private static void DrawCombatAISection(GameObject shipRoot)
+    {
+        EditorGUILayout.LabelField("Combat AI", EditorStyles.boldLabel);
+        ShipCombatAIController ai = shipRoot != null
+            ? shipRoot.GetComponent<ShipCombatAIController>()
+            : null;
+        EditorGUILayout.HelpBox(
+            BuildCombatAISummary(ai),
+            ai != null ? MessageType.None : MessageType.Info
+        );
+    }
+
+
+    private static string BuildCombatAISummary(ShipCombatAIController ai)
+    {
+        if (ai == null)
+        {
+            return "AI Enabled: NO\nAI State: N/A\nCurrent Target: None";
+        }
+
+        StringBuilder summary = new StringBuilder();
+        GameObject targetRoot = ai.CurrentTargetShipRoot;
+        CombatBroadsidePoseResult pose = ai.LastPose;
+        summary.Append("AI Enabled: ").AppendLine(FormatYesNo(ai.isActiveAndEnabled));
+        summary.Append("AI State: ").AppendLine(ai.State.ToString());
+        summary.Append("Current Target: ").AppendLine(
+            targetRoot != null ? targetRoot.name : "None"
+        );
+        summary.Append("Target Relationship: ")
+            .AppendLine(ai.TargetRelationship.ToString());
+        summary.Append("Target Lifecycle: ").AppendLine(
+            ai.TargetLifecycle.HasValue
+                ? FormatLifecycleState(ai.TargetLifecycle.Value)
+                : "N/A"
+        );
+        summary.Append("Target Distance: ").AppendLine(
+            pose.IsValid ? $"{pose.CurrentRangeMeters:F1} m" : "N/A"
+        );
+        summary.Append("Preferred Broadside: ").AppendLine(
+            pose.IsValid ? pose.PreferredSide.ToString() : "None"
+        );
+        summary.Append("Range State: ").AppendLine(
+            pose.IsValid ? pose.RangeState.ToString() : "N/A"
+        );
+        summary.Append("Desired Combat Range: ").AppendLine(
+            pose.IsValid ? $"{pose.DesiredRangeMeters:F1} m" : "N/A"
+        );
+        summary.Append("Desired Position: ").AppendLine(
+            pose.IsValid ? pose.DesiredPositionWorld.ToString("F1") : "N/A"
+        );
+        summary.Append("Desired Heading: ").AppendLine(
+            pose.IsValid ? $"{pose.DesiredHeadingDegrees:F1} deg" : "N/A"
+        );
+        summary.Append("Movement Intent: ").AppendLine(
+            pose.IsValid ? pose.MovementIntent.ToString() : "N/A"
+        );
+        summary.Append("Port Fire Eligibility: ").AppendLine(
+            FormatAIFireSide(ai, CombatSide.Port)
+        );
+        summary.Append("Starboard Fire Eligibility: ").AppendLine(
+            FormatAIFireSide(ai, CombatSide.Starboard)
+        );
+        summary.Append("Last Movement Command: ")
+            .AppendLine(ai.LastMovementCommandStatus.ToString());
+        ShipDestinationController destination =
+            ai.GetComponent<ShipDestinationController>();
+        ShipManeuverPlanner planner = ai.GetComponent<ShipManeuverPlanner>();
+        ShipHeadingController heading = ai.GetComponent<ShipHeadingController>();
+        ShipSailingSpeed speed = ai.GetComponent<ShipSailingSpeed>();
+        summary.Append("Active Destination: ").AppendLine(
+            destination != null ? FormatYesNo(destination.HasDestination) : "N/A"
+        );
+        summary.Append("Navigation Mode: ").AppendLine(
+            destination != null ? destination.CurrentNavigationMode.ToString() : "N/A"
+        );
+        summary.Append("Planner Command Sequence: ").AppendLine(
+            planner != null ? planner.CommandSequence.ToString() : "N/A"
+        );
+        summary.Append("Planner Maneuver: ").AppendLine(
+            planner != null ? planner.CurrentManeuver.ToString() : "N/A"
+        );
+        summary.Append("Heading Command Active: ").AppendLine(
+            heading != null ? FormatYesNo(heading.IsActive) : "N/A"
+        );
+        summary.Append("Player Stopped: ").AppendLine(
+            speed != null ? FormatYesNo(speed.IsPlayerStopped) : "N/A"
+        );
+        summary.Append("Current Speed: ").AppendLine(
+            speed != null ? $"{speed.CurrentSpeed:F2} m/s" : "N/A"
+        );
+        summary.Append("Wind-Limited Target Speed: ").AppendLine(
+            speed != null ? $"{speed.GetWindLimitedTargetSpeed():F2} m/s" : "N/A"
+        );
+        summary.Append("Last Fire Side: ").AppendLine(
+            ai.LastFireSide.HasValue ? ai.LastFireSide.Value.ToString() : "None"
+        );
+        summary.Append("Last Fire Result: ").AppendLine(
+            ai.HasLastFireResult
+                ? ai.LastFireResult.Accepted
+                    ? "Accepted"
+                    : ai.LastFireResult.FailureReasons.ToString()
+                : "None"
+        );
+        summary.Append("Last Target Change Reason: ")
+            .Append(ai.LastTargetChangeReason);
+        return summary.ToString();
+    }
+
+
+    private static string FormatAIFireSide(
+        ShipCombatAIController ai,
+        CombatSide side
+    )
+    {
+        if (!ai.HasLastFireEligibility)
+        {
+            return "N/A";
+        }
+
+        FireEligibilityResult verdict = ai.LastFireEligibility;
+        if (verdict.Side != side)
+        {
+            return verdict.Side.HasValue
+                ? "NO - target bears other side"
+                : "NO - " + FormatFailureReasons(verdict.FailureReasons);
+        }
+
+        return verdict.CanFire
+            ? "YES (last Think verdict)"
+            : "NO - " + FormatFailureReasons(verdict.FailureReasons);
     }
 
 
@@ -1565,10 +1700,8 @@ public sealed class ShipTestPanel : EditorWindow
                 ? "OPERATIONAL"
                 : "BLOCKED"
         );
-        AppendObstructionSummary(
-            summary,
-            result.HasObstructionPath,
-            result.Obstruction
+        summary.AppendLine(
+            "Pre-Fire Obstruction: NOT APPLICABLE (projectile contact after launch)"
         );
         summary.Append("CAN BLIND FIRE: ").AppendLine(
             FormatYesNo(result.CanBlindFire)
@@ -1629,8 +1762,6 @@ public sealed class ShipTestPanel : EditorWindow
         AppendFailure(reasons, failures,
             BlindFireEligibilityFailure.LifecycleDisallowsFire,
             "LIFECYCLE_BLOCKED");
-        AppendFailure(reasons, failures,
-            BlindFireEligibilityFailure.Obstructed, "OBSTRUCTED");
     }
 
 

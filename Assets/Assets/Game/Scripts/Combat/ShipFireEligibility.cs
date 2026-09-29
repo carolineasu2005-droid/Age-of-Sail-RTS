@@ -448,20 +448,6 @@ public sealed class ShipFireEligibility : MonoBehaviour
     {
         bool reloadReady = geometry.Side.HasValue
             && IsBroadsideReady(combatState, geometry.Side.Value);
-        bool hasObstructionPath = false;
-        CombatFireObstructionResult obstruction = default;
-
-        if (geometry.Side.HasValue && aim.WorldAimPoint.HasValue)
-        {
-            hasObstructionPath =
-                CombatFireObstructionQuery.TryEvaluateBlindFire(
-                    gameObject,
-                    geometry.Side.Value,
-                    aim.WorldAimPoint.Value,
-                    combatObstructionProfile,
-                    out obstruction
-                );
-        }
 
         BlindFireEligibilityFailure failureReasons =
             BlindFireEligibilityFailure.None;
@@ -490,11 +476,6 @@ public sealed class ShipFireEligibility : MonoBehaviour
                 BlindFireEligibilityFailure.LifecycleDisallowsFire;
         }
 
-        if (hasObstructionPath && obstruction.IsBlocked)
-        {
-            failureReasons |= BlindFireEligibilityFailure.Obstructed;
-        }
-
         return new BlindFireEligibilityResult(
             aim,
             geometry.Side,
@@ -503,8 +484,8 @@ public sealed class ShipFireEligibility : MonoBehaviour
             withinMaximumRange,
             reloadReady,
             lifecycleAllowsFire,
-            hasObstructionPath,
-            obstruction,
+            false,
+            default,
             failureReasons
         );
     }

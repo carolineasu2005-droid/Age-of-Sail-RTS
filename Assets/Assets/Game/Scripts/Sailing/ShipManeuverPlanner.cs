@@ -116,6 +116,11 @@ public class ShipManeuverPlanner : MonoBehaviour
         if (globalWind == null)
         {
             globalWind = GetComponent<GlobalWind>();
+
+            if (globalWind == null)
+            {
+                globalWind = FindFirstObjectByType<GlobalWind>();
+            }
         }
 
         if (headingController == null)

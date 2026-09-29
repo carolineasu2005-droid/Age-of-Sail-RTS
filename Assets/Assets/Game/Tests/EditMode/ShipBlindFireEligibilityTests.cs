@@ -436,7 +436,7 @@ public class ShipBlindFireEligibilityTests
 
 
     [Test]
-    public void PointQueryDelegatesToCommonObstructionInfrastructure()
+    public void PointQueryDoesNotUsePreFireObstruction()
     {
         string pointSource = GetBlindFireSourceSlice();
         string helperSource = GetBlindFireResultHelperSourceSlice();
@@ -448,8 +448,10 @@ public class ShipBlindFireEligibilityTests
         );
         Assert.That(
             helperSource,
-            Does.Contain("CombatFireObstructionQuery.TryEvaluateBlindFire")
+            Does.Not.Contain("CombatFireObstructionQuery.TryEvaluateBlindFire")
         );
+        Assert.That(helperSource, Does.Not.Contain(
+            "BlindFireEligibilityFailure.Obstructed"));
     }
 
 

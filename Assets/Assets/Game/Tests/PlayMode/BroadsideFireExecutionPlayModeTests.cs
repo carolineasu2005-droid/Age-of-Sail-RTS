@@ -44,6 +44,14 @@ public class BroadsideFireExecutionPlayModeTests
             Object.Destroy(placeholder);
         }
 
+        foreach (ParticleSystem smoke in Object
+            .FindObjectsByType<ParticleSystem>(FindObjectsInactive.Include)
+            .Where(candidate => candidate.gameObject.name
+                == "VFX_Cannon_LingeringSmoke_v01(Clone)"))
+        {
+            Object.Destroy(smoke.gameObject);
+        }
+
         foreach (GameObject ship in createdShips)
         {
             if (ship != null)
@@ -571,6 +579,240 @@ public class BroadsideFireExecutionPlayModeTests
 
 
     [UnityTest]
+    public IEnumerator TargetedFire_FriendlyBlockerStillHoldsBeforeLaunch()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject target = CreateShip(Vector3.right * 100f, false);
+        GameObject friendly = CreateShip(Vector3.right * 50f, false);
+        SetTeamId(shooter, 1);
+        SetTeamId(target, 2);
+        SetTeamId(friendly, 1);
+        PrepareInterceptor(friendly, Quaternion.identity);
+        Physics.SyncTransforms();
+
+        ShipTargetedFireCommand command = new ShipTargetedFireCommand(
+            shooter.GetComponent<ShipFireEligibility>(),
+            shooter.GetComponent<ShipBroadsideFireExecutor>());
+        bool accepted = command.TryExecute(
+            target, true, 9207u, out TargetedFireExecutionResult result);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(result.Eligibility.Blocked, Is.True);
+        Assert.That(result.BroadsideExecution.ShotCount, Is.Zero);
+        Assert.That(result.BroadsideExecution.SpawnedProjectileCount,
+            Is.Zero);
+        Assert.That(FindCurrentProjectiles(), Is.Empty);
+        Assert.That(shooter.GetComponent<ShipCombatState>()
+            .StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready));
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator BlindFire_FriendlyShipBeforePoint_FiresThenBlocksWithoutDamage()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, true);
+        GameObject friendly = CreateShip(Vector3.right * 50f, false);
+        GameObject fartherEnemy = CreateShip(Vector3.right * 100f, false);
+        SetTeamId(friendly, 1);
+        SetTeamId(fartherEnemy, 2);
+        PrepareInterceptor(friendly, Quaternion.identity);
+        float friendlyBefore = friendly.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+        float enemyBefore = fartherEnemy.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+        int smokeBefore = CountLingeringSmoke();
+
+        BlindFireExecutionResult execution = ExecuteBlind(
+            shooter, ExposureAimCenter(shooter, fartherEnemy), 9101u);
+        Assert.That(CountLingeringSmoke() - smokeBefore, Is.EqualTo(13));
+        CombatProjectile observed = FreezeFirstProjectile();
+        SimulateUntilTerminal(observed);
+
+        CombatTerminalResolutionDiagnostics diagnostics = shooter
+            .GetComponent<ShipBroadsideFireExecutor>()
+            .LastTerminalResolution;
+        Assert.That(diagnostics.Outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.FriendlyShipBlocked));
+        Assert.That(diagnostics.Outcome.HitContext.TargetShipRoot,
+            Is.SameAs(friendly));
+        Assert.That(diagnostics.DamageResult.AppliedDamage, Is.Zero);
+        Assert.That(friendly.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.EqualTo(friendlyBefore));
+        Assert.That(fartherEnemy.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.EqualTo(enemyBefore));
+        Assert.That(observed.SimulateStep(0.02f), Is.False);
+        Assert.That(execution.Eligibility.HasObstructionPath, Is.False);
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator BlindFire_WorldObstacleBeforePoint_FiresThenTerminates()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject fartherEnemy = CreateShip(Vector3.right * 100f, false);
+        SetTeamId(fartherEnemy, 2);
+        GameObject islandPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            IslandPrefabPath);
+        Assert.That(islandPrefab, Is.Not.Null);
+        GameObject island = Object.Instantiate(islandPrefab);
+        island.transform.position = Vector3.right * 50f;
+        createdShips.Add(island);
+        float enemyBefore = fartherEnemy.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+
+        ExecuteBlind(shooter, ExposureAimCenter(shooter, fartherEnemy),
+            9104u);
+        CombatProjectile observed = FreezeFirstProjectile();
+        SimulateUntilTerminal(observed);
+
+        CombatTerminalResolutionDiagnostics diagnostics = shooter
+            .GetComponent<ShipBroadsideFireExecutor>()
+            .LastTerminalResolution;
+        Assert.That(observed.TerminalContact.Kind,
+            Is.EqualTo(ProjectileTerminalContactKind.WorldObstructionContact));
+        Assert.That(diagnostics.Outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.WorldObstructionBlocked));
+        Assert.That(diagnostics.DamageResult.AppliedDamage, Is.Zero);
+        Assert.That(fartherEnemy.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.EqualTo(enemyBefore));
+        Assert.That(observed.SimulateStep(0.02f), Is.False);
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator BlindFire_HostileThirdPartyBeforePoint_TakesActualDamage()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject interceptor = CreateShip(Vector3.right * 50f, false);
+        GameObject fartherEnemy = CreateShip(Vector3.right * 100f, false);
+        SetTeamId(interceptor, 3);
+        SetTeamId(fartherEnemy, 2);
+        PrepareInterceptor(interceptor,
+            Quaternion.LookRotation(Vector3.right, Vector3.up));
+        float interceptorBefore = interceptor.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+        float enemyBefore = fartherEnemy.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+
+        ExecuteBlind(shooter, ExposureAimCenter(shooter, fartherEnemy),
+            9102u);
+        CombatProjectile observed = FreezeFirstProjectile();
+        SimulateUntilTerminal(observed);
+
+        CombatTerminalResolutionDiagnostics diagnostics = shooter
+            .GetComponent<ShipBroadsideFireExecutor>()
+            .LastTerminalResolution;
+        Assert.That(diagnostics.Outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.HullHit));
+        Assert.That(diagnostics.Outcome.HitContext.TargetShipRoot,
+            Is.SameAs(interceptor));
+        Assert.That(diagnostics.DamageResult.AppliedDamage,
+            Is.GreaterThan(0f));
+        Assert.That(diagnostics.DamageResult.HasRakingResult, Is.True);
+        Assert.That(diagnostics.DamageResult.RakingType,
+            Is.EqualTo(CombatRakingType.Stern));
+        Assert.That(interceptor.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.LessThan(interceptorBefore));
+        Assert.That(fartherEnemy.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.EqualTo(enemyBefore));
+        Assert.That(observed.SimulateStep(0.02f), Is.False);
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator BlindFire_UnknownShipBeforePoint_BlocksWithoutDamage()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject unknown = CreateShip(Vector3.right * 50f, false);
+        GameObject fartherEnemy = CreateShip(Vector3.right * 100f, false);
+        SetTeamId(fartherEnemy, 2);
+        PrepareInterceptor(unknown, Quaternion.identity);
+        float unknownBefore = unknown.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+        float enemyBefore = fartherEnemy.GetComponent<ShipIntegrity>()
+            .CurrentIntegrity;
+
+        ExecuteBlind(shooter, ExposureAimCenter(shooter, fartherEnemy),
+            9103u);
+        CombatProjectile observed = FreezeFirstProjectile();
+        SimulateUntilTerminal(observed);
+
+        CombatTerminalResolutionDiagnostics diagnostics = shooter
+            .GetComponent<ShipBroadsideFireExecutor>()
+            .LastTerminalResolution;
+        Assert.That(diagnostics.Outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.UnknownShipBlocked));
+        Assert.That(diagnostics.DamageResult.AppliedDamage, Is.Zero);
+        Assert.That(unknown.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.EqualTo(unknownBefore));
+        Assert.That(fartherEnemy.GetComponent<ShipIntegrity>().CurrentIntegrity,
+            Is.EqualTo(enemyBefore));
+        Assert.That(observed.SimulateStep(0.02f), Is.False);
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator BlindFire_AimedAtEnemyHullPoint_RemainsPointFire()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject enemy = CreateShip(Vector3.right * 100f, false);
+        SetTeamId(enemy, 2);
+        PrepareInterceptor(enemy, Quaternion.identity);
+        BoxCollider midship = enemy.GetComponent<ShipCombatGeometry>()
+            .MidshipRegion.QueryCollider as BoxCollider;
+        Assert.That(midship, Is.Not.Null);
+        midship.size = Vector3.one * 60f;
+        Physics.SyncTransforms();
+        Vector3 worldPoint = ExposureAimCenter(shooter, enemy);
+        Assert.That(midship.bounds.Contains(worldPoint), Is.True);
+
+        BlindFireExecutionResult execution = ExecuteBlind(
+            shooter, worldPoint, 2468u);
+        CombatProjectile observed = FreezeFirstProjectile();
+        Assert.That(execution.Aim.WorldAimPoint.Value,
+            Is.EqualTo(worldPoint));
+        Assert.That(shooter.GetComponent<ShipCombatState>().ManualTarget,
+            Is.Null);
+        SimulateUntilTerminal(observed);
+
+        CombatTerminalResolutionDiagnostics diagnostics = shooter
+            .GetComponent<ShipBroadsideFireExecutor>()
+            .LastTerminalResolution;
+        Assert.That(diagnostics.Outcome.Kind,
+            Is.EqualTo(FoundationShotOutcomeKind.HullHit));
+        Assert.That(diagnostics.Outcome.HitContext.TargetShipRoot,
+            Is.SameAs(enemy));
+        yield return null;
+    }
+
+    [UnityTest]
+    public IEnumerator BlindFire_EnemyMovesAfterLaunch_ProjectileKeepsFrozenFlight()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject enemy = CreateShip(Vector3.right * 100f, false);
+        SetTeamId(enemy, 2);
+        PrepareInterceptor(enemy, Quaternion.identity);
+        Physics.SyncTransforms();
+        Vector3 worldPoint = ExposureAimCenter(shooter, enemy);
+
+        ExecuteBlind(shooter, worldPoint, 9206u);
+        CombatProjectile observed = FreezeFirstProjectile();
+        ShotSample frozenShot = observed.ShotSample;
+        enemy.transform.position += Vector3.forward * 200f;
+        Physics.SyncTransforms();
+
+        Assert.That(observed.SimulateStep(0.1f), Is.True);
+        Assert.That(Vector3.Distance(observed.transform.position,
+                CombatProjectileTrajectory.EvaluatePosition(
+                    frozenShot, 0.1f)),
+            Is.LessThan(PositionTolerance));
+        Assert.That(shooter.GetComponent<ShipCombatState>().ManualTarget,
+            Is.Null);
+        yield return null;
+    }
+
+    [UnityTest]
     public IEnumerator IntegratedBlindFireMiss_ResolvesWaterAndVFXOnly()
     {
         GameObject shooter = CreateShip(Vector3.zero, true);
@@ -641,6 +883,74 @@ public class BroadsideFireExecutionPlayModeTests
         yield return null;
     }
 
+
+    private static BlindFireExecutionResult ExecuteBlind(
+        GameObject shooter,
+        Vector3 worldAimPoint,
+        uint seed)
+    {
+        SetTeamId(shooter, 1);
+        Physics.SyncTransforms();
+        ShipFireEligibility eligibility =
+            shooter.GetComponent<ShipFireEligibility>();
+        Assert.That(eligibility.TryEvaluateBlindFireAtPoint(
+            worldAimPoint, out BlindFireEligibilityResult query), Is.True);
+        Assert.That(query.CanBlindFire, Is.True);
+        Assert.That(query.HasObstructionPath, Is.False);
+
+        ShipCombatState state = shooter.GetComponent<ShipCombatState>();
+        ShipBlindFireCommand command = new ShipBlindFireCommand(
+            eligibility,
+            state,
+            shooter.GetComponent<ShipBroadsideFireExecutor>());
+        bool accepted = command.TryExecuteBlindFire(
+            query.Aim, seed, out BlindFireExecutionResult execution);
+        Assert.That(accepted, Is.True,
+            execution.FailureReasons.ToString());
+        Assert.That(execution.BroadsideExecution.AimBasis.SourceKind,
+            Is.EqualTo(FireAimSourceKind.BlindFirePoint));
+        Assert.That(execution.BroadsideExecution.ShotCount,
+            Is.EqualTo(13));
+        Assert.That(execution.BroadsideExecution.SpawnedProjectileCount,
+            Is.EqualTo(13));
+        Assert.That(FindCurrentProjectiles(), Has.Length.EqualTo(13));
+        Assert.That(state.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Reloading));
+        return execution;
+    }
+
+    private static Vector3 ExposureAimCenter(
+        GameObject shooter,
+        GameObject target)
+    {
+        ShipExposureReference exposure =
+            target.GetComponent<ShipExposureReference>();
+        Assert.That(exposure, Is.Not.Null);
+        Assert.That(exposure.TryCalculateExposure(
+            shooter.transform.position, out ExposureRect rectangle),
+            Is.True);
+        return rectangle.CenterWorld;
+    }
+
+    private static CombatProjectile FreezeFirstProjectile()
+    {
+        CombatProjectile[] projectiles = FindCurrentProjectiles();
+        Assert.That(projectiles, Has.Length.EqualTo(13));
+        foreach (CombatProjectile projectile in projectiles)
+        {
+            projectile.enabled = false;
+        }
+
+        return projectiles[0];
+    }
+
+    private static int CountLingeringSmoke()
+    {
+        return Object.FindObjectsByType<ParticleSystem>(
+                FindObjectsInactive.Include)
+            .Count(candidate => candidate.gameObject.name
+                == "VFX_Cannon_LingeringSmoke_v01(Clone)");
+    }
 
     private GameObject CreateShip(Vector3 position, bool enableVFX)
     {

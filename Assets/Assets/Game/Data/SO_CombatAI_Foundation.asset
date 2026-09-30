@@ -18,6 +18,8 @@ MonoBehaviour:
   preferredRangeBandMinRatio: 0.55
   preferredRangeBandMaxRatio: 0.8
   broadsideSideSwitchAdvantageDegrees: 20
+  broadsideApproachAngleDegrees: 35
+  broadsideApproachLeadDistanceMeters: 120
   broadsideAlignmentLeadDistanceMeters: 40
   destinationUpdateThresholdMeters: 5
   desiredHeadingUpdateThresholdDegrees: 5

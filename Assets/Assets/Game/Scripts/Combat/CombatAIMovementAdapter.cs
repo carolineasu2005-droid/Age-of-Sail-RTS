@@ -75,9 +75,22 @@ public sealed class CombatAIMovementAdapter
         }
 
         Vector3 destinationWorld;
+        float requestedHeadingDegrees = pose.DesiredHeadingDegrees;
         switch (pose.MovementIntent)
         {
             case CombatAIMovementIntent.CloseRange:
+                if (!pose.ApproachActive
+                    || !IsFinite(pose.ApproachHeadingDegrees)
+                    || !IsFinite(pose.ApproachDestinationWorld))
+                {
+                    LastCommandStatus = CombatAIMovementCommandStatus.InvalidPose;
+                    return false;
+                }
+
+                destinationWorld = pose.ApproachDestinationWorld;
+                requestedHeadingDegrees = pose.ApproachHeadingDegrees;
+                break;
+
             case CombatAIMovementIntent.OpenRange:
                 destinationWorld = pose.DesiredPositionWorld;
                 break;
@@ -110,7 +123,7 @@ public sealed class CombatAIMovementAdapter
                 * profile.DestinationUpdateThresholdMeters;
         bool materiallyDifferentHeading = Mathf.Abs(Mathf.DeltaAngle(
             lastDesiredHeadingDegrees,
-            pose.DesiredHeadingDegrees
+            requestedHeadingDegrees
         )) > profile.DesiredHeadingUpdateThresholdDegrees;
 
         if (hasIssuedCommand
@@ -134,7 +147,7 @@ public sealed class CombatAIMovementAdapter
         lastTargetShipRoot = targetShipRoot;
         lastIntent = pose.MovementIntent;
         lastDestinationWorld = destinationWorld;
-        lastDesiredHeadingDegrees = pose.DesiredHeadingDegrees;
+        lastDesiredHeadingDegrees = requestedHeadingDegrees;
         lastCommandBlocked = destinationController.CurrentNavigationMode
             == ShipDestinationController.NavigationMode.Blocked;
         hasIssuedCommand = true;

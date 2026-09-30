@@ -77,6 +77,45 @@ public class FormalCombatAIMovementPlayModeTests
     }
 
     [UnityTest]
+    public IEnumerator SternChase_FormalAIUsesLateralAttackLegThroughMovement()
+    {
+        CreateFixture(new Vector3(0f, 0f, 600f), true);
+        Assert.That(ai.Think(Time.time), Is.True);
+        AssertCommonMovementChain(CombatAIMovementIntent.CloseRange);
+        Assert.That(ai.LastPose.RangeState, Is.EqualTo(CombatRangeState.TooFar));
+        Assert.That(ai.LastPose.ApproachActive, Is.True);
+        Assert.That(ai.LastPose.PreferredSide, Is.EqualTo(CombatSide.Port));
+        Vector3 initialAIPosition = aiRoot.transform.position;
+        Vector3 initialTargetPosition = targetRoot.transform.position;
+        Vector3 commanded = ReadPrivateField<Vector3>(destination, "destination");
+        Assert.That(Vector3.Distance(commanded,
+            ai.LastPose.ApproachDestinationWorld), Is.LessThan(0.1f));
+        Assert.That(commanded.x - initialAIPosition.x, Is.GreaterThan(50f));
+        Assert.That(commanded.z - initialAIPosition.z, Is.GreaterThan(50f));
+        Assert.That(ai.LastPose.DesiredPositionWorld.x - initialAIPosition.x,
+            Is.EqualTo(0f).Within(0.1f));
+
+        for (int second = 0; second < 8; second++)
+        {
+            yield return new WaitForSeconds(1f);
+            Assert.That(ai.CurrentTargetShipRoot, Is.SameAs(targetRoot));
+            Assert.That(ai.LastPose.PreferredSide, Is.EqualTo(CombatSide.Port),
+                "The approach should retain the chosen broadside across Thinks.");
+        }
+
+        Assert.That(targetRoot.transform.position.z - initialTargetPosition.z,
+            Is.GreaterThan(0.25f),
+            "The stern-chase target must sail through Movement.");
+        Assert.That(speed.CurrentSpeed, Is.GreaterThan(0f));
+        Assert.That(aiRoot.transform.position.z - initialAIPosition.z,
+            Is.GreaterThan(0.25f));
+        Assert.That(aiRoot.transform.position.x - initialAIPosition.x,
+            Is.GreaterThan(1f),
+            "The AI should leave the original pursuit centerline.");
+        Assert.That(destination.HasDestination, Is.True);
+    }
+
+    [UnityTest]
     public IEnumerator WrongArc_FormalAIPrefab_TurnsAfterAlignmentCommand()
     {
         CreateFixture(new Vector3(0f, 0f, 350f));
@@ -109,7 +148,7 @@ public class FormalCombatAIMovementPlayModeTests
             Is.GreaterThan(0.25f));
     }
 
-    private void CreateFixture(Vector3 targetOffset)
+    private void CreateFixture(Vector3 targetOffset, bool targetSails = false)
     {
 #if UNITY_EDITOR
         foreach (GlobalWind existingWind in Object.FindObjectsByType<GlobalWind>(
@@ -143,8 +182,18 @@ public class FormalCombatAIMovementPlayModeTests
         createdObjects.Add(targetRoot);
         SetTeamId(aiRoot, 2);
         SetTeamId(targetRoot, 1);
-        targetRoot.GetComponent<ShipSailingSpeed>().enabled = false;
-        targetRoot.GetComponent<ShipTurning>().enabled = false;
+        if (targetSails)
+        {
+            targetRoot.GetComponent<ShipDestinationController>().SetDestination(
+                targetRoot.transform.position + Vector3.forward * 300f,
+                ShipDestinationController.TurnSelectionMode.Auto,
+                WindNavigationAssistMode.Assisted);
+        }
+        else
+        {
+            targetRoot.GetComponent<ShipSailingSpeed>().enabled = false;
+            targetRoot.GetComponent<ShipTurning>().enabled = false;
+        }
 
         ai = aiRoot.GetComponent<ShipCombatAIController>();
         destination = aiRoot.GetComponent<ShipDestinationController>();

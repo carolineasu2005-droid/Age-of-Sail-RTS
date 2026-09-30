@@ -81,6 +81,8 @@ public class CombatBroadsidePoseSolverTests
         Assert.That(profile.PreferredRangeBandMinRatio, Is.EqualTo(0.55f));
         Assert.That(profile.PreferredRangeBandMaxRatio, Is.EqualTo(0.80f));
         Assert.That(profile.BroadsideSideSwitchAdvantageDegrees, Is.EqualTo(20f));
+        Assert.That(profile.BroadsideApproachAngleDegrees, Is.EqualTo(35f));
+        Assert.That(profile.BroadsideApproachLeadDistanceMeters, Is.EqualTo(120f));
         Assert.That(weapon.MaximumRangeMeters, Is.EqualTo(100f));
         Assert.That(Solve(shooter, target, null, out var result), Is.True);
         Assert.That(result.MaximumWeaponRangeMeters, Is.EqualTo(weapon.MaximumRangeMeters));
@@ -159,6 +161,58 @@ public class CombatBroadsidePoseSolverTests
         Assert.That(result.DesiredPositionWorld.z, Is.EqualTo(20f).Within(0.001f));
         Assert.That(result.PortCandidate.DesiredPositionWorld,
             Is.EqualTo(result.StarboardCandidate.DesiredPositionWorld));
+    }
+
+    [TestCase(150f, CombatSide.Port, 1f)]
+    [TestCase(150f, CombatSide.Starboard, -1f)]
+    [TestCase(-150f, CombatSide.Port, -1f)]
+    [TestCase(-150f, CombatSide.Starboard, 1f)]
+    public void TooFar_ApproachClosesAndOffsetsTowardPreferredBroadside(
+        float targetZ, CombatSide preferred, float lateralSign)
+    {
+        GameObject shooter = CreateShooter(Vector3.zero);
+        GameObject target = CreateTarget(Vector3.forward * targetZ);
+        Assert.That(Solve(shooter, target, preferred, out var first), Is.True);
+        Assert.That(Solve(shooter, target, preferred, out var repeated), Is.True);
+        Assert.That(first.PreferredSide, Is.EqualTo(preferred));
+        Assert.That(first.RangeState, Is.EqualTo(CombatRangeState.TooFar));
+        Assert.That(first.MovementIntent, Is.EqualTo(CombatAIMovementIntent.CloseRange));
+        Assert.That(first.ApproachActive, Is.True);
+        Vector3 leg = first.ApproachDestinationWorld - shooter.transform.position;
+        Vector3 toTarget = (target.transform.position - shooter.transform.position)
+            .normalized;
+        Assert.That(leg.y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(leg.magnitude, Is.EqualTo(120f).Within(0.001f));
+        Assert.That(Vector3.Dot(leg.normalized, toTarget),
+            Is.EqualTo(Mathf.Cos(35f * Mathf.Deg2Rad)).Within(0.001f));
+        Assert.That(leg.x * lateralSign, Is.GreaterThan(50f));
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(
+            targetZ > 0f ? 0f : 180f, first.ApproachHeadingDegrees)),
+            Is.EqualTo(35f).Within(0.001f));
+        Assert.That(float.IsNaN(first.ApproachHeadingDegrees), Is.False);
+        Assert.That(float.IsInfinity(first.ApproachHeadingDegrees), Is.False);
+        Assert.That(repeated.ApproachHeadingDegrees,
+            Is.EqualTo(first.ApproachHeadingDegrees));
+        Assert.That(repeated.ApproachDestinationWorld,
+            Is.EqualTo(first.ApproachDestinationWorld));
+        Assert.That(first.DesiredPositionWorld.x, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(Mathf.Abs(first.ApproachDestinationWorld.x),
+            Is.GreaterThan(50f),
+            "A stern chase must not command only the longitudinal radial station.");
+    }
+
+    [Test]
+    public void InBandAndTooClose_DoNotActivateApproach()
+    {
+        GameObject shooter = CreateShooter(Vector3.zero);
+        GameObject target = CreateTarget(Vector3.forward * 70f);
+        Assert.That(Solve(shooter, target, null, out var inBand), Is.True);
+        Assert.That(inBand.ApproachActive, Is.False);
+        target.transform.position = Vector3.forward * 30f;
+        Assert.That(Solve(shooter, target, null, out var tooClose), Is.True);
+        Assert.That(tooClose.ApproachActive, Is.False);
+        Assert.That(tooClose.MovementIntent,
+            Is.EqualTo(CombatAIMovementIntent.OpenRange));
     }
 
     [Test]

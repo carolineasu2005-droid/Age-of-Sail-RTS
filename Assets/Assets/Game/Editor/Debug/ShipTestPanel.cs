@@ -249,7 +249,7 @@ public sealed class ShipTestPanel : EditorWindow
         summary.Append("Desired Combat Range: ").AppendLine(
             pose.IsValid ? $"{pose.DesiredRangeMeters:F1} m" : "N/A"
         );
-        summary.Append("Desired Position: ").AppendLine(
+        summary.Append("Desired Combat Position: ").AppendLine(
             pose.IsValid ? pose.DesiredPositionWorld.ToString("F1") : "N/A"
         );
         summary.Append("Desired Heading: ").AppendLine(
@@ -257,6 +257,22 @@ public sealed class ShipTestPanel : EditorWindow
         );
         summary.Append("Movement Intent: ").AppendLine(
             pose.IsValid ? pose.MovementIntent.ToString() : "N/A"
+        );
+        summary.Append("Approach Active: ").AppendLine(
+            pose.IsValid ? FormatYesNo(pose.ApproachActive) : "N/A"
+        );
+        summary.Append("Approach Angle: ").AppendLine(
+            pose.ApproachActive && ai.Profile != null
+                ? $"{ai.Profile.BroadsideApproachAngleDegrees:F1} deg"
+                : "N/A"
+        );
+        summary.Append("Approach Heading: ").AppendLine(
+            pose.ApproachActive
+                ? $"{pose.ApproachHeadingDegrees:F1} deg" : "N/A"
+        );
+        summary.Append("Approach Destination: ").AppendLine(
+            pose.ApproachActive
+                ? pose.ApproachDestinationWorld.ToString("F1") : "N/A"
         );
         summary.Append("Port Fire Eligibility: ").AppendLine(
             FormatAIFireSide(ai, CombatSide.Port)

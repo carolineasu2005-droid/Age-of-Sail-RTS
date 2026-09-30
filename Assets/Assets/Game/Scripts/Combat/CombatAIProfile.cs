@@ -25,6 +25,13 @@ public sealed class CombatAIProfile : ScriptableObject
     [SerializeField, Range(0f, 180f)]
     private float broadsideSideSwitchAdvantageDegrees = 20f;
 
+    // PLAYTEST-BOUND: begin a broadside attack leg while still closing range.
+    [SerializeField, Range(0f, 90f)]
+    private float broadsideApproachAngleDegrees = 35f;
+
+    [SerializeField, Min(0.01f)]
+    private float broadsideApproachLeadDistanceMeters = 120f;
+
     [SerializeField, Min(0.01f)]
     private float broadsideAlignmentLeadDistanceMeters = 40f;
 
@@ -41,6 +48,10 @@ public sealed class CombatAIProfile : ScriptableObject
     public float PreferredRangeBandMaxRatio => preferredRangeBandMaxRatio;
     public float BroadsideSideSwitchAdvantageDegrees =>
         broadsideSideSwitchAdvantageDegrees;
+    public float BroadsideApproachAngleDegrees =>
+        broadsideApproachAngleDegrees;
+    public float BroadsideApproachLeadDistanceMeters =>
+        broadsideApproachLeadDistanceMeters;
     public float BroadsideAlignmentLeadDistanceMeters =>
         broadsideAlignmentLeadDistanceMeters;
     public float DestinationUpdateThresholdMeters =>
@@ -59,12 +70,17 @@ public sealed class CombatAIProfile : ScriptableObject
         && IsFinite(preferredRangeBandMinRatio)
         && IsFinite(preferredRangeBandMaxRatio)
         && IsFinite(broadsideSideSwitchAdvantageDegrees)
+        && IsFinite(broadsideApproachAngleDegrees)
+        && IsFinite(broadsideApproachLeadDistanceMeters)
         && preferredRangeBandMinRatio > 0f
         && preferredRangeBandMinRatio <= desiredCombatRangeRatio
         && desiredCombatRangeRatio <= preferredRangeBandMaxRatio
         && preferredRangeBandMaxRatio <= 1f
         && broadsideSideSwitchAdvantageDegrees >= 0f
-        && broadsideSideSwitchAdvantageDegrees <= 180f;
+        && broadsideSideSwitchAdvantageDegrees <= 180f
+        && broadsideApproachAngleDegrees >= 0f
+        && broadsideApproachAngleDegrees <= 90f
+        && broadsideApproachLeadDistanceMeters > 0f;
 
     public bool IsMovementValid =>
         IsPoseValid

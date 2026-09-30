@@ -135,6 +135,28 @@ public static class CombatBroadsidePoseSolver
                 : CombatAIMovementIntent.AlignBroadside;
         }
 
+        float approachHeading = 0f;
+        Vector3 approachDestination = default;
+        if (rangeState == CombatRangeState.TooFar)
+        {
+            // Each chosen broadside heading is 90 degrees from ToTarget.
+            // Rotate only partway toward it so the attack leg keeps closing.
+            approachHeading = Mathf.MoveTowardsAngle(
+                targetBearing,
+                chosen.DesiredHeadingDegrees,
+                profile.BroadsideApproachAngleDegrees
+            );
+            Vector3 approachForward = Quaternion.Euler(
+                0f, approachHeading, 0f
+            ) * Vector3.forward;
+            approachDestination = shooterPosition + approachForward
+                * profile.BroadsideApproachLeadDistanceMeters;
+            if (!IsFinite(approachHeading) || !IsFinite(approachDestination))
+            {
+                return false;
+            }
+        }
+
         result = new CombatBroadsidePoseResult(
             port,
             starboard,
@@ -143,7 +165,9 @@ public static class CombatBroadsidePoseSolver
             intent,
             distance,
             weapon.MaximumRangeMeters,
-            desiredRange
+            desiredRange,
+            approachHeading,
+            approachDestination
         );
         return true;
     }

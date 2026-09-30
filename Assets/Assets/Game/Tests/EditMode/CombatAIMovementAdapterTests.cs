@@ -50,7 +50,9 @@ public class CombatAIMovementAdapterTests
         Assert.That(pose.MovementIntent, Is.EqualTo(CombatAIMovementIntent.CloseRange));
         Assert.That(adapter.TryApply(pose, target, profile), Is.True);
         Assert.That(destination.HasDestination, Is.True);
-        Assert.That(GetDestination(destination).x, Is.EqualTo(80f).Within(0.001f));
+        Assert.That(GetDestination(destination), Is.EqualTo(pose.ApproachDestinationWorld));
+        Assert.That(Vector3.Distance(GetDestination(destination),
+            pose.DesiredPositionWorld), Is.GreaterThan(10f));
         Assert.That(planner.CommandSequence, Is.EqualTo(1));
         Assert.That(shooter.transform.position, Is.EqualTo(originalPosition));
         Assert.That(shooter.transform.rotation, Is.EqualTo(originalRotation));
@@ -110,7 +112,16 @@ public class CombatAIMovementAdapterTests
         Assert.That(adapter.TryApply(Solve(shooter, target), target, profile), Is.False);
         Assert.That(planner.CommandSequence, Is.EqualTo(commands));
 
+        // Longitudinal target movement leaves the forward attack leg stable.
         target.transform.position = Vector3.right * 156f;
+        Assert.That(adapter.TryApply(Solve(shooter, target), target, profile), Is.False);
+        Assert.That(planner.CommandSequence, Is.EqualTo(commands));
+
+        target.transform.position = new Vector3(156f, 0f, 5f);
+        Assert.That(adapter.TryApply(Solve(shooter, target), target, profile), Is.False);
+        Assert.That(planner.CommandSequence, Is.EqualTo(commands));
+
+        target.transform.position = new Vector3(156f, 0f, 20f);
         Assert.That(adapter.TryApply(Solve(shooter, target), target, profile), Is.True);
         Assert.That(planner.CommandSequence, Is.EqualTo(commands + 1));
     }
@@ -236,7 +247,7 @@ public class CombatAIMovementAdapterTests
         Assert.That(adapter.TryApply(Solve(shooter, target), target, profile), Is.False);
         Assert.That(GetDestination(destination), Is.EqualTo(external));
 
-        target.transform.position = Vector3.right * 160f;
+        target.transform.position = new Vector3(160f, 0f, 20f);
         Assert.That(adapter.TryApply(Solve(shooter, target), target, profile), Is.True);
         Assert.That(GetDestination(destination), Is.Not.EqualTo(external));
     }
@@ -325,8 +336,8 @@ public class CombatAIMovementAdapterTests
         Assert.That(controller.Think(0f), Is.True);
         Assert.That(controller.CurrentTargetShipRoot, Is.SameAs(first));
         Assert.That(controller.LastPose.PreferredSide, Is.EqualTo(CombatSide.Port));
-        Assert.That(GetDestination(destination).x,
-            Is.EqualTo(-80f).Within(0.001f));
+        Assert.That(GetDestination(destination),
+            Is.EqualTo(controller.LastPose.ApproachDestinationWorld));
         int firstCommandSequence = planner.CommandSequence;
 
         GameObject second = CreateTarget(Vector3.right * 150f);
@@ -353,8 +364,8 @@ public class CombatAIMovementAdapterTests
             Is.EqualTo(CombatSide.Starboard));
         Assert.That(planner.CommandSequence,
             Is.EqualTo(firstCommandSequence + 1));
-        Assert.That(GetDestination(destination).x,
-            Is.EqualTo(80f).Within(0.001f));
+        Assert.That(GetDestination(destination),
+            Is.EqualTo(controller.LastPose.ApproachDestinationWorld));
     }
 
     [Test]

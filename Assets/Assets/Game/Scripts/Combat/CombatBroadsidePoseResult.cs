@@ -53,7 +53,8 @@ public readonly struct CombatBroadsidePoseResult
         float maximumWeaponRangeMeters,
         float desiredRangeMeters,
         float approachHeadingDegrees,
-        Vector3 approachDestinationWorld
+        Vector3 approachDestinationWorld,
+        bool approachUsesCurrentHeading
     )
     {
         PortCandidate = portCandidate;
@@ -67,6 +68,7 @@ public readonly struct CombatBroadsidePoseResult
         ApproachHeadingDegrees = approachHeadingDegrees;
         ApproachDestinationWorld = approachDestinationWorld;
         ApproachActive = rangeState == CombatRangeState.TooFar;
+        ApproachUsesCurrentHeading = approachUsesCurrentHeading;
         IsValid = true;
     }
 
@@ -85,6 +87,7 @@ public readonly struct CombatBroadsidePoseResult
     public float MaximumWeaponRangeMeters { get; }
     public float DesiredRangeMeters { get; }
     public bool ApproachActive { get; }
+    public bool ApproachUsesCurrentHeading { get; }
     public float ApproachHeadingDegrees { get; }
     public Vector3 ApproachDestinationWorld { get; }
     public bool IsValid { get; }

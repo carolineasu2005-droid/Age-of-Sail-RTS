@@ -127,6 +127,42 @@ public class CombatAIMovementAdapterTests
     }
 
     [Test]
+    public void AftTurnOut_UsesExistingDestinationAndHeadingSuppression()
+    {
+        GameObject shooter = CreateShooter();
+        GameObject target = CreateTarget(Vector3.back * 150f);
+        ShipDestinationController destination =
+            shooter.GetComponent<ShipDestinationController>();
+        ShipManeuverPlanner planner = shooter.GetComponent<ShipManeuverPlanner>();
+        CombatAIMovementAdapter adapter = new CombatAIMovementAdapter(destination);
+        Assert.That(CombatBroadsidePoseSolver.TrySolve(shooter, target,
+            CombatSide.Port, profile, out var first), Is.True);
+        Assert.That(first.ApproachUsesCurrentHeading, Is.True);
+        Assert.That(adapter.TryApply(first, target, profile), Is.True);
+        Assert.That(GetDestination(destination),
+            Is.EqualTo(first.ApproachDestinationWorld));
+        int commands = planner.CommandSequence;
+
+        target.transform.position = Vector3.back * 151f;
+        Assert.That(CombatBroadsidePoseSolver.TrySolve(shooter, target,
+            first.PreferredSide, profile, out var smallTargetMove), Is.True);
+        Assert.That(adapter.TryApply(smallTargetMove, target, profile), Is.False);
+        shooter.transform.position = Vector3.forward * 4f;
+        Assert.That(CombatBroadsidePoseSolver.TrySolve(shooter, target,
+            first.PreferredSide, profile, out var smallShooterMove), Is.True);
+        Assert.That(adapter.TryApply(smallShooterMove, target, profile), Is.False);
+        Assert.That(planner.CommandSequence, Is.EqualTo(commands));
+
+        shooter.transform.position = Vector3.forward * 6f;
+        Assert.That(CombatBroadsidePoseSolver.TrySolve(shooter, target,
+            first.PreferredSide, profile, out var materialMove), Is.True);
+        Assert.That(adapter.TryApply(materialMove, target, profile), Is.True);
+        Assert.That(planner.CommandSequence, Is.EqualTo(commands + 1));
+        Assert.That(GetDestination(destination),
+            Is.EqualTo(materialMove.ApproachDestinationWorld));
+    }
+
+    [Test]
     public void HeadingChangeBeyondFiveDegrees_UpdatesEvenWhenDestinationMovesLess()
     {
         GameObject shooter = CreateShooter();

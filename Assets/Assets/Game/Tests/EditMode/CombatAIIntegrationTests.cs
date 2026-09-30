@@ -195,6 +195,7 @@ public class CombatAIIntegrationTests
             string output = (string)formatter.Invoke(null, new object[] { ai });
             Assert.That(output, Does.Contain("Current Target: Observed Target Root"));
             Assert.That(output, Does.Contain("Range State: TooFar"));
+            Assert.That(output, Does.Contain("Approach Basis: To Target"));
             Assert.That(output, Does.Contain("Desired Combat Range: 350"));
             Assert.That(output, Does.Contain("BEYOND_MAXIMUM_RANGE"));
             Assert.That(output, Does.Contain("Last Movement Command: "
@@ -206,6 +207,12 @@ public class CombatAIIntegrationTests
             output = (string)formatter.Invoke(null, new object[] { ai });
             Assert.That(output, Does.Contain("Last Fire Side: Starboard"));
             Assert.That(output, Does.Contain("Last Fire Result: Accepted"));
+
+            target.transform.position = Vector3.back * 600f;
+            Physics.SyncTransforms();
+            Assert.That(ai.Think(0.5f), Is.True);
+            output = (string)formatter.Invoke(null, new object[] { ai });
+            Assert.That(output, Does.Contain("Approach Basis: Current Heading"));
         }
         finally
         {

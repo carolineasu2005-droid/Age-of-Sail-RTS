@@ -165,9 +165,7 @@ public class CombatBroadsidePoseSolverTests
 
     [TestCase(150f, CombatSide.Port, 1f)]
     [TestCase(150f, CombatSide.Starboard, -1f)]
-    [TestCase(-150f, CombatSide.Port, -1f)]
-    [TestCase(-150f, CombatSide.Starboard, 1f)]
-    public void TooFar_ApproachClosesAndOffsetsTowardPreferredBroadside(
+    public void ForwardTooFar_PreservesTargetRelativeBroadsideApproach(
         float targetZ, CombatSide preferred, float lateralSign)
     {
         GameObject shooter = CreateShooter(Vector3.zero);
@@ -178,6 +176,7 @@ public class CombatBroadsidePoseSolverTests
         Assert.That(first.RangeState, Is.EqualTo(CombatRangeState.TooFar));
         Assert.That(first.MovementIntent, Is.EqualTo(CombatAIMovementIntent.CloseRange));
         Assert.That(first.ApproachActive, Is.True);
+        Assert.That(first.ApproachUsesCurrentHeading, Is.False);
         Vector3 leg = first.ApproachDestinationWorld - shooter.transform.position;
         Vector3 toTarget = (target.transform.position - shooter.transform.position)
             .normalized;
@@ -187,7 +186,7 @@ public class CombatBroadsidePoseSolverTests
             Is.EqualTo(Mathf.Cos(35f * Mathf.Deg2Rad)).Within(0.001f));
         Assert.That(leg.x * lateralSign, Is.GreaterThan(50f));
         Assert.That(Mathf.Abs(Mathf.DeltaAngle(
-            targetZ > 0f ? 0f : 180f, first.ApproachHeadingDegrees)),
+            0f, first.ApproachHeadingDegrees)),
             Is.EqualTo(35f).Within(0.001f));
         Assert.That(float.IsNaN(first.ApproachHeadingDegrees), Is.False);
         Assert.That(float.IsInfinity(first.ApproachHeadingDegrees), Is.False);
@@ -197,8 +196,88 @@ public class CombatBroadsidePoseSolverTests
             Is.EqualTo(first.ApproachDestinationWorld));
         Assert.That(first.DesiredPositionWorld.x, Is.EqualTo(0f).Within(0.001f));
         Assert.That(Mathf.Abs(first.ApproachDestinationWorld.x),
-            Is.GreaterThan(50f),
-            "A stern chase must not command only the longitudinal radial station.");
+            Is.GreaterThan(50f));
+    }
+
+    [TestCase(CombatSide.Port, -1f)]
+    [TestCase(CombatSide.Starboard, 1f)]
+    public void AftTooFar_TurnsOutFromCurrentHeadingTowardSelectedSide(
+        CombatSide preferred, float lateralSign)
+    {
+        GameObject shooter = CreateShooter(Vector3.zero);
+        GameObject target = CreateTarget(Vector3.back * 150f);
+        Assert.That(Solve(shooter, target, preferred, out var first), Is.True);
+        Assert.That(Solve(shooter, target, preferred, out var repeated), Is.True);
+
+        Assert.That(first.PreferredSide, Is.EqualTo(preferred));
+        Assert.That(first.RangeState, Is.EqualTo(CombatRangeState.TooFar));
+        Assert.That(first.MovementIntent, Is.EqualTo(CombatAIMovementIntent.CloseRange));
+        Assert.That(first.ApproachActive, Is.True);
+        Assert.That(first.ApproachUsesCurrentHeading, Is.True);
+        Assert.That(first.DesiredPositionWorld.z, Is.EqualTo(-80f).Within(0.001f));
+        Vector3 leg = first.ApproachDestinationWorld - shooter.transform.position;
+        Assert.That(leg.y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(leg.magnitude,
+            Is.EqualTo(profile.BroadsideApproachLeadDistanceMeters).Within(0.001f));
+        Assert.That(Vector3.Dot(leg.normalized, Vector3.forward),
+            Is.EqualTo(Mathf.Cos(35f * Mathf.Deg2Rad)).Within(0.001f));
+        Assert.That(Vector3.Dot(leg.normalized, Vector3.back), Is.LessThan(0f));
+        Assert.That(leg.x * lateralSign, Is.GreaterThan(50f));
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(0f,
+            first.ApproachHeadingDegrees)), Is.EqualTo(35f).Within(0.001f));
+        Assert.That(float.IsNaN(first.ApproachHeadingDegrees), Is.False);
+        Assert.That(float.IsInfinity(first.ApproachHeadingDegrees), Is.False);
+        Assert.That(repeated.PreferredSide, Is.EqualTo(first.PreferredSide));
+        Assert.That(repeated.ApproachHeadingDegrees,
+            Is.EqualTo(first.ApproachHeadingDegrees));
+        Assert.That(repeated.ApproachDestinationWorld,
+            Is.EqualTo(first.ApproachDestinationWorld));
+    }
+
+    [Test]
+    public void ObliqueAftTarget_StillUsesCurrentHeadingBasis()
+    {
+        GameObject shooter = CreateShooter(Vector3.zero);
+        GameObject target = CreateTarget(new Vector3(70f, 12f, -150f));
+        Assert.That(Solve(shooter, target, null, out var result), Is.True);
+        Assert.That(result.RangeState, Is.EqualTo(CombatRangeState.TooFar));
+        Assert.That(result.PreferredSide, Is.EqualTo(CombatSide.Starboard));
+        Assert.That(result.ApproachUsesCurrentHeading, Is.True);
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(0f,
+            result.ApproachHeadingDegrees)), Is.EqualTo(35f).Within(0.001f));
+        Vector3 leg = result.ApproachDestinationWorld - shooter.transform.position;
+        Assert.That(leg.x, Is.GreaterThan(50f));
+        Assert.That(leg.z, Is.GreaterThan(50f));
+    }
+
+    [Test]
+    public void AftTurnOut_StopsAtBroadsideHeadingWhenCloserThanApproachAngle()
+    {
+        GameObject shooter = CreateShooter(Vector3.zero);
+        GameObject target = CreateTarget(new Vector3(150f, 0f, -55f));
+        Assert.That(Solve(shooter, target, null, out var result), Is.True);
+        Assert.That(result.ApproachUsesCurrentHeading, Is.True);
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(0f,
+            result.DesiredHeadingDegrees)), Is.LessThan(35f));
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(
+            result.ApproachHeadingDegrees, result.DesiredHeadingDegrees)),
+            Is.LessThan(0.001f));
+    }
+
+    [Test]
+    public void ObliqueForwardTarget_StillUsesTargetRelativeBasis()
+    {
+        GameObject shooter = CreateShooter(Vector3.zero);
+        GameObject target = CreateTarget(new Vector3(70f, 12f, 150f));
+        Assert.That(Solve(shooter, target, null, out var result), Is.True);
+        Assert.That(result.RangeState, Is.EqualTo(CombatRangeState.TooFar));
+        Assert.That(result.ApproachUsesCurrentHeading, Is.False);
+        float targetBearing = WindBeatingNavigationMath.GetHorizontalBearing(
+            shooter.transform.position, target.transform.position, 0f);
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(targetBearing,
+            result.ApproachHeadingDegrees)), Is.EqualTo(35f).Within(0.001f));
+        Assert.That(Mathf.Abs(Mathf.DeltaAngle(0f,
+            result.ApproachHeadingDegrees)), Is.LessThan(20f));
     }
 
     [Test]
@@ -208,11 +287,23 @@ public class CombatBroadsidePoseSolverTests
         GameObject target = CreateTarget(Vector3.forward * 70f);
         Assert.That(Solve(shooter, target, null, out var inBand), Is.True);
         Assert.That(inBand.ApproachActive, Is.False);
+        Assert.That(inBand.ApproachUsesCurrentHeading, Is.False);
         target.transform.position = Vector3.forward * 30f;
         Assert.That(Solve(shooter, target, null, out var tooClose), Is.True);
         Assert.That(tooClose.ApproachActive, Is.False);
+        Assert.That(tooClose.ApproachUsesCurrentHeading, Is.False);
         Assert.That(tooClose.MovementIntent,
             Is.EqualTo(CombatAIMovementIntent.OpenRange));
+        target.transform.position = Vector3.back * 70f;
+        Assert.That(Solve(shooter, target, null, out var inBandAft), Is.True);
+        Assert.That(inBandAft.MovementIntent,
+            Is.EqualTo(CombatAIMovementIntent.AlignBroadside));
+        Assert.That(inBandAft.ApproachActive, Is.False);
+        target.transform.position = Vector3.back * 30f;
+        Assert.That(Solve(shooter, target, null, out var tooCloseAft), Is.True);
+        Assert.That(tooCloseAft.MovementIntent,
+            Is.EqualTo(CombatAIMovementIntent.OpenRange));
+        Assert.That(tooCloseAft.ApproachActive, Is.False);
     }
 
     [Test]

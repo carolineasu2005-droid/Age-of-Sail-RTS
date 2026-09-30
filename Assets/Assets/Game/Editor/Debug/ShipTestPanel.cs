@@ -261,6 +261,13 @@ public sealed class ShipTestPanel : EditorWindow
         summary.Append("Approach Active: ").AppendLine(
             pose.IsValid ? FormatYesNo(pose.ApproachActive) : "N/A"
         );
+        summary.Append("Approach Basis: ").AppendLine(
+            pose.ApproachActive
+                ? pose.ApproachUsesCurrentHeading
+                    ? "Current Heading"
+                    : "To Target"
+                : "N/A"
+        );
         summary.Append("Approach Angle: ").AppendLine(
             pose.ApproachActive && ai.Profile != null
                 ? $"{ai.Profile.BroadsideApproachAngleDegrees:F1} deg"

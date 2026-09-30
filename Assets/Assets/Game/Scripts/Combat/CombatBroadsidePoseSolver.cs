@@ -70,12 +70,18 @@ public static class CombatBroadsidePoseSolver
         }
 
         Vector3 targetDirection = toTarget / distance;
+        shooterForward.Normalize();
+        bool targetIsAft = Vector3.Dot(shooterForward, targetDirection) < 0f;
         float targetBearing = WindBeatingNavigationMath.GetHorizontalBearing(
             shooterPosition, targetPosition, 0f
         );
         float currentHeading = WindBeatingNavigationMath.GetHorizontalBearing(
             Vector3.zero, shooterForward, 0f
         );
+        if (!IsFinite(targetBearing) || !IsFinite(currentHeading))
+        {
+            return false;
+        }
         float desiredRange = weapon.MaximumRangeMeters
             * profile.DesiredCombatRangeRatio;
         Vector3 desiredPosition = targetPosition - targetDirection * desiredRange;
@@ -106,6 +112,10 @@ public static class CombatBroadsidePoseSolver
         );
         CombatBroadsidePoseCandidate chosen = selected == CombatSide.Port
             ? port : starboard;
+        if (!IsFinite(chosen.DesiredHeadingDegrees))
+        {
+            return false;
+        }
 
         CombatRangeState rangeState;
         CombatAIMovementIntent intent;
@@ -137,12 +147,16 @@ public static class CombatBroadsidePoseSolver
 
         float approachHeading = 0f;
         Vector3 approachDestination = default;
+        bool approachUsesCurrentHeading = false;
         if (rangeState == CombatRangeState.TooFar)
         {
-            // Each chosen broadside heading is 90 degrees from ToTarget.
-            // Rotate only partway toward it so the attack leg keeps closing.
+            // Fore contacts retain the target-relative attack leg. An aft
+            // contact turns out from the current course instead of reversing
+            // toward the pursuer. MoveTowardsAngle limits the signed turn.
+            approachUsesCurrentHeading = targetIsAft;
+            float basisHeading = targetIsAft ? currentHeading : targetBearing;
             approachHeading = Mathf.MoveTowardsAngle(
-                targetBearing,
+                basisHeading,
                 chosen.DesiredHeadingDegrees,
                 profile.BroadsideApproachAngleDegrees
             );
@@ -167,7 +181,8 @@ public static class CombatBroadsidePoseSolver
             weapon.MaximumRangeMeters,
             desiredRange,
             approachHeading,
-            approachDestination
+            approachDestination,
+            approachUsesCurrentHeading
         );
         return true;
     }

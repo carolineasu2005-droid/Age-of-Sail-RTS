@@ -3,6 +3,7 @@ using UnityEngine;
 public class LingeringSmokeShapeExpansion : MonoBehaviour
 {
     [SerializeField] private ParticleSystem particleSystemRef;
+    [SerializeField] private CannonSmokeHullPush hullPush;
 
     [Header("Cone Length")]
     [SerializeField] private float startLength = 2f;
@@ -22,6 +23,9 @@ public class LingeringSmokeShapeExpansion : MonoBehaviour
     {
         if (particleSystemRef == null)
             particleSystemRef = GetComponent<ParticleSystem>();
+
+        if (hullPush == null)
+            hullPush = GetComponent<CannonSmokeHullPush>();
     }
     private void Update()
     {
@@ -72,6 +76,10 @@ public class LingeringSmokeShapeExpansion : MonoBehaviour
             true,
             ParticleSystemStopBehavior.StopEmittingAndClear
         );
+
+        if (hullPush != null)
+            hullPush.BeginShot();
+
         particleSystemRef.Play(true);
     }
 }

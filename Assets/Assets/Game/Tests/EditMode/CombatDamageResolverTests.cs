@@ -927,7 +927,7 @@ public class CombatDamageResolverTests
             ),
             Path.Combine(
                 Application.dataPath,
-                "Assets/Game/VFX/Cannon/Scripts/"
+                "Assets/Game/Scripts/VFX/Cannon/"
                     + "LingeringSmokeShapeExpansion.cs"
             ),
             Path.Combine(

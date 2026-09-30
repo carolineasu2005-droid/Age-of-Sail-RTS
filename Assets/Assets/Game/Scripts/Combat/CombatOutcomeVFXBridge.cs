@@ -45,7 +45,8 @@ public static class CombatOutcomeVFXBridge
     public static bool TryEmitMuzzleFire(
         ShotSample shotSample,
         string muzzleIdentifier,
-        ICombatVFXEventReceiver receiver
+        ICombatVFXEventReceiver receiver,
+        Transform muzzleTransform = null
     )
     {
         if (receiver == null
@@ -65,7 +66,8 @@ public static class CombatOutcomeVFXBridge
             shotSample.OriginWorld,
             shotSample.InitialVelocityWorld.normalized,
             shotSample.SourceShipRootIdentity,
-            muzzleIdentifier
+            muzzleIdentifier,
+            muzzleTransform
         ));
         return true;
     }

@@ -31,11 +31,6 @@ public sealed class CombatVFXPlaceholderReceiver
     {
         if (!visualSpawningEnabled
             || cannonLingeringSmokePrefab == null
-            || !IsFinite(eventData.PositionWorld)
-            || !TryCreateForwardRotation(
-                eventData.DirectionWorld,
-                out Quaternion rotationWorld
-            )
             || cannonLingeringSmokePrefab
                 .GetComponentsInChildren<ParticleSystem>(true)
                 .Length == 0)
@@ -43,11 +38,55 @@ public sealed class CombatVFXPlaceholderReceiver
             return;
         }
 
+        Transform muzzle = eventData.MuzzleTransform;
+        Vector3 positionWorld;
+        Quaternion rotationWorld;
+        if (muzzle != null)
+        {
+            positionWorld = muzzle.position;
+            if (!IsFinite(positionWorld))
+            {
+                return;
+            }
+
+            rotationWorld = muzzle.rotation;
+        }
+        else
+        {
+            positionWorld = eventData.PositionWorld;
+            if (!IsFinite(positionWorld)
+                || !TryCreateForwardRotation(
+                    eventData.DirectionWorld,
+                    out rotationWorld
+                ))
+            {
+                return;
+            }
+        }
+
         GameObject smoke = Instantiate(
             cannonLingeringSmokePrefab,
-            eventData.PositionWorld,
+            positionWorld,
             rotationWorld
         );
+        ParticleSystem smokeParticleSystem = smoke.GetComponent<ParticleSystem>();
+        CannonSmokeHullPush hullPush = smoke.GetComponent<CannonSmokeHullPush>();
+        if (hullPush != null && muzzle != null)
+        {
+            Transform shipRoot = eventData.SourceShip != null
+                ? eventData.SourceShip.transform
+                : null;
+            hullPush.Configure(smokeParticleSystem, shipRoot, muzzle);
+        }
+
+        LingeringSmokeShapeExpansion expansion =
+            smoke.GetComponent<LingeringSmokeShapeExpansion>();
+        if (expansion != null)
+        {
+            expansion.PlaySmoke();
+            return;
+        }
+
         ParticleSystem[] particleSystems = smoke
             .GetComponentsInChildren<ParticleSystem>(true);
 

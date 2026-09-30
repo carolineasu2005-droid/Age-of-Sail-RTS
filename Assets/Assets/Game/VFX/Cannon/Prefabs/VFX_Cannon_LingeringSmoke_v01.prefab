@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7401214944889489426}
   - component: {fileID: 1965431901914151757}
   - component: {fileID: 1341481349139402676}
+  - component: {fileID: 7033927100887131810}
   m_Layer: 0
   m_Name: VFX_Cannon_LingeringSmoke_v01
   m_TagString: Untagged
@@ -4904,6 +4905,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   particleSystemRef: {fileID: 7401214944889489426}
+  hullPush: {fileID: 0}
   startLength: 2
   endLength: 7
   expansionDuration: 0.1
@@ -4931,3 +4933,25 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &7033927100887131810
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6318024350754962161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 939112dba1eb1124ea1e736d84b91210, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::CannonSmokeHullPush
+  smokeParticleSystem: {fileID: 0}
+  shipRoot: {fileID: 0}
+  muzzleSocket: {fileID: 0}
+  baseClearance: 0.25
+  clearanceVariation: 0.05
+  longitudinalRange: 4
+  verticalRange: 3
+  maxPenetration: 2
+  drawDebugGizmos: 1
+  drawCurrentOutwardDirection: 1

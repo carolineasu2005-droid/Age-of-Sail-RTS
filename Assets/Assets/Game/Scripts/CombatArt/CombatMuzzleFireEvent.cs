@@ -6,13 +6,15 @@ public readonly struct CombatMuzzleFireEvent
         Vector3 positionWorld,
         Vector3 directionWorld,
         GameObject sourceShip,
-        string muzzleIdentifier
+        string muzzleIdentifier,
+        Transform muzzleTransform = null
     )
     {
         PositionWorld = positionWorld;
         DirectionWorld = directionWorld;
         SourceShip = sourceShip;
         MuzzleIdentifier = muzzleIdentifier;
+        MuzzleTransform = muzzleTransform;
     }
 
 
@@ -23,4 +25,6 @@ public readonly struct CombatMuzzleFireEvent
     public GameObject SourceShip { get; }
 
     public string MuzzleIdentifier { get; }
+
+    public Transform MuzzleTransform { get; }
 }

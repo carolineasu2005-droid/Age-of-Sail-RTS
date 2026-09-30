@@ -21,13 +21,16 @@ public class CombatVFXEventContractTests
 
         try
         {
+            Transform muzzle = new GameObject("P07").transform;
+            muzzle.SetParent(sourceShip.transform);
             Vector3 position = new Vector3(10f, 2f, -4f);
             Vector3 direction = new Vector3(-1f, 0.2f, 0.5f);
             CombatMuzzleFireEvent eventData = new CombatMuzzleFireEvent(
                 position,
                 direction,
                 sourceShip,
-                "P07"
+                "P07",
+                muzzle
             );
 
             position = Vector3.zero;
@@ -37,6 +40,7 @@ public class CombatVFXEventContractTests
             Assert.That(eventData.DirectionWorld, Is.EqualTo(new Vector3(-1f, 0.2f, 0.5f)));
             Assert.That(eventData.SourceShip, Is.SameAs(sourceShip));
             Assert.That(eventData.MuzzleIdentifier, Is.EqualTo("P07"));
+            Assert.That(eventData.MuzzleTransform, Is.SameAs(muzzle));
         }
         finally
         {
@@ -98,7 +102,7 @@ public class CombatVFXEventContractTests
 
 
     [Test]
-    public void EventContracts_AreReadOnlyAndOwnNoTransform()
+    public void EventContracts_AreReadOnlyAndOnlyMuzzleEventCarriesTransform()
     {
         foreach (Type eventType in EventTypes)
         {
@@ -108,7 +112,11 @@ public class CombatVFXEventContractTests
             {
                 Assert.That(property.GetMethod, Is.Not.Null, property.Name);
                 Assert.That(property.SetMethod, Is.Null, property.Name);
-                Assert.That(property.PropertyType, Is.Not.EqualTo(typeof(Transform)));
+                Assert.That(
+                    property.PropertyType == typeof(Transform),
+                    Is.EqualTo(eventType == typeof(CombatMuzzleFireEvent)
+                        && property.Name == nameof(CombatMuzzleFireEvent.MuzzleTransform))
+                );
             }
 
             foreach (FieldInfo field in eventType.GetFields(
@@ -119,7 +127,11 @@ public class CombatVFXEventContractTests
             ))
             {
                 Assert.That(field.IsInitOnly, Is.True, field.Name);
-                Assert.That(field.FieldType, Is.Not.EqualTo(typeof(Transform)));
+                Assert.That(
+                    field.FieldType == typeof(Transform),
+                    Is.EqualTo(eventType == typeof(CombatMuzzleFireEvent)
+                        && field.Name == "<MuzzleTransform>k__BackingField")
+                );
             }
         }
     }

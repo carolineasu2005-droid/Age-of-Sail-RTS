@@ -409,12 +409,15 @@ public class CombatSemanticHitQueryTests
     public void MuzzleBridge_PreparesShotOriginAndDirectionWithoutEmittingOutcome()
     {
         RecordingReceiver receiver = new RecordingReceiver();
+        Transform muzzle = new GameObject("Port-00").transform;
+        muzzle.SetParent(sourceShip.transform);
 
         Assert.That(
             CombatOutcomeVFXBridge.TryEmitMuzzleFire(
                 shot,
                 "Port-00",
-                receiver
+                receiver,
+                muzzle
             ),
             Is.True
         );
@@ -428,6 +431,7 @@ public class CombatSemanticHitQueryTests
         );
         Assert.That(receiver.LastMuzzleFire.SourceShip, Is.SameAs(sourceShip));
         Assert.That(receiver.LastMuzzleFire.MuzzleIdentifier, Is.EqualTo("Port-00"));
+        Assert.That(receiver.LastMuzzleFire.MuzzleTransform, Is.SameAs(muzzle));
     }
 
 

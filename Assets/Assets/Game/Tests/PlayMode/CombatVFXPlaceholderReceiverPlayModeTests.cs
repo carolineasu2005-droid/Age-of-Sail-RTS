@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -228,6 +229,118 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
         {
             UnityEngine.Object.Destroy(ship);
         }
+    }
+
+
+    [UnityTest]
+    public IEnumerator MuzzleTransform_ConfiguresHullPushBeforeShapePlayback()
+    {
+        GameObject ship = new GameObject("Source Ship");
+        GameObject muzzleObject = new GameObject("Firing Muzzle");
+        muzzleObject.transform.SetParent(ship.transform);
+        muzzleObject.transform.SetPositionAndRotation(
+            new Vector3(12f, 3f, -8f),
+            Quaternion.Euler(15f, 70f, 25f)
+        );
+
+        try
+        {
+            CreateSmokeTemplate(withExpansion: true, withHullPush: true);
+            HashSet<GameObject> before = CaptureGameObjects();
+            receiver.OnMuzzleFire(new CombatMuzzleFireEvent(
+                new Vector3(-100f, -100f, -100f),
+                Vector3.zero,
+                ship,
+                "Different Name",
+                muzzleObject.transform
+            ));
+
+            GameObject smoke = CaptureSpawnedObject(before);
+            ParticleSystem particles = smoke.GetComponent<ParticleSystem>();
+            CannonSmokeHullPush hullPush =
+                smoke.GetComponent<CannonSmokeHullPush>();
+
+            Assert.That(smoke.transform.position,
+                Is.EqualTo(muzzleObject.transform.position));
+            Assert.That(Quaternion.Angle(
+                smoke.transform.rotation,
+                muzzleObject.transform.rotation),
+                Is.LessThan(0.001f));
+            Assert.That(particles.isPlaying, Is.True);
+            Assert.That(particles.shape.length, Is.EqualTo(2f));
+            Assert.That(ReadPrivateField<ParticleSystem>(
+                hullPush, "smokeParticleSystem"), Is.SameAs(particles));
+            Assert.That(ReadPrivateField<Transform>(
+                hullPush, "shipRoot"), Is.SameAs(ship.transform));
+            Assert.That(ReadPrivateField<Transform>(
+                hullPush, "muzzleSocket"), Is.SameAs(muzzleObject.transform));
+            Assert.That(ReadPrivateField<bool>(
+                hullPush, "hasShotContext"), Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(ship);
+        }
+
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator ShapePlayback_WorksWithoutHullPush()
+    {
+        GameObject ship = new GameObject("Source Ship");
+        GameObject muzzleObject = new GameObject("P01");
+        muzzleObject.transform.SetParent(ship.transform);
+        muzzleObject.transform.position = new Vector3(4f, 2f, 9f);
+
+        try
+        {
+            CreateSmokeTemplate(withExpansion: true, withHullPush: false);
+            HashSet<GameObject> before = CaptureGameObjects();
+            receiver.OnMuzzleFire(new CombatMuzzleFireEvent(
+                muzzleObject.transform.position,
+                muzzleObject.transform.forward,
+                ship,
+                "P01",
+                muzzleObject.transform
+            ));
+
+            GameObject smoke = CaptureSpawnedObject(before);
+            Assert.That(smoke.GetComponent<CannonSmokeHullPush>(), Is.Null);
+            Assert.That(smoke.GetComponent<LingeringSmokeShapeExpansion>(),
+                Is.Not.Null);
+            Assert.That(smoke.GetComponent<ParticleSystem>().isPlaying, Is.True);
+            Assert.That(smoke.GetComponent<ParticleSystem>().shape.length,
+                Is.EqualTo(2f));
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(ship);
+        }
+
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator MissingShapeExpansion_UsesDirectParticlePlayback()
+    {
+        CreateSmokeTemplate(withExpansion: false, withHullPush: false);
+        HashSet<GameObject> before = CaptureGameObjects();
+
+        receiver.OnMuzzleFire(new CombatMuzzleFireEvent(
+            new Vector3(4f, 2f, 9f),
+            Vector3.right,
+            null,
+            "P01"
+        ));
+
+        GameObject smoke = CaptureSpawnedObject(before);
+        Assert.That(smoke.GetComponent<LingeringSmokeShapeExpansion>(),
+            Is.Null);
+        Assert.That(smoke.GetComponent<ParticleSystem>().isPlaying, Is.True);
+        yield return null;
     }
 
 
@@ -531,6 +644,37 @@ public class CombatVFXPlaceholderReceiverPlayModeTests
         prefabProperty.objectReferenceValue = prefab;
         serializedReceiver.ApplyModifiedPropertiesWithoutUndo();
 #endif
+    }
+
+
+    private void CreateSmokeTemplate(bool withExpansion, bool withHullPush)
+    {
+        GameObject template = new GameObject("Smoke Template");
+        ParticleSystem particles = template.AddComponent<ParticleSystem>();
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ParticleSystem.MainModule main = particles.main;
+        main.playOnAwake = false;
+        if (withHullPush)
+        {
+            template.AddComponent<CannonSmokeHullPush>();
+        }
+
+        if (withExpansion)
+        {
+            template.AddComponent<LingeringSmokeShapeExpansion>();
+        }
+
+        spawnedObjects.Add(template);
+        AssignSmokePrefab(template);
+    }
+
+
+    private static T ReadPrivateField<T>(object instance, string fieldName)
+    {
+        FieldInfo field = instance.GetType().GetField(
+            fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, fieldName);
+        return (T)field.GetValue(instance);
     }
 
 

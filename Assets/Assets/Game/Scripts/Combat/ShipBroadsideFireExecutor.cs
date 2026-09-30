@@ -201,7 +201,8 @@ public sealed class ShipBroadsideFireExecutor : MonoBehaviour
                 CombatOutcomeVFXBridge.TryEmitMuzzleFire(
                     sample,
                     muzzles[index].name,
-                    receiver
+                    receiver,
+                    muzzles[index]
                 );
             }
         }

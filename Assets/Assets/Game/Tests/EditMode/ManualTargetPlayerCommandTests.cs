@@ -24,6 +24,7 @@ public class ManualTargetPlayerCommandTests
     private ShipCombatState shooterState;
     private ShipFireEligibility eligibility;
     private AutoTargetScoringProfile scoringProfile;
+    private ProjectileFlightProfile flightProfile;
 
 
     [SetUp]
@@ -62,6 +63,10 @@ public class ManualTargetPlayerCommandTests
             shooterRoot.GetComponent<ShipDestinationController>();
         shooterState = shooterRoot.GetComponent<ShipCombatState>();
         eligibility = shooterRoot.GetComponent<ShipFireEligibility>();
+        flightProfile = ScriptableObject.CreateInstance<ProjectileFlightProfile>();
+        ShipProjectileFlightConfiguration flight = shooterRoot
+            .AddComponent<ShipProjectileFlightConfiguration>();
+        SetPrivateField(flight, "projectileFlightProfile", flightProfile);
         scoringProfile = ScriptableObject.CreateInstance<
             AutoTargetScoringProfile
         >();
@@ -92,6 +97,7 @@ public class ManualTargetPlayerCommandTests
 
         createdRoots.Clear();
         Object.DestroyImmediate(scoringProfile);
+        Object.DestroyImmediate(flightProfile);
     }
 
 
@@ -255,10 +261,26 @@ public class ManualTargetPlayerCommandTests
         SetPrivateField(volume, "queryCollider", blockerCollider);
         createdRoots.Add(blocker);
 
+        Assert.That(targetRoot.GetComponent<ShipExposureReference>()
+            .TryCalculateExposure(shooterRoot.transform.position,
+                out ExposureRect exposure), Is.True);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooterRoot, CombatSide.Starboard, exposure.CenterWorld,
+            out ShotSample[] nominal), Is.True);
+        ShotSample shot = nominal[0];
+        float fraction = (blocker.transform.position.x - shot.OriginWorld.x)
+            / (exposure.CenterWorld.x - shot.OriginWorld.x);
+        Vector3 knownContact = CombatProjectileTrajectory.EvaluatePosition(
+            shot, shot.NominalFlightTimeSeconds * fraction);
+        Physics.SyncTransforms();
+        Assert.That(blockerCollider.bounds.Contains(knownContact), Is.True);
+
         FireEligibilityResult result = EvaluateManualTarget();
 
         Assert.That(result.CanFire, Is.False);
         Assert.That(result.Blocked, Is.True);
+        Assert.That(result.Obstruction.BlockedRayCount,
+            Is.GreaterThanOrEqualTo(1));
         Assert.That(shooterState.ManualTarget, Is.SameAs(targetRoot));
     }
 

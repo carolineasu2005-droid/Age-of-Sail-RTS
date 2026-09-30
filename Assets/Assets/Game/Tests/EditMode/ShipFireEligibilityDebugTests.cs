@@ -15,6 +15,7 @@ public class ShipFireEligibilityDebugTests
     private ShipCombatState shooterState;
     private Transform shooterCenter;
     private Transform targetCenter;
+    private ProjectileFlightProfile flightProfile;
 
 
     [SetUp]
@@ -32,6 +33,10 @@ public class ShipFireEligibilityDebugTests
         );
         targetRoot.transform.position = Vector3.right * 50f;
         shooterState = shooterRoot.GetComponent<ShipCombatState>();
+        flightProfile = ScriptableObject.CreateInstance<ProjectileFlightProfile>();
+        ShipProjectileFlightConfiguration flight = shooterRoot
+            .AddComponent<ShipProjectileFlightConfiguration>();
+        SetPrivateField(flight, "projectileFlightProfile", flightProfile);
     }
 
 
@@ -40,12 +45,20 @@ public class ShipFireEligibilityDebugTests
     {
         Object.DestroyImmediate(targetRoot);
         Object.DestroyImmediate(shooterRoot);
+        Object.DestroyImmediate(flightProfile);
     }
 
 
     [Test]
     public void DebugEvaluation_UsesExplicitShooterAndTarget()
     {
+        Assert.That(targetRoot.GetComponent<ShipExposureReference>()
+            .TryCalculateExposure(shooterRoot.transform.position,
+                out ExposureRect exposure), Is.True);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooterRoot, CombatSide.Starboard, exposure.CenterWorld,
+            out ShotSample[] nominal), Is.True);
+        Assert.That(nominal, Has.Length.EqualTo(13));
         bool evaluated = TryEvaluateForDebug(
             shooterRoot,
             targetRoot,

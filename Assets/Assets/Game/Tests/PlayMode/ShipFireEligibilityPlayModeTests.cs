@@ -16,6 +16,8 @@ public class ShipFireEligibilityPlayModeTests
     private ShipFireEligibility eligibility;
     private ShipIntegrityProfile integrityProfile;
     private CombatObstructionProfile obstructionProfile;
+    private ProjectileFlightProfile flightProfile;
+    private AutoTargetScoringProfile scoringProfile;
 
 
     [UnitySetUp]
@@ -37,6 +39,12 @@ public class ShipFireEligibilityPlayModeTests
         obstructionProfile = ScriptableObject.CreateInstance<
             CombatObstructionProfile
         >();
+        flightProfile = ScriptableObject.CreateInstance<
+            ProjectileFlightProfile
+        >();
+        scoringProfile = ScriptableObject.CreateInstance<
+            AutoTargetScoringProfile
+        >();
         shooterRoot = CreateShip("Shooter Root", Vector3.zero, 1);
         targetRoot = CreateShip(
             "Target Root",
@@ -44,6 +52,12 @@ public class ShipFireEligibilityPlayModeTests
             2
         );
         AddMuzzleSockets(shooterRoot);
+        ShipProjectileFlightConfiguration flight = shooterRoot
+            .AddComponent<ShipProjectileFlightConfiguration>();
+        SetPrivateField(flight, "projectileFlightProfile", flightProfile);
+        ShipAutoTargetScoringConfiguration scoring = shooterRoot
+            .AddComponent<ShipAutoTargetScoringConfiguration>();
+        SetPrivateField(scoring, "scoringProfile", scoringProfile);
         eligibility = shooterRoot.AddComponent<ShipFireEligibility>();
         SetPrivateField(eligibility, "effectiveRangeMeters", 100f);
         SetPrivateField(eligibility, "maximumRangeMeters", 200f);
@@ -71,12 +85,14 @@ public class ShipFireEligibilityPlayModeTests
         createdObjects.Clear();
         Object.Destroy(integrityProfile);
         Object.Destroy(obstructionProfile);
+        Object.Destroy(flightProfile);
+        Object.Destroy(scoringProfile);
         yield return null;
     }
 
 
     [UnityTest]
-    public IEnumerator ClearThirteenMuzzleRays_AreFireLegal()
+    public IEnumerator ClearThirteenMuzzleTrajectories_AreFireLegal()
     {
         FireEligibilityResult result = Evaluate(targetRoot);
 
@@ -93,13 +109,17 @@ public class ShipFireEligibilityPlayModeTests
     [UnityTest]
     public IEnumerator OneOfThirteenBlockedAtZeroTolerance_HoldsFire()
     {
-        Vector3 endpoint = new Vector3(100f, 5f, 0f);
-        Transform muzzle = shooterRoot.GetComponent<ShipMuzzleSockets>()
-            .StarboardMuzzles[0];
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooterRoot, CombatSide.Starboard, new Vector3(100f, 5f, 0f),
+            out ShotSample[] nominal), Is.True);
         CreateWorldBlocker(
-            "One Ray Blocker",
-            Vector3.Lerp(muzzle.position, endpoint, 0.5f),
-            Vector3.one * 0.2f
+            "One Trajectory Blocker",
+            Vector3.Lerp(
+                nominal[0].OriginWorld,
+                CombatProjectileTrajectory.EvaluatePosition(
+                    nominal[0], nominal[0].NominalFlightTimeSeconds),
+                0.5f),
+            new Vector3(0.2f, 2f, 0.2f)
         );
 
         FireEligibilityResult result = Evaluate(targetRoot);
@@ -114,11 +134,51 @@ public class ShipFireEligibilityPlayModeTests
 
 
     [UnityTest]
+    public IEnumerator FriendlyOnStraightChordBelowNominalArc_DoesNotHoldFire()
+    {
+        Vector3 chordMidpoint = ConfigureLongRangeClearCase();
+        Collider blocker = CreateShipBlocker(
+            "Low Friendly", chordMidpoint, 1);
+        ((BoxCollider)blocker).size = new Vector3(4f, 4f, 40f);
+        AssertAllNominalSweepsClearAbove(blocker, chordMidpoint);
+
+        FireEligibilityResult first = Evaluate(targetRoot);
+        FireEligibilityResult second = Evaluate(targetRoot);
+
+        Assert.That(first.HasObstructionPath, Is.True);
+        Assert.That(first.Blocked, Is.False);
+        Assert.That(first.Obstruction.BlockedRayCount, Is.Zero);
+        Assert.That(first.CanFire, Is.True);
+        Assert.That(second.Obstruction.BlockedRayCount,
+            Is.EqualTo(first.Obstruction.BlockedRayCount));
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator WorldObstacleOnStraightChordBelowNominalArc_DoesNotHoldFire()
+    {
+        Vector3 chordMidpoint = ConfigureLongRangeClearCase();
+        Collider blocker = CreateWorldBlocker(
+            "Low World Obstacle", chordMidpoint,
+            new Vector3(4f, 4f, 40f));
+        AssertAllNominalSweepsClearAbove(blocker, chordMidpoint);
+
+        FireEligibilityResult result = Evaluate(targetRoot);
+
+        Assert.That(result.Blocked, Is.False);
+        Assert.That(result.Obstruction.BlockedRayCount, Is.Zero);
+        Assert.That(result.CanFire, Is.True);
+        yield return null;
+    }
+
+
+    [UnityTest]
     public IEnumerator FriendlyLineAheadShip_BlocksRearTargetedFire()
     {
         Collider blocker = CreateShipBlocker(
             "Friendly Front Ship",
-            Vector3.right * 50f,
+            Vector3.right * 50f + Vector3.up * 12f,
             1
         );
 
@@ -139,7 +199,7 @@ public class ShipFireEligibilityPlayModeTests
     {
         Collider blocker = CreateShipBlocker(
             "Hostile Interceptor",
-            Vector3.right * 50f,
+            Vector3.right * 50f + Vector3.up * 12f,
             3
         );
 
@@ -160,7 +220,7 @@ public class ShipFireEligibilityPlayModeTests
     {
         Collider blocker = CreateShipBlocker(
             "Unknown Interceptor",
-            Vector3.right * 50f,
+            Vector3.right * 50f + Vector3.up * 12f,
             null
         );
 
@@ -181,7 +241,7 @@ public class ShipFireEligibilityPlayModeTests
     {
         Collider blocker = CreateWorldBlocker(
             "Island Obstruction",
-            Vector3.right * 50f + Vector3.up * 5f,
+            Vector3.right * 50f + Vector3.up * 12f,
             new Vector3(4f, 20f, 40f)
         );
 
@@ -285,9 +345,10 @@ public class ShipFireEligibilityPlayModeTests
         Quaternion shooterRotation = shooterRoot.transform.rotation;
         CreateWorldBlocker(
             "Auto Fire Blocker",
-            Vector3.right * 50f + Vector3.up * 5f,
+            Vector3.right * 50f + Vector3.up * 12f,
             new Vector3(4f, 20f, 40f)
         );
+        Assert.That(Evaluate(targetRoot).Blocked, Is.True);
 
         bool selected = ShipAutoTargetSelector.TrySelect(
             shooterRoot,
@@ -316,8 +377,9 @@ public class ShipFireEligibilityPlayModeTests
             shooterRoot.GetComponent<ShipCombatState>();
         combatState.SetAutoFireEnabled(true);
         CreateShipBlocker("Auto Friendly Blocker",
-            Vector3.right * 50f, 1);
+            Vector3.right * 50f + Vector3.up * 12f, 1);
         Physics.SyncTransforms();
+        Assert.That(Evaluate(targetRoot).Blocked, Is.True);
 
         bool selected = ShipAutoTargetSelector.TrySelect(
             shooterRoot,
@@ -327,6 +389,32 @@ public class ShipFireEligibilityPlayModeTests
         Assert.That(selected, Is.False);
         Assert.That(result.HasAnyTarget, Is.False);
         Assert.That(combatState.AutoFireEnabled, Is.True);
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator AutoTargetSelection_AcceptsFriendlyBelowNominalArc()
+    {
+        Vector3 chordMidpoint = ConfigureLongRangeClearCase();
+        ShipCombatState combatState =
+            shooterRoot.GetComponent<ShipCombatState>();
+        combatState.SetAutoFireEnabled(true);
+        Collider blocker = CreateShipBlocker(
+            "Low Auto Friendly", chordMidpoint,
+            1);
+        ((BoxCollider)blocker).size = new Vector3(4f, 4f, 40f);
+        Physics.SyncTransforms();
+        AssertAllNominalSweepsClearAbove(blocker, chordMidpoint);
+
+        bool selected = ShipAutoTargetSelector.TrySelect(
+            shooterRoot,
+            new[] { new AutoTargetCandidate(targetRoot, true) },
+            out AutoTargetSelectionResult result);
+
+        Assert.That(selected, Is.True);
+        Assert.That(result.HasAnyTarget, Is.True);
+        Assert.That(Evaluate(targetRoot).Blocked, Is.False);
         yield return null;
     }
 
@@ -375,6 +463,121 @@ public class ShipFireEligibilityPlayModeTests
         Assert.That(result.FailureReasons,
             Is.EqualTo(BlindFireEligibilityFailure.None));
         yield return null;
+    }
+
+
+    private Vector3 ConfigureLongRangeClearCase()
+    {
+        targetRoot.transform.position = Vector3.right * 360f;
+        SetPrivateField(eligibility, "effectiveRangeMeters", 400f);
+        SetPrivateField(eligibility, "maximumRangeMeters", 400f);
+        Assert.That(targetRoot.GetComponent<ShipExposureReference>()
+            .TryCalculateExposure(shooterRoot.transform.position,
+                out ExposureRect exposure), Is.True);
+        return Vector3.Lerp(
+            shooterRoot.GetComponent<ShipMuzzleSockets>()
+                .StarboardMuzzles[0].position,
+            exposure.CenterWorld,
+            0.5f);
+    }
+
+
+    private void AssertAllNominalSweepsClearAbove(
+        Collider blocker, Vector3 chordMidpoint)
+    {
+        Physics.SyncTransforms();
+        Assert.That(blocker.bounds.Contains(chordMidpoint), Is.True,
+            "The old straight chord must pass through the blocker interior.");
+        Assert.That(targetRoot.GetComponent<ShipExposureReference>()
+            .TryCalculateExposure(shooterRoot.transform.position,
+                out ExposureRect exposure), Is.True);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooterRoot, CombatSide.Starboard, exposure.CenterWorld,
+            out ShotSample[] shots), Is.True);
+        Assert.That(shots, Has.Length.EqualTo(13));
+        Bounds bounds = blocker.bounds;
+        Assert.That(CombatFireObstructionQuery.TryClassifyBlockingCollider(
+            blocker, out CombatFireBlockerKind kind), Is.True);
+
+        for (int index = 0; index < shots.Length; index++)
+        {
+            ShotSample shot = shots[index];
+            bool crossedBlockerX = false;
+            for (float t0 = 0f; t0 < shot.NominalFlightTimeSeconds;)
+            {
+                float t1 = Mathf.Min(t0 + 1f,
+                    shot.NominalFlightTimeSeconds);
+                Vector3 p0 = CombatProjectileTrajectory.EvaluatePosition(
+                    shot, t0);
+                Vector3 p1 = CombatProjectileTrajectory.EvaluatePosition(
+                    shot, t1);
+                float segmentMinX = Mathf.Min(p0.x, p1.x);
+                float segmentMaxX = Mathf.Max(p0.x, p1.x);
+                bool overlapsX = segmentMaxX >= bounds.min.x
+                    && segmentMinX <= bounds.max.x;
+                Vector3 delta = p1 - p0;
+                bool contact = blocker.Raycast(new Ray(p0,
+                    delta.normalized), out RaycastHit hit,
+                    delta.magnitude);
+                Collider firstContact = null;
+                CombatFireBlockerKind firstKind = CombatFireBlockerKind.None;
+                float firstDistance = float.PositiveInfinity;
+                foreach (RaycastHit candidate in Physics.RaycastAll(
+                    p0, delta.normalized, delta.magnitude,
+                    CombatFireObstructionQuery.BlockingLayerMask,
+                    QueryTriggerInteraction.Collide))
+                {
+                    if (candidate.collider == null
+                        || candidate.collider.transform.IsChildOf(
+                            shooterRoot.transform)
+                        || !CombatFireObstructionQuery
+                            .TryClassifyBlockingCollider(candidate.collider,
+                                out CombatFireBlockerKind candidateKind)
+                        || candidate.distance >= firstDistance)
+                    {
+                        continue;
+                    }
+
+                    firstContact = candidate.collider;
+                    firstKind = candidateKind;
+                    firstDistance = candidate.distance;
+                }
+                TestContext.WriteLine(
+                    $"muzzle={index} origin={shot.OriginWorld} "
+                    + $"flight={shot.NominalFlightTimeSeconds:F3}s "
+                    + $"[{t0:F3},{t1:F3}] {p0}->{p1} "
+                    + $"bounds={bounds} blockerContact="
+                    + (contact ? hit.point.ToString() : "none")
+                    + $" blockerKind={kind} "
+                    + $"blockerRoot={blocker.transform.root.name} "
+                    + $"firstContact={(firstContact != null ? firstContact.name : "none")} "
+                    + $"firstKind={firstKind} "
+                    + $"firstRoot={(firstContact != null ? firstContact.transform.root.name : "none")} "
+                    + $"firstIsTarget={(firstContact != null && firstContact.transform.IsChildOf(targetRoot.transform))}");
+                Assert.That(contact, Is.False,
+                    $"Muzzle {index} predicted a blocker contact.");
+
+                if (overlapsX)
+                {
+                    crossedBlockerX = true;
+                    float x0 = Mathf.Max(bounds.min.x, segmentMinX);
+                    float x1 = Mathf.Min(bounds.max.x, segmentMaxX);
+                    float f0 = (x0 - p0.x) / (p1.x - p0.x);
+                    float f1 = (x1 - p0.x) / (p1.x - p0.x);
+                    float lowestSweepY = Mathf.Min(
+                        Mathf.LerpUnclamped(p0.y, p1.y, f0),
+                        Mathf.LerpUnclamped(p0.y, p1.y, f1));
+                    Assert.That(lowestSweepY - bounds.max.y,
+                        Is.GreaterThanOrEqualTo(2f),
+                        $"Muzzle {index} lacks clear margin.");
+                }
+
+                t0 = t1;
+            }
+
+            Assert.That(crossedBlockerX, Is.True,
+                $"Muzzle {index} never passed the blocker X interval.");
+        }
     }
 
 

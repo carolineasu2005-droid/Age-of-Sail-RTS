@@ -17,6 +17,7 @@ public class ShipAutoTargetSelectorTests
     private ShipFireEligibility eligibility;
     private AutoTargetScoringProfile scoringProfile;
     private CombatObstructionProfile obstructionProfile;
+    private ProjectileFlightProfile flightProfile;
 
 
     [SetUp]
@@ -52,6 +53,10 @@ public class ShipAutoTargetSelectorTests
             obstructionProfile
         );
         AddMuzzleSockets(shooterRoot);
+        flightProfile = ScriptableObject.CreateInstance<ProjectileFlightProfile>();
+        ShipProjectileFlightConfiguration flight = shooterRoot
+            .AddComponent<ShipProjectileFlightConfiguration>();
+        SetPrivateField(flight, "projectileFlightProfile", flightProfile);
     }
 
 
@@ -66,6 +71,7 @@ public class ShipAutoTargetSelectorTests
         createdRoots.Clear();
         Object.DestroyImmediate(scoringProfile);
         Object.DestroyImmediate(obstructionProfile);
+        Object.DestroyImmediate(flightProfile);
     }
 
 
@@ -447,11 +453,23 @@ public class ShipAutoTargetSelectorTests
     public void BlockedCandidate_IsRejectedOnlyFromApplicableSide()
     {
         EnableAutoFire();
-        CreateSemanticShipBlocker(
+        BoxCollider blocker = CreateSemanticShipBlocker(
             "Port Combat Geometry Blocker",
             Vector3.left * 75f
         );
         Physics.SyncTransforms();
+        Assert.That(portTarget.GetComponent<ShipExposureReference>()
+            .TryCalculateExposure(shooterRoot.transform.position,
+                out ExposureRect exposure), Is.True);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooterRoot, CombatSide.Port, exposure.CenterWorld,
+            out ShotSample[] nominal), Is.True);
+        ShotSample shot = nominal[0];
+        float fraction = (blocker.transform.position.x - shot.OriginWorld.x)
+            / (exposure.CenterWorld.x - shot.OriginWorld.x);
+        Vector3 knownContact = CombatProjectileTrajectory.EvaluatePosition(
+            shot, shot.NominalFlightTimeSeconds * fraction);
+        Assert.That(blocker.bounds.Contains(knownContact), Is.True);
 
         AutoTargetSelectionResult result = Select(
             Candidate(portTarget),
@@ -826,7 +844,7 @@ public class ShipAutoTargetSelectorTests
     }
 
 
-    private void CreateSemanticShipBlocker(string name, Vector3 position)
+    private BoxCollider CreateSemanticShipBlocker(string name, Vector3 position)
     {
         GameObject blockerRoot = CreateShip(name, false);
         blockerRoot.transform.position = position;
@@ -845,6 +863,7 @@ public class ShipAutoTargetSelectorTests
         SetPrivateField(region, "owner", owner);
         SetPrivateField(region, "queryCollider", collider);
         SetPrivateField(owner, "midshipRegion", region);
+        return collider;
     }
 
 

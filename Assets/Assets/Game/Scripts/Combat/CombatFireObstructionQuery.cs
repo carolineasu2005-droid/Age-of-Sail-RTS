@@ -3,6 +3,8 @@ using UnityEngine;
 
 public static class CombatFireObstructionQuery
 {
+    // PLAYTEST-BOUND: one swept chord per second of nominal flight time.
+    private const float NominalSegmentIntervalSeconds = 1.0f;
     public const int ShipCombatGeometryLayer =
         CombatPhysicsQuery.CombatGeometryLayer;
     public const int WorldCombatObstructionLayer =
@@ -21,15 +23,174 @@ public static class CombatFireObstructionQuery
         out CombatFireObstructionResult result
     )
     {
-        return TryEvaluate(
-            sourceShipRoot,
-            intendedTargetShipRoot,
-            side,
-            aimEndpointWorld,
-            profile,
-            false,
-            out result
+        result = default;
+        if (sourceShipRoot == null
+            || intendedTargetShipRoot == null
+            || intendedTargetShipRoot == sourceShipRoot
+            || !ShipBroadsideShotSampler.TryBuildNominalShots(
+                sourceShipRoot,
+                side,
+                aimEndpointWorld,
+                out ShotSample[] shots
+            ))
+        {
+            return false;
+        }
+
+        ShipCombatAffiliation sourceAffiliation =
+            sourceShipRoot.GetComponent<ShipCombatAffiliation>();
+        int blockedCount = 0;
+        CombatFireBlockerKind representativeKind = CombatFireBlockerKind.None;
+        CombatRelationship representativeRelationship = CombatRelationship.Unknown;
+        string representativeName = null;
+        Collider representativeCollider = null;
+        Vector3 representativeOrigin = shots[0].OriginWorld;
+
+        for (int index = 0; index < shots.Length; index++)
+        {
+            if (!TryFindFirstTrajectoryBlocker(
+                shots[index],
+                intendedTargetShipRoot.transform,
+                sourceAffiliation,
+                out Collider blocker,
+                out CombatFireBlockerKind kind,
+                out CombatRelationship relationship,
+                out string blockerName
+            ))
+            {
+                continue;
+            }
+
+            blockedCount++;
+            if (representativeCollider == null)
+            {
+                representativeKind = kind;
+                representativeRelationship = relationship;
+                representativeName = blockerName;
+                representativeCollider = blocker;
+                representativeOrigin = shots[index].OriginWorld;
+            }
+        }
+
+        float allowedFraction = profile != null
+            ? profile.TargetedAutoAllowedBlockedRayFraction
+            : 0f;
+        result = new CombatFireObstructionResult(
+            blockedCount / (float)shots.Length > allowedFraction,
+            shots.Length,
+            blockedCount,
+            representativeKind,
+            representativeRelationship,
+            representativeName,
+            representativeCollider,
+            representativeOrigin
         );
+        return true;
+    }
+
+
+    private static bool TryFindFirstTrajectoryBlocker(
+        ShotSample shot,
+        Transform intendedTargetRoot,
+        ShipCombatAffiliation sourceAffiliation,
+        out Collider blocker,
+        out CombatFireBlockerKind blockerKind,
+        out CombatRelationship relationship,
+        out string blockerName
+    )
+    {
+        blocker = null;
+        blockerKind = CombatFireBlockerKind.None;
+        relationship = CombatRelationship.Unknown;
+        blockerName = null;
+        float segmentStartTime = 0f;
+        while (segmentStartTime < shot.NominalFlightTimeSeconds)
+        {
+            float segmentEndTime = Mathf.Min(
+                segmentStartTime + NominalSegmentIntervalSeconds,
+                shot.NominalFlightTimeSeconds
+            );
+            Vector3 previous = CombatProjectileTrajectory.EvaluatePosition(
+                shot, segmentStartTime
+            );
+            Vector3 next = CombatProjectileTrajectory.EvaluatePosition(
+                shot, segmentEndTime
+            );
+            bool reachesWater = CombatProjectileContactQuery
+                .TryFindWaterContact(
+                    previous,
+                    next,
+                    shot.WaterLevelWorldY,
+                    out Vector3 waterPoint,
+                    out _
+                );
+            if (reachesWater)
+            {
+                next = waterPoint;
+            }
+
+            Vector3 delta = next - previous;
+            float distance = delta.magnitude;
+            if (distance > 0f)
+            {
+                RaycastHit[] hits = CombatPhysicsQuery.RaycastAll(
+                    previous,
+                    delta / distance,
+                    distance,
+                    BlockingLayerMask
+                );
+                foreach (RaycastHit hit in hits)
+                {
+                    Collider candidate = hit.collider;
+                    if (candidate == null
+                        || CombatPhysicsQuery.IsInHierarchy(
+                            candidate, shot.SourceShipRootIdentity.transform
+                        )
+                        || !TryClassifyBlockingCollider(
+                            candidate,
+                            out blockerKind,
+                            out GameObject blockerShipRoot
+                        ))
+                    {
+                        continue;
+                    }
+
+                    if (CombatPhysicsQuery.IsInHierarchy(
+                        candidate, intendedTargetRoot
+                    ))
+                    {
+                        return false;
+                    }
+
+                    blocker = candidate;
+                    if (blockerKind == CombatFireBlockerKind.Ship)
+                    {
+                        relationship = CombatRelationshipResolver.Resolve(
+                            sourceAffiliation,
+                            blockerShipRoot.GetComponent<ShipCombatAffiliation>()
+                        );
+                        blockerName = blockerShipRoot.name;
+                    }
+                    else if (CombatObstructionVolume.TryResolve(
+                        candidate, out CombatObstructionVolume volume
+                    ))
+                    {
+                        blockerName = volume.transform.root.name;
+                    }
+
+                    return true;
+                }
+            }
+
+            if (reachesWater)
+            {
+                return false;
+            }
+
+            segmentStartTime = segmentEndTime;
+        }
+
+        return false;
     }
 
 

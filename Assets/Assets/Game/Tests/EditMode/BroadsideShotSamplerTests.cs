@@ -62,6 +62,50 @@ public class BroadsideShotSamplerTests
     }
 
 
+    [Test]
+    public void NominalShots_ReuseProjectileTrajectoryAndEachMuzzleOrigin()
+    {
+        GameObject sourceRoot = CreateOperationalCombatShip();
+        Vector3 aimPoint = sourceRoot.transform.position
+            + Vector3.right * 100f + Vector3.up * 5f;
+
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            sourceRoot, CombatSide.Starboard, aimPoint,
+            out ShotSample[] first), Is.True);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            sourceRoot, CombatSide.Starboard, aimPoint,
+            out ShotSample[] repeated), Is.True);
+        Assert.That(first, Has.Length.EqualTo(13));
+        IReadOnlyList<Transform> muzzles = sourceRoot
+            .GetComponent<ShipMuzzleSockets>().StarboardMuzzles;
+        ProjectileFlightProfile profile = sourceRoot
+            .GetComponent<ShipProjectileFlightConfiguration>()
+            .ProjectileFlightProfile;
+
+        for (int index = 0; index < first.Length; index++)
+        {
+            ShotSample shot = first[index];
+            float horizontalDistance = Vector2.Distance(
+                new Vector2(shot.OriginWorld.x, shot.OriginWorld.z),
+                new Vector2(aimPoint.x, aimPoint.z));
+            Assert.That(shot.OriginWorld, Is.EqualTo(muzzles[index].position));
+            Assert.That(shot.NominalFlightTimeSeconds,
+                Is.EqualTo(horizontalDistance
+                    / profile.NominalHorizontalSpeedMetersPerSecond)
+                    .Within(Tolerance));
+            Assert.That(Vector3.Distance(
+                CombatProjectileTrajectory.EvaluatePosition(
+                    shot, shot.NominalFlightTimeSeconds), aimPoint),
+                Is.LessThan(Tolerance));
+            Assert.That(repeated[index].InitialVelocityWorld,
+                Is.EqualTo(shot.InitialVelocityWorld));
+            Assert.That(repeated[index].BroadsideSeed, Is.EqualTo(0u));
+            Assert.That(shot.AimPlaneSamplePointWorld,
+                Is.EqualTo(aimPoint));
+        }
+    }
+
+
     [TestCase(CombatSide.Port)]
     [TestCase(CombatSide.Starboard)]
     public void CanonicalMuzzles_MapOneToOneInBowToSternOrder(

@@ -156,7 +156,7 @@ public static class CombatProjectileContactQuery
     }
 
 
-    private static bool TryFindWaterContact(
+    internal static bool TryFindWaterContact(
         Vector3 previousPositionWorld,
         Vector3 nextPositionWorld,
         float waterLevelWorldY,

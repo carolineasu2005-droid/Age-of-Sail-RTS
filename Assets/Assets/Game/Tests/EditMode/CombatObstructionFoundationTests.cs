@@ -59,6 +59,225 @@ public class CombatObstructionFoundationTests
     }
 
 
+    [TestCase(1, CombatRelationship.Friendly)]
+    [TestCase(3, CombatRelationship.Hostile)]
+    [TestCase(-1, CombatRelationship.Unknown)]
+    public void NominalTrajectory_ClassifiesThirdPartyShipOnArc(
+        int blockerTeamId,
+        CombatRelationship expectedRelationship
+    )
+    {
+        GameObject shooter = InstantiateCombatShip(Vector3.zero, 1);
+        GameObject target = InstantiateCombatShip(Vector3.right * 100f, 2);
+        GameObject thirdParty = InstantiateCombatShip(
+            Vector3.right * 50f, blockerTeamId);
+        ShipCombatGeometry geometry =
+            thirdParty.GetComponent<ShipCombatGeometry>();
+        geometry.BowRegion.QueryCollider.enabled = false;
+        geometry.SternRegion.QueryCollider.enabled = false;
+        ((BoxCollider)geometry.MidshipRegion.QueryCollider).size =
+            Vector3.one * 40f;
+        Physics.SyncTransforms();
+        Vector3 endpoint = GetExposureCenter(shooter, target);
+
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard, endpoint,
+            AssetDatabase.LoadAssetAtPath<CombatObstructionProfile>(
+                ProfilePath), out CombatFireObstructionResult result), Is.True);
+        Assert.That(result.IsBlocked, Is.True);
+        Assert.That(result.BlockedRayCount, Is.GreaterThanOrEqualTo(1));
+        Assert.That(result.RepresentativeBlockerKind,
+            Is.EqualTo(CombatFireBlockerKind.Ship));
+        Assert.That(result.BlockerRelationship,
+            Is.EqualTo(expectedRelationship));
+        Assert.That(result.RepresentativeBlockerName,
+            Is.EqualTo(thirdParty.name));
+    }
+
+
+    [Test]
+    public void FriendlyOnStraightChordBelowNominalArc_IsClear()
+    {
+        GameObject shooter = InstantiateCombatShip(Vector3.zero, 1);
+        GameObject target = InstantiateCombatShip(Vector3.right * 360f, 2);
+        GameObject friendly = InstantiateCombatShip(Vector3.right * 180f, 1);
+        ShipCombatGeometry geometry =
+            friendly.GetComponent<ShipCombatGeometry>();
+        geometry.BowRegion.QueryCollider.enabled = false;
+        geometry.SternRegion.QueryCollider.enabled = false;
+        BoxCollider hull = (BoxCollider)geometry.MidshipRegion.QueryCollider;
+        Vector3 endpoint = GetExposureCenter(shooter, target);
+        Vector3 origin = shooter.GetComponent<ShipMuzzleSockets>()
+            .StarboardMuzzles[0].position;
+        Vector3 chordPoint = Vector3.Lerp(origin, endpoint, 0.5f);
+        hull.size = new Vector3(4f, 4f, 40f);
+        hull.center = hull.transform.InverseTransformPoint(chordPoint);
+        Physics.SyncTransforms();
+        Assert.That(hull.bounds.Contains(chordPoint), Is.True);
+        AssertAllNominalSweepsClearAbove(shooter, endpoint, hull);
+
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard, endpoint,
+            AssetDatabase.LoadAssetAtPath<CombatObstructionProfile>(
+                ProfilePath), out CombatFireObstructionResult result), Is.True);
+        Assert.That(result.IsBlocked, Is.False);
+        Assert.That(result.BlockedRayCount, Is.Zero);
+        Assert.That(result.ParticipatingRayCount, Is.EqualTo(13));
+    }
+
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NominalTrajectory_WorldBelowArcClearsAndWorldOnArcBlocks(
+        bool expectedBlocked
+    )
+    {
+        GameObject shooter = InstantiateCombatShip(Vector3.zero, 1);
+        GameObject target = InstantiateCombatShip(Vector3.right * 360f, 2);
+        Vector3 endpoint = GetExposureCenter(shooter, target);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooter, CombatSide.Starboard, endpoint,
+            out ShotSample[] nominal), Is.True);
+        Vector3 chordMidpoint = Vector3.Lerp(
+            nominal[0].OriginWorld, endpoint, 0.5f);
+        Vector3 blockerCenter = expectedBlocked
+            ? Vector3.Lerp(
+                CombatProjectileTrajectory.EvaluatePosition(nominal[0], 1f),
+                CombatProjectileTrajectory.EvaluatePosition(nominal[0], 2f),
+                0.5f)
+            : chordMidpoint;
+        BoxCollider collider = CreateRegisteredWorldBlocker(
+            blockerCenter, expectedBlocked
+                ? new Vector3(8f, 8f, 40f)
+                : new Vector3(4f, 4f, 40f));
+        Physics.SyncTransforms();
+        if (expectedBlocked)
+        {
+            Vector3 p0 = CombatProjectileTrajectory.EvaluatePosition(
+                nominal[0], 1f);
+            Vector3 p1 = CombatProjectileTrajectory.EvaluatePosition(
+                nominal[0], 2f);
+            Assert.That(collider.bounds.Contains(Vector3.Lerp(p0, p1, 0.5f)),
+                Is.True, "Known nominal sweep must cross blocker interior.");
+        }
+        else
+        {
+            Assert.That(collider.bounds.Contains(chordMidpoint), Is.True);
+            AssertAllNominalSweepsClearAbove(shooter, endpoint, collider);
+        }
+
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard,
+            endpoint,
+            AssetDatabase.LoadAssetAtPath<CombatObstructionProfile>(
+                ProfilePath), out CombatFireObstructionResult result), Is.True);
+        Assert.That(result.IsBlocked, Is.EqualTo(expectedBlocked));
+        Assert.That(result.BlockedRayCount,
+            expectedBlocked ? Is.GreaterThanOrEqualTo(1) : Is.Zero);
+    }
+
+
+    [Test]
+    public void NominalObstructionSegmentInterval_IsPlaytestBoundOneSecond()
+    {
+        FieldInfo interval = typeof(CombatFireObstructionQuery).GetField(
+            "NominalSegmentIntervalSeconds",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(interval, Is.Not.Null);
+        Assert.That(interval.IsLiteral, Is.True);
+        Assert.That(interval.GetRawConstantValue(), Is.EqualTo(1f));
+    }
+
+
+    [Test]
+    public void NominalTrajectory_FinalRemainderSegmentIsSwept()
+    {
+        GameObject shooter = InstantiateCombatShip(Vector3.zero, 1);
+        GameObject target = InstantiateCombatShip(Vector3.right * 300f, 2);
+        Vector3 endpoint = GetExposureCenter(shooter, target);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooter, CombatSide.Starboard, endpoint,
+            out ShotSample[] shots), Is.True);
+        ShotSample shot = shots[0];
+        Assert.That(shot.NominalFlightTimeSeconds,
+            Is.GreaterThan(2f).And.LessThan(3f));
+        Vector3 p2 = CombatProjectileTrajectory.EvaluatePosition(shot, 2f);
+        Vector3 terminal = CombatProjectileTrajectory.EvaluatePosition(
+            shot, shot.NominalFlightTimeSeconds);
+        BoxCollider blocker = CreateRegisteredWorldBlocker(
+            Vector3.Lerp(p2, terminal, 0.5f),
+            new Vector3(4f, 8f, 8f));
+        Physics.SyncTransforms();
+        Assert.That(blocker.bounds.Contains(Vector3.Lerp(
+            p2, terminal, 0.5f)), Is.True);
+
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard, endpoint, null,
+            out CombatFireObstructionResult first), Is.True);
+        Assert.That(first.IsBlocked, Is.True);
+        Assert.That(first.BlockedRayCount, Is.GreaterThanOrEqualTo(1));
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard, endpoint, null,
+            out CombatFireObstructionResult repeated), Is.True);
+        Assert.That(repeated.BlockedRayCount,
+            Is.EqualTo(first.BlockedRayCount));
+        Assert.That(repeated.RepresentativeBlockerName,
+            Is.EqualTo(first.RepresentativeBlockerName));
+    }
+
+
+    [Test]
+    public void NominalTrajectory_SubsecondFlightStillSweepsOnce()
+    {
+        GameObject shooter = InstantiateCombatShip(Vector3.zero, 1);
+        GameObject target = InstantiateCombatShip(Vector3.right * 100f, 2);
+        Vector3 endpoint = GetExposureCenter(shooter, target);
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooter, CombatSide.Starboard, endpoint,
+            out ShotSample[] shots), Is.True);
+        ShotSample shot = shots[0];
+        Assert.That(shot.NominalFlightTimeSeconds, Is.LessThan(1f));
+        Vector3 terminal = CombatProjectileTrajectory.EvaluatePosition(
+            shot, shot.NominalFlightTimeSeconds);
+        BoxCollider blocker = CreateRegisteredWorldBlocker(
+            Vector3.Lerp(shot.OriginWorld, terminal, 0.5f),
+            new Vector3(4f, 8f, 8f));
+        Physics.SyncTransforms();
+        Assert.That(blocker.bounds.Contains(Vector3.Lerp(
+            shot.OriginWorld, terminal, 0.5f)), Is.True);
+
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard, endpoint, null,
+            out CombatFireObstructionResult result), Is.True);
+        Assert.That(result.IsBlocked, Is.True);
+        Assert.That(result.BlockedRayCount, Is.GreaterThanOrEqualTo(1));
+    }
+
+
+    [Test]
+    public void NominalTrajectory_IntendedTargetContactRemainsClear()
+    {
+        GameObject shooter = InstantiateCombatShip(Vector3.zero, 1);
+        GameObject target = InstantiateCombatShip(Vector3.right * 100f, 2);
+        ShipCombatGeometry geometry =
+            target.GetComponent<ShipCombatGeometry>();
+        geometry.BowRegion.QueryCollider.enabled = false;
+        geometry.SternRegion.QueryCollider.enabled = false;
+        BoxCollider targetHull =
+            (BoxCollider)geometry.MidshipRegion.QueryCollider;
+        targetHull.size = Vector3.one * 40f;
+        Vector3 endpoint = GetExposureCenter(shooter, target);
+        Physics.SyncTransforms();
+        Assert.That(targetHull.bounds.Contains(endpoint), Is.True);
+
+        Assert.That(CombatFireObstructionQuery.TryEvaluateTargeted(
+            shooter, target, CombatSide.Starboard, endpoint, null,
+            out CombatFireObstructionResult result), Is.True);
+        Assert.That(result.IsBlocked, Is.False);
+        Assert.That(result.BlockedRayCount, Is.Zero);
+    }
+
+
     [Test]
     public void DifferentConfiguredTeamIds_AreHostile()
     {
@@ -508,6 +727,13 @@ public class CombatObstructionFoundationTests
         Assert.That(querySource, Does.Not.Contain("Renderer"));
         Assert.That(querySource, Does.Not.Contain("MeshFilter"));
         Assert.That(querySource, Does.Not.Contain("bounds"));
+        Assert.That(querySource, Does.Contain("TryBuildNominalShots"));
+        Assert.That(querySource, Does.Contain(
+            "CombatProjectileTrajectory.EvaluatePosition"));
+        Assert.That(querySource, Does.Contain(
+            "CombatProjectileContactQuery"));
+        Assert.That(querySource, Does.Not.Contain(
+            "DeterministicDispersionSampler"));
 
         string eligibilitySource = File.ReadAllText(Path.Combine(
             combatRoot,
@@ -569,6 +795,93 @@ public class CombatObstructionFoundationTests
                 fileName
             );
         }
+    }
+
+
+    private BoxCollider CreateRegisteredWorldBlocker(
+        Vector3 center, Vector3 size)
+    {
+        GameObject world = new GameObject("Registered World");
+        temporaryObjects.Add(world);
+        world.transform.position = center;
+        world.layer = CombatObstructionVolume.LayerIndex;
+        BoxCollider collider = world.AddComponent<BoxCollider>();
+        collider.isTrigger = true;
+        collider.size = size;
+        CombatObstructionVolume volume =
+            world.AddComponent<CombatObstructionVolume>();
+        SetSerializedReference(volume, "queryCollider", collider);
+        return collider;
+    }
+
+
+    private static void AssertAllNominalSweepsClearAbove(
+        GameObject shooter, Vector3 endpoint, Collider blocker)
+    {
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooter, CombatSide.Starboard, endpoint,
+            out ShotSample[] shots), Is.True);
+        Assert.That(shots, Has.Length.EqualTo(13));
+        Bounds bounds = blocker.bounds;
+        for (int index = 0; index < shots.Length; index++)
+        {
+            ShotSample shot = shots[index];
+            bool crossesX = false;
+            for (float t0 = 0f; t0 < shot.NominalFlightTimeSeconds;)
+            {
+                float t1 = Mathf.Min(t0 + 1f,
+                    shot.NominalFlightTimeSeconds);
+                Vector3 p0 = CombatProjectileTrajectory.EvaluatePosition(
+                    shot, t0);
+                Vector3 p1 = CombatProjectileTrajectory.EvaluatePosition(
+                    shot, t1);
+                if (p1.x >= bounds.min.x && p0.x <= bounds.max.x)
+                {
+                    crossesX = true;
+                    float x0 = Mathf.Max(bounds.min.x, p0.x);
+                    float x1 = Mathf.Min(bounds.max.x, p1.x);
+                    float y0 = Mathf.LerpUnclamped(p0.y, p1.y,
+                        (x0 - p0.x) / (p1.x - p0.x));
+                    float y1 = Mathf.LerpUnclamped(p0.y, p1.y,
+                        (x1 - p0.x) / (p1.x - p0.x));
+                    Assert.That(Mathf.Min(y0, y1) - bounds.max.y,
+                        Is.GreaterThanOrEqualTo(2f),
+                        $"Muzzle {index} lacks clear vertical margin.");
+                }
+
+                t0 = t1;
+            }
+
+            Assert.That(crossesX, Is.True);
+        }
+    }
+
+
+    private GameObject InstantiateCombatShip(Vector3 position, int teamId)
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            CombatPrefabPath);
+        Assert.That(prefab, Is.Not.Null);
+        GameObject instance = UnityEngine.Object.Instantiate(prefab);
+        temporaryObjects.Add(instance);
+        instance.transform.position = position;
+        ShipCombatAffiliation affiliation =
+            instance.GetComponent<ShipCombatAffiliation>();
+        Assert.That(affiliation, Is.Not.Null);
+        SerializedObject serialized = new SerializedObject(affiliation);
+        serialized.FindProperty("teamId").intValue = teamId;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        return instance;
+    }
+
+
+    private static Vector3 GetExposureCenter(
+        GameObject shooter, GameObject target)
+    {
+        Assert.That(target.GetComponent<ShipExposureReference>()
+            .TryCalculateExposure(shooter.transform.position,
+                out ExposureRect exposure), Is.True);
+        return exposure.CenterWorld;
     }
 
 

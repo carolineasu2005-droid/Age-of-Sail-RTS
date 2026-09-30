@@ -20,6 +20,89 @@ public static class ShipBroadsideShotSampler
     private const float MinimumFlightTimeSeconds = 0.0001f;
 
 
+    // Pre-fire prediction uses the same launch solver and profile snapshot as
+    // actual shots, with the undispersed aim center in place of a sampled point.
+    public static bool TryBuildNominalShots(
+        GameObject sourceShipRoot,
+        CombatSide side,
+        Vector3 aimPointWorld,
+        out ShotSample[] shots
+    )
+    {
+        shots = null;
+        if (sourceShipRoot == null
+            || !IsFinite(aimPointWorld)
+            || !TryGetMuzzles(
+                sourceShipRoot.GetComponent<ShipMuzzleSockets>(),
+                side,
+                out IReadOnlyList<Transform> muzzles
+            )
+            || muzzles == null
+            || muzzles.Count == 0
+            || !TrySnapshotMuzzleOrigins(
+                sourceShipRoot.transform,
+                muzzles,
+                out Vector3[] originsWorld
+            ))
+        {
+            return false;
+        }
+
+        ShipArtDefinition art = sourceShipRoot.GetComponent<ShipArtDefinition>();
+        ShipProjectileFlightConfiguration configuration =
+            sourceShipRoot.GetComponent<ShipProjectileFlightConfiguration>();
+        if (art == null
+            || art.WaterlineReference == null
+            || !IsFinite(art.WaterlineReference.position.y)
+            || configuration == null
+            || configuration.ProjectileFlightProfile == null
+            || !TrySnapshotFlightProfile(
+                configuration.ProjectileFlightProfile,
+                out float speed,
+                out Vector3 gravity,
+                out float lifetime
+            ))
+        {
+            return false;
+        }
+
+        ShotSample[] nominalShots = new ShotSample[originsWorld.Length];
+        for (int index = 0; index < originsWorld.Length; index++)
+        {
+            if (!TryCalculateBallistics(
+                originsWorld[index],
+                aimPointWorld,
+                speed,
+                gravity,
+                lifetime,
+                out float flightTime,
+                out Vector3 velocity
+            ))
+            {
+                return false;
+            }
+
+            nominalShots[index] = new ShotSample(
+                sourceShipRoot,
+                side,
+                index,
+                0u,
+                originsWorld[index],
+                aimPointWorld,
+                velocity,
+                gravity,
+                flightTime,
+                art.WaterlineReference.position.y,
+                lifetime,
+                FoundationAmmunitionType.RoundShot
+            );
+        }
+
+        shots = nominalShots;
+        return true;
+    }
+
+
     public static bool TrySample(
         GameObject sourceShipRoot,
         FireAimBasis aimBasis,
@@ -177,6 +260,12 @@ public static class ShipBroadsideShotSampler
         out IReadOnlyList<Transform> muzzles
     )
     {
+        if (muzzleSockets == null)
+        {
+            muzzles = null;
+            return false;
+        }
+
         switch (side)
         {
             case CombatSide.Port:

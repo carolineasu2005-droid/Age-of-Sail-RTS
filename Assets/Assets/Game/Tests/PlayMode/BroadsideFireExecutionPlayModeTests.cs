@@ -608,6 +608,138 @@ public class BroadsideFireExecutionPlayModeTests
         yield return null;
     }
 
+
+    [UnityTest]
+    public IEnumerator TargetedFire_LowFriendlyOnChordButBelowArc_LaunchesThirteen()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, true);
+        GameObject target = CreateShip(Vector3.right * 360f, false);
+        GameObject friendly = CreateShip(Vector3.right * 50f, false);
+        SetTeamId(shooter, 1);
+        SetTeamId(target, 2);
+        SetTeamId(friendly, 1);
+        ShipCombatGeometry geometry = friendly.GetComponent<ShipCombatGeometry>();
+        geometry.BowRegion.QueryCollider.enabled = false;
+        geometry.SternRegion.QueryCollider.enabled = false;
+        BoxCollider midship = (BoxCollider)geometry.MidshipRegion.QueryCollider;
+        midship.size = new Vector3(4f, 4f, 40f);
+        Vector3 endpoint = ExposureAimCenter(shooter, target);
+        Vector3 origin = shooter.GetComponent<ShipMuzzleSockets>()
+            .StarboardMuzzles[0].position;
+        Vector3 chordPoint = Vector3.Lerp(origin, endpoint, 0.5f);
+        friendly.transform.position = new Vector3(
+            chordPoint.x, friendly.transform.position.y, chordPoint.z);
+        midship.center = midship.transform.InverseTransformPoint(chordPoint);
+        Physics.SyncTransforms();
+        Assert.That(midship.bounds.Contains(chordPoint), Is.True);
+        AssertAllNominalSweepsClearAbove(shooter, target, midship);
+
+        int smokeBefore = CountLingeringSmoke();
+        TargetedFireExecutionResult execution = ExecuteTargeted(
+            shooter, target, 9291u);
+
+        Assert.That(execution.Eligibility.Obstruction.BlockedRayCount, Is.Zero);
+        Assert.That(execution.BroadsideExecution.ShotCount, Is.EqualTo(13));
+        Assert.That(FindCurrentProjectiles(), Has.Length.EqualTo(13));
+        Assert.That(CountLingeringSmoke() - smokeBefore, Is.EqualTo(13));
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator TargetedFire_TrueFriendlyArcBlock_HoldsWithoutCommitOrSmoke()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, true);
+        GameObject target = CreateShip(Vector3.right * 100f, false);
+        GameObject friendly = CreateShip(Vector3.right * 50f, false);
+        SetTeamId(shooter, 1);
+        SetTeamId(target, 2);
+        SetTeamId(friendly, 1);
+        PrepareInterceptor(friendly, Quaternion.identity);
+        Physics.SyncTransforms();
+        int smokeBefore = CountLingeringSmoke();
+
+        ShipTargetedFireCommand command = new ShipTargetedFireCommand(
+            shooter.GetComponent<ShipFireEligibility>(),
+            shooter.GetComponent<ShipBroadsideFireExecutor>());
+        bool accepted = command.TryExecute(
+            target, true, 9292u, out TargetedFireExecutionResult execution);
+
+        Assert.That(accepted, Is.False);
+        Assert.That(execution.Eligibility.Blocked, Is.True);
+        Assert.That(execution.BroadsideExecution.ShotCount, Is.Zero);
+        Assert.That(FindCurrentProjectiles(), Is.Empty);
+        Assert.That(CountLingeringSmoke(), Is.EqualTo(smokeBefore));
+        Assert.That(shooter.GetComponent<ShipCombatState>()
+            .StarboardBroadsideState, Is.EqualTo(BroadsideReloadState.Ready));
+        yield return null;
+    }
+
+
+    [UnityTest]
+    public IEnumerator TargetedFire_WorldBelowArcLaunches_ButWorldOnArcHolds()
+    {
+        GameObject shooter = CreateShip(Vector3.zero, false);
+        GameObject target = CreateShip(Vector3.right * 360f, false);
+        SetTeamId(shooter, 1);
+        SetTeamId(target, 2);
+        GameObject obstacle = new GameObject("Registered World Obstacle");
+        createdShips.Add(obstacle);
+        obstacle.transform.position = Vector3.Lerp(
+            shooter.GetComponent<ShipMuzzleSockets>()
+                .StarboardMuzzles[0].position,
+            ExposureAimCenter(shooter, target), 0.5f);
+        obstacle.layer = CombatObstructionVolume.LayerIndex;
+        BoxCollider collider = obstacle.AddComponent<BoxCollider>();
+        collider.isTrigger = true;
+        collider.size = new Vector3(4f, 4f, 40f);
+        CombatObstructionVolume volume =
+            obstacle.AddComponent<CombatObstructionVolume>();
+        typeof(CombatObstructionVolume).GetField("queryCollider",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            .SetValue(volume, collider);
+        Physics.SyncTransforms();
+        Assert.That(collider.bounds.Contains(obstacle.transform.position),
+            Is.True);
+        AssertAllNominalSweepsClearAbove(shooter, target, collider);
+
+        TargetedFireExecutionResult clear = ExecuteTargeted(
+            shooter, target, 9293u);
+        Assert.That(clear.Eligibility.Blocked, Is.False);
+        Assert.That(clear.BroadsideExecution.ShotCount, Is.EqualTo(13));
+
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooter, CombatSide.Starboard,
+            ExposureAimCenter(shooter, target),
+            out ShotSample[] nominal), Is.True);
+        obstacle.transform.position = Vector3.Lerp(
+            CombatProjectileTrajectory.EvaluatePosition(nominal[0], 1f),
+            CombatProjectileTrajectory.EvaluatePosition(nominal[0], 2f),
+            0.5f);
+        collider.size = new Vector3(8f, 8f, 40f);
+        Physics.SyncTransforms();
+        ShipCombatState state = shooter.GetComponent<ShipCombatState>();
+        AdvanceReloadsToReady(state);
+        ShipFireEligibility eligibility =
+            shooter.GetComponent<ShipFireEligibility>();
+        Assert.That(eligibility.TryEvaluate(target, true,
+            out FireEligibilityResult blocked), Is.True);
+        Assert.That(blocked.Blocked, Is.True);
+        Assert.That(blocked.Obstruction.RepresentativeBlockerKind,
+            Is.EqualTo(CombatFireBlockerKind.WorldObstacle));
+        int projectilesBefore = FindCurrentProjectiles().Length;
+        ShipTargetedFireCommand command = new ShipTargetedFireCommand(
+            eligibility, shooter.GetComponent<ShipBroadsideFireExecutor>());
+        Assert.That(command.TryExecute(target, true, 9294u,
+            out TargetedFireExecutionResult held), Is.False);
+        Assert.That(held.BroadsideExecution.ShotCount, Is.Zero);
+        Assert.That(FindCurrentProjectiles(),
+            Has.Length.EqualTo(projectilesBefore));
+        Assert.That(state.StarboardBroadsideState,
+            Is.EqualTo(BroadsideReloadState.Ready));
+        yield return null;
+    }
+
     [UnityTest]
     public IEnumerator BlindFire_FriendlyShipBeforePoint_FiresThenBlocksWithoutDamage()
     {
@@ -992,6 +1124,49 @@ public class BroadsideFireExecutionPlayModeTests
             out TargetedFireExecutionResult result
         ), Is.True, result.FailureReasons.ToString());
         return result;
+    }
+
+
+    private static void AssertAllNominalSweepsClearAbove(
+        GameObject shooter, GameObject target, Collider blocker)
+    {
+        Assert.That(ShipBroadsideShotSampler.TryBuildNominalShots(
+            shooter, CombatSide.Starboard,
+            ExposureAimCenter(shooter, target),
+            out ShotSample[] shots), Is.True);
+        Assert.That(shots, Has.Length.EqualTo(13));
+        Bounds bounds = blocker.bounds;
+        for (int index = 0; index < shots.Length; index++)
+        {
+            ShotSample shot = shots[index];
+            bool crossesX = false;
+            for (float t0 = 0f; t0 < shot.NominalFlightTimeSeconds;)
+            {
+                float t1 = Mathf.Min(t0 + 1f,
+                    shot.NominalFlightTimeSeconds);
+                Vector3 p0 = CombatProjectileTrajectory.EvaluatePosition(
+                    shot, t0);
+                Vector3 p1 = CombatProjectileTrajectory.EvaluatePosition(
+                    shot, t1);
+                if (p1.x >= bounds.min.x && p0.x <= bounds.max.x)
+                {
+                    crossesX = true;
+                    float x0 = Mathf.Max(bounds.min.x, p0.x);
+                    float x1 = Mathf.Min(bounds.max.x, p1.x);
+                    float y0 = Mathf.LerpUnclamped(p0.y, p1.y,
+                        (x0 - p0.x) / (p1.x - p0.x));
+                    float y1 = Mathf.LerpUnclamped(p0.y, p1.y,
+                        (x1 - p0.x) / (p1.x - p0.x));
+                    Assert.That(Mathf.Min(y0, y1) - bounds.max.y,
+                        Is.GreaterThanOrEqualTo(2f),
+                        $"Muzzle {index} lacks clear vertical margin.");
+                }
+
+                t0 = t1;
+            }
+
+            Assert.That(crossesX, Is.True);
+        }
     }
 
 

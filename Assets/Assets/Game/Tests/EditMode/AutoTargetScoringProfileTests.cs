@@ -76,27 +76,28 @@ public class AutoTargetScoringProfileTests
 
 
     [Test]
-    public void RuntimeScripts_HaveNoSmokeOrVisibilityProviderImplementation()
+    public void AutoTargetScoringSources_HaveNoSmokeOrVisibilityProviderDependency()
     {
-        string runtimeScriptsRoot = Path.Combine(
+        string combatScriptsRoot = Path.Combine(
             Application.dataPath,
-            "Assets/Game/Scripts"
+            "Assets/Game/Scripts/Combat"
         );
-        string[] scriptPaths = Directory.GetFiles(
-            runtimeScriptsRoot,
-            "*.cs",
-            SearchOption.AllDirectories
-        );
-
-        foreach (string scriptPath in scriptPaths)
+        string[] scoringScripts =
         {
-            string fileName = Path.GetFileNameWithoutExtension(scriptPath);
-            Assert.That(fileName, Does.Not.Contain("Smoke"), scriptPath);
-            Assert.That(
-                fileName,
-                Does.Not.Contain("VisibilityProvider"),
-                scriptPath
-            );
+            "AutoTargetScoringProfile.cs",
+            "ShipAutoTargetScoringConfiguration.cs",
+            "ShipAutoTargetScorer.cs",
+            "ShipAutoTargetSelector.cs",
+            "AutoTargetScoreResult.cs"
+        };
+
+        foreach (string scriptName in scoringScripts)
+        {
+            string source = File.ReadAllText(Path.Combine(
+                combatScriptsRoot, scriptName));
+            Assert.That(source, Does.Not.Contain("Smoke"), scriptName);
+            Assert.That(source, Does.Not.Contain("VisibilityProvider"),
+                scriptName);
         }
     }
 

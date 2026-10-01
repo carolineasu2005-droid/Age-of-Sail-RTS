@@ -152,17 +152,23 @@ public class ShipPlayerCommandInput : MonoBehaviour
     [SerializeField]
     private bool blindFireArmed;
 
+    private bool manualTargetArmed;
+    private GameObject manualTargetArmedShipRoot;
+    private GameObject blindFireArmedShipRoot;
+
     private FormationGeometrySnapshot rightMouseDownGeometrySnapshot;
 
     private FormationPlacementPreviewRenderer formationPlacementPreviewRenderer;
 
     private bool blindFireClickPending;
+    private bool manualTargetClickPending;
 
     private BlindFirePlayerCommandResult lastBlindFireCommandResult;
 
     public PendingFormationTemplate PendingTemplate => pendingFormationTemplate;
 
     public bool BlindFireArmed => blindFireArmed;
+    public bool ManualTargetArmed => manualTargetArmed;
 
     public GameObject SelectedBlindFireShooterRoot
     {
@@ -258,7 +264,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
             ToggleRequestedFormationManeuverStyle();
         }
 
-        if (leftMouseDetectedThisFrame)
+        if (leftMouseDetectedThisFrame
+            && !IsPointerOverCombatPanel(Mouse.current.position.ReadValue()))
         {
             BeginSelectionGesture();
         }
@@ -276,7 +283,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
             CompleteSelectionGesture();
         }
 
-        if (rightMouseDetectedThisFrame)
+        if (rightMouseDetectedThisFrame
+            && !IsPointerOverCombatPanel(Mouse.current.position.ReadValue()))
         {
             BeginDestinationGesture();
         }
@@ -293,6 +301,13 @@ public class ShipPlayerCommandInput : MonoBehaviour
         {
             CompleteDestinationGesture();
         }
+    }
+
+
+    private bool IsPointerOverCombatPanel(Vector2 screenPoint)
+    {
+        CombatStatusPanel panel = GetComponent<CombatStatusPanel>();
+        return panel != null && panel.ContainsScreenPoint(screenPoint);
     }
 
 
@@ -503,13 +518,23 @@ public class ShipPlayerCommandInput : MonoBehaviour
         rightMouseDownFormationSnapshotCaptured = false;
         rightMouseDownGeometrySnapshot = null;
         blindFireClickPending = false;
+        manualTargetClickPending = false;
         hasLastValidPreviewHeading = false;
         previewGhostMeshCount = 0;
         HideFormationPlacementPreview();
 
         if (commandCamera == null
-            || (!blindFireArmed && commandDispatcher == null))
+            || (!blindFireArmed && !manualTargetArmed
+                && commandDispatcher == null))
         {
+            return;
+        }
+
+        if (manualTargetArmed)
+        {
+            rightPlacementGestureActive = true;
+            rightMouseDownScreenPosition = lastMouseScreenPosition;
+            manualTargetClickPending = true;
             return;
         }
 
@@ -567,7 +592,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
     {
         rightMouseCurrentScreenPosition = screenPosition;
 
-        if (blindFireClickPending)
+        if (blindFireClickPending || manualTargetClickPending)
         {
             return;
         }
@@ -612,7 +637,11 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return;
         }
 
-        if (blindFireClickPending)
+        if (manualTargetClickPending)
+        {
+            CommitManualTargetClick();
+        }
+        else if (blindFireClickPending)
         {
             CommitBlindFireClick();
         }
@@ -629,6 +658,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
         rightMouseDownFormationSnapshotCaptured = false;
         rightMouseDownGeometrySnapshot = null;
         blindFireClickPending = false;
+        manualTargetClickPending = false;
         formationPlacementPreviewActive = false;
         HideFormationPlacementPreview();
     }
@@ -722,6 +752,12 @@ public class ShipPlayerCommandInput : MonoBehaviour
 
     private void CommitNormalDestinationClick()
     {
+        if (manualTargetArmed)
+        {
+            CommitManualTargetClick();
+            return;
+        }
+
         if (blindFireArmed)
         {
             CommitBlindFireClick();
@@ -764,6 +800,21 @@ public class ShipPlayerCommandInput : MonoBehaviour
         Vector2 screenPosition
     )
     {
+        if (!TryGetClickedObjectAtScreenPosition(
+            screenPosition, out GameObject clickedObject))
+        {
+            return false;
+        }
+
+        return TryAssignManualTarget(clickedObject);
+    }
+
+
+    private bool TryGetClickedObjectAtScreenPosition(
+        Vector2 screenPosition,
+        out GameObject clickedObject)
+    {
+        clickedObject = null;
         if (commandCamera == null)
         {
             return false;
@@ -782,7 +833,117 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return false;
         }
 
-        return TryAssignManualTarget(hit.collider.gameObject);
+        clickedObject = hit.collider.gameObject;
+        return true;
+    }
+
+
+    private void CommitManualTargetClick()
+    {
+        if (!TryGetClickedObjectAtScreenPosition(
+            rightMouseDownScreenPosition, out GameObject clickedObject))
+        {
+            CancelManualTarget();
+            return;
+        }
+
+        TrySubmitArmedManualTarget(clickedObject);
+    }
+
+
+    public bool TryToggleSelectedAutoFire()
+    {
+        if (!TryGetSingleSelectedCombatState(
+            out GameObject _, out ShipCombatState combatState))
+        {
+            return false;
+        }
+
+        combatState.SetAutoFireEnabled(!combatState.AutoFireEnabled);
+        CancelManualTarget();
+        CancelBlindFire();
+        return true;
+    }
+
+
+    public bool TryClearSelectedManualTarget()
+    {
+        if (!TryGetSingleSelectedCombatState(
+            out GameObject _, out ShipCombatState combatState))
+        {
+            return false;
+        }
+
+        combatState.ClearManualTarget();
+        CancelManualTarget();
+        return true;
+    }
+
+
+    public bool TryArmManualTarget()
+    {
+        if (selectionGestureActive
+            || rightPlacementGestureActive
+            || !TryGetSingleSelectedCombatState(
+                out GameObject shooterShipRoot,
+                out ShipCombatState _))
+        {
+            CancelManualTarget();
+            return false;
+        }
+
+        CancelBlindFire();
+        manualTargetArmed = true;
+        manualTargetArmedShipRoot = shooterShipRoot;
+        return true;
+    }
+
+
+    public void CancelManualTarget()
+    {
+        manualTargetArmed = false;
+        manualTargetArmedShipRoot = null;
+    }
+
+
+    public bool TrySubmitArmedManualTarget(GameObject clickedObject)
+    {
+        bool sameShooter = manualTargetArmed
+            && TryGetSingleSelectedCombatState(
+                out GameObject shooterShipRoot,
+                out ShipCombatState _)
+            && shooterShipRoot == manualTargetArmedShipRoot;
+        CancelManualTarget();
+        return sameShooter && TryAssignManualTarget(clickedObject);
+    }
+
+
+    private bool TryGetSingleSelectedCombatState(
+        out GameObject shooterShipRoot,
+        out ShipCombatState combatState)
+    {
+        shooterShipRoot = null;
+        combatState = null;
+        if (selectionManager == null || selectionManager.SelectedCount != 1)
+        {
+            return false;
+        }
+
+        ShipDestinationController selectedShip =
+            selectionManager.PrimarySelectedShip;
+        if (selectedShip == null || !selectedShip.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        combatState = selectedShip.GetComponent<ShipCombatState>();
+        if (combatState == null || !combatState.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        shooterShipRoot = selectedShip.gameObject;
+        return true;
     }
 
 
@@ -824,16 +985,18 @@ public class ShipPlayerCommandInput : MonoBehaviour
         if (selectionGestureActive
             || rightPlacementGestureActive
             || !TryGetSingleSelectedBlindFireOwner(
-                out GameObject _,
+                out GameObject shooterShipRoot,
                 out ShipFireEligibility _,
                 out ShipBlindFireCommand _
             ))
         {
-            blindFireArmed = false;
+            CancelBlindFire();
             return false;
         }
 
+        CancelManualTarget();
         blindFireArmed = true;
+        blindFireArmedShipRoot = shooterShipRoot;
         return true;
     }
 
@@ -841,6 +1004,24 @@ public class ShipPlayerCommandInput : MonoBehaviour
     public void CancelBlindFire()
     {
         blindFireArmed = false;
+        blindFireArmedShipRoot = null;
+    }
+
+
+    public bool TrySubmitArmedBlindFireAtWorldPoint(
+        Vector3 worldAimPoint,
+        out BlindFirePlayerCommandResult result)
+    {
+        bool sameShooter = blindFireArmed
+            && TryGetSingleSelectedBlindFireOwner(
+                out GameObject shooterShipRoot,
+                out ShipFireEligibility _,
+                out ShipBlindFireCommand _)
+            && shooterShipRoot == blindFireArmedShipRoot;
+        CancelBlindFire();
+        result = default;
+        return sameShooter
+            && TryExecuteBlindFireAtWorldPoint(worldAimPoint, out result);
     }
 
 
@@ -850,7 +1031,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
     )
     {
         result = default;
-        blindFireArmed = false;
+        CancelBlindFire();
 
         if (!TryGetSingleSelectedBlindFireOwner(
             out GameObject shooterShipRoot,
@@ -917,8 +1098,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
 
     private void CommitBlindFireClick()
     {
-        blindFireArmed = false;
-        TryExecuteBlindFireAtWorldPoint(
+        TrySubmitArmedBlindFireAtWorldPoint(
             rightMouseDownWorldPosition,
             out BlindFirePlayerCommandResult _
         );
@@ -1127,6 +1307,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
     {
         rightPlacementGestureActive = false;
         blindFireClickPending = false;
+        manualTargetClickPending = false;
         rightMouseDownFormationSnapshotCaptured = false;
         rightMouseDownGeometrySnapshot = null;
         formationPlacementPreviewActive = false;
@@ -1155,7 +1336,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
                 HandleSelectionMembershipChanged;
         }
 
-        blindFireArmed = false;
+        CancelBlindFire();
+        CancelManualTarget();
     }
 
 
@@ -1214,7 +1396,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private void HandleSelectionMembershipChanged()
     {
         ClearPendingFormationTemplate();
-        blindFireArmed = false;
+        CancelBlindFire();
+        CancelManualTarget();
     }
 
 

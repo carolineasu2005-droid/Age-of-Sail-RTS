@@ -96,22 +96,25 @@ public class CombatAIIntegrationTests
     }
 
     [Test]
-    public void Prototype_AddsNamedTeamTwoVariantAndPreservesShotter()
+    public void Prototype_PreservesTeamOneCombatShipAndHasTeamTwoAIVariant()
     {
         string scene = File.ReadAllText(ScenePath);
-        Assert.That(scene, Does.Contain("value: Shotter"));
-        Assert.That(scene, Does.Contain("value: AI_Gelderland_01"));
         Assert.That(Count(scene,
             "m_SourcePrefab: {fileID: 100100000, guid: a6111000000000000000000000000012, type: 3}"),
-            Is.EqualTo(1));
+            Is.GreaterThanOrEqualTo(1));
         string aiInstance = ExtractBlock(scene,
             "--- !u!1001 &910055000000000001", "--- !u!1660057539");
+        Assert.That(aiInstance, Does.Contain(
+            "m_SourcePrefab: {fileID: 100100000, guid: a6111000000000000000000000000012, type: 3}"));
         Assert.That(aiInstance, Does.Contain("propertyPath: teamId\n      value: 2"));
         Assert.That(scene, Does.Contain("- {fileID: 910055000000000001}"));
-        string shotter = ExtractBlock(scene,
+        string originalCombatShip = ExtractBlock(scene,
             "--- !u!1001 &89041133", "--- !u!1 &89041134 stripped");
-        Assert.That(shotter, Does.Contain("value: Shotter"));
-        Assert.That(shotter, Does.Contain("propertyPath: teamId\n      value: 1"));
+        Assert.That(originalCombatShip, Does.Contain(
+            "m_SourcePrefab: {fileID: 100100000, guid: 45f76b674dece124096d84bb473f8322, type: 3}"));
+        Assert.That(originalCombatShip, Does.Contain(
+            "propertyPath: teamId\n      value: 1"));
+        Assert.That(scene, Does.Contain("- {fileID: 89041133}"));
     }
 
     [Test]

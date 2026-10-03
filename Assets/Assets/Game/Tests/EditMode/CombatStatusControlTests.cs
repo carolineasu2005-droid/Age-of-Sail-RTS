@@ -164,14 +164,26 @@ public class CombatStatusControlTests
     [Test]
     public void PanelClickRegionIsExcludedFromWorldInput()
     {
+        MovementStatusPanel movementPanel =
+            input.gameObject.AddComponent<MovementStatusPanel>();
         Assert.That(panel.ContainsScreenPoint(
             new Vector2(30f, Screen.height - 30f)), Is.True);
+        Assert.That(input.IsPointerOverStatusPanel(
+            new Vector2(30f, Screen.height - 30f)), Is.True);
+        Assert.That(input.IsPointerOverStatusPanel(
+            new Vector2(450f, Screen.height - 30f)), Is.True);
+        Assert.That(movementPanel.ContainsScreenPoint(
+            new Vector2(450f, Screen.height - 30f)), Is.True);
         Assert.That(panel.ContainsScreenPoint(
             new Vector2(500f, Screen.height - 30f)), Is.False);
 
         selection.ClearSelection();
         Assert.That(panel.ContainsScreenPoint(
             new Vector2(30f, Screen.height - 30f)), Is.False);
+        Assert.That(input.IsPointerOverStatusPanel(
+            new Vector2(30f, Screen.height - 30f)), Is.False);
+        Assert.That(input.IsPointerOverStatusPanel(
+            new Vector2(450f, Screen.height - 30f)), Is.True);
     }
 
     [Test]

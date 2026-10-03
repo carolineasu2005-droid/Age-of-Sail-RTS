@@ -111,6 +111,37 @@ public class ShipManeuverPlanner : MonoBehaviour
         };
     }
 
+    public bool TryPreviewDirectedHeading(
+        float requestedTargetHeading,
+        TurnDirection requestedDirection,
+        out ManeuverType maneuver
+    )
+    {
+        maneuver = ManeuverType.None;
+        if (!isActiveAndEnabled
+            || globalWind == null
+            || !globalWind.isActiveAndEnabled
+            || float.IsNaN(globalWind.windFromDegrees)
+            || float.IsInfinity(globalWind.windFromDegrees)
+            || headingController == null
+            || !headingController.isActiveAndEnabled
+            || float.IsNaN(requestedTargetHeading)
+            || float.IsInfinity(requestedTargetHeading)
+            || (requestedDirection != TurnDirection.Clockwise
+                && requestedDirection != TurnDirection.CounterClockwise))
+        {
+            return false;
+        }
+
+        maneuver = ClassifyDirectedArc(
+            transform.eulerAngles.y,
+            NormalizeHeading(requestedTargetHeading),
+            requestedDirection,
+            globalWind.WindFromDirection
+        );
+        return true;
+    }
+
     private void Awake()
     {
         if (globalWind == null)

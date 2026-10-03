@@ -52,6 +52,34 @@ public class PlayerStopPlayModeTests
         Assert.That(speed.EffectiveTargetSpeed, Is.EqualTo(0f));
     }
 
+    [UnityTest]
+    public IEnumerator PlayerSpeedOrder_CapsLiveTargetWithoutSnappingCurrentSpeed()
+    {
+        GameObject windObject = CreateObject("Test Wind");
+        GlobalWind wind = windObject.AddComponent<GlobalWind>();
+        wind.windFromDegrees = 90f;
+
+        GameObject shipObject = CreateObject("Speed Order Ship");
+        ShipSailingSpeed speed = shipObject.AddComponent<ShipSailingSpeed>();
+        SailPolarProfile polarProfile = ScriptableObject.CreateInstance<SailPolarProfile>();
+        createdObjects.Add(polarProfile);
+        SetPrivateField(speed, "globalWind", wind);
+        SetPrivateField(speed, "sailPolarProfile", polarProfile);
+        SetPrivateField(speed, "currentSpeed", 3f);
+
+        speed.DecreasePlayerSpeedOrder();
+        speed.DecreasePlayerSpeedOrder();
+        Assert.That(speed.CurrentSpeed, Is.EqualTo(3f));
+        yield return null;
+
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.5f));
+        Assert.That(speed.AvailableTargetSpeed, Is.GreaterThan(0f));
+        Assert.That(speed.EffectiveTargetSpeed,
+            Is.EqualTo(speed.AvailableTargetSpeed * 0.5f).Within(0.001f));
+        Assert.That(speed.CurrentSpeed, Is.LessThan(3f));
+        Assert.That(speed.CurrentSpeed, Is.GreaterThan(0f));
+    }
+
 
     private GameObject CreateObject(string name)
     {

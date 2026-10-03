@@ -265,7 +265,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
         }
 
         if (leftMouseDetectedThisFrame
-            && !IsPointerOverCombatPanel(Mouse.current.position.ReadValue()))
+            && !IsPointerOverStatusPanel(Mouse.current.position.ReadValue()))
         {
             BeginSelectionGesture();
         }
@@ -284,7 +284,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
         }
 
         if (rightMouseDetectedThisFrame
-            && !IsPointerOverCombatPanel(Mouse.current.position.ReadValue()))
+            && !IsPointerOverStatusPanel(Mouse.current.position.ReadValue()))
         {
             BeginDestinationGesture();
         }
@@ -304,10 +304,14 @@ public class ShipPlayerCommandInput : MonoBehaviour
     }
 
 
-    private bool IsPointerOverCombatPanel(Vector2 screenPoint)
+    public bool IsPointerOverStatusPanel(Vector2 screenPoint)
     {
-        CombatStatusPanel panel = GetComponent<CombatStatusPanel>();
-        return panel != null && panel.ContainsScreenPoint(screenPoint);
+        CombatStatusPanel combatPanel = GetComponent<CombatStatusPanel>();
+        MovementStatusPanel movementPanel = GetComponent<MovementStatusPanel>();
+        return (combatPanel != null
+                && combatPanel.ContainsScreenPoint(screenPoint))
+            || (movementPanel != null
+                && movementPanel.ContainsScreenPoint(screenPoint));
     }
 
 
@@ -1364,6 +1368,50 @@ public class ShipPlayerCommandInput : MonoBehaviour
         {
             commandDispatcher.DispatchStopSelectedShips();
         }
+    }
+
+    public bool TryDecreaseSelectedSpeedOrder()
+    {
+        return commandDispatcher != null
+            && commandDispatcher.TryDecreaseSelectedSpeedOrder();
+    }
+
+    public bool TryIncreaseSelectedSpeedOrder()
+    {
+        return commandDispatcher != null
+            && commandDispatcher.TryIncreaseSelectedSpeedOrder();
+    }
+
+    public bool TrySubmitDirectedHeading(
+        float targetHeading,
+        TurnDirection direction,
+        out ShipCommandDispatcher.DirectedHeadingCommandResult result
+    )
+    {
+        if (commandDispatcher != null)
+        {
+            bool accepted = commandDispatcher.TryDispatchDirectedHeading(
+                targetHeading, direction, out result
+            );
+            if (accepted)
+            {
+                ClearPendingFormationTemplate();
+            }
+
+            return accepted;
+        }
+
+        float normalizedHeading = float.IsNaN(targetHeading)
+            || float.IsInfinity(targetHeading)
+            ? 0f
+            : Mathf.Repeat(targetHeading, 360f);
+        result = new ShipCommandDispatcher.DirectedHeadingCommandResult(
+            false, null, normalizedHeading, direction,
+            ShipManeuverPlanner.ManeuverType.None,
+            ShipManeuverPlanner.ManeuverType.None,
+            ShipCommandDispatcher.DirectedHeadingFailure.DispatcherUnavailable
+        );
+        return false;
     }
 
 

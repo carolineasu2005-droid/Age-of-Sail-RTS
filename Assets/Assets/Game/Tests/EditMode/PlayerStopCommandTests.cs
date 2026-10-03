@@ -121,6 +121,7 @@ public class PlayerStopCommandTests
             out ShipSelectionManager selection, out _
         );
         ShipSailingSpeed speed = CreateShip("Selected", out ShipDestinationController ship);
+        speed.DecreasePlayerSpeedOrder();
         selection.AddSelection(ship);
         Assert.That(selection.SelectedCount, Is.EqualTo(1));
         Assert.That(speed.IsPlayerStopped, Is.False);
@@ -135,6 +136,7 @@ public class PlayerStopCommandTests
 
         Assert.That(speed.IsPlayerStopped, Is.False);
         Assert.That(ship.HasDestination, Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
     }
 
 
@@ -260,6 +262,184 @@ public class PlayerStopCommandTests
         Assert.That(input.PendingTemplate,
             Is.EqualTo(ShipPlayerCommandInput.PendingFormationTemplate.None));
         Assert.That(selection.DesignatedFormationLead, Is.SameAs(lead));
+    }
+
+    [Test]
+    public void PlayerSpeedOrder_DefaultAndDecreaseSequence()
+    {
+        ShipSailingSpeed speed = CreateShip("Speed Order", out _);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+
+        speed.DecreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
+        speed.DecreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.5f));
+        speed.DecreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.25f));
+        speed.DecreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.25f));
+    }
+
+    [Test]
+    public void PlayerSpeedOrder_IncreaseSequenceStopsAtFull()
+    {
+        ShipSailingSpeed speed = CreateShip("Speed Order", out _);
+        for (int i = 0; i < 3; i++)
+        {
+            speed.DecreasePlayerSpeedOrder();
+        }
+
+        speed.IncreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.5f));
+        speed.IncreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
+        speed.IncreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+        speed.IncreasePlayerSpeedOrder();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+    }
+
+    [Test]
+    public void SpeedOrderCommand_ClearsStopWithoutSpeedSnapAndPersistsThroughStop()
+    {
+        ShipCommandDispatcher dispatcher = CreateCommandObjects(
+            out ShipSelectionManager selection, out _
+        );
+        ShipSailingSpeed speed = CreateShip("Selected", out ShipDestinationController ship);
+        selection.SelectSingle(ship);
+        SetPrivateField(speed, "currentSpeed", 2.5f);
+
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
+        Assert.That(speed.CurrentSpeed, Is.EqualTo(2.5f));
+        dispatcher.DispatchStopSelectedShips();
+        Assert.That(speed.IsPlayerStopped, Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.True);
+        Assert.That(speed.IsPlayerStopped, Is.False);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.5f));
+        Assert.That(speed.CurrentSpeed, Is.EqualTo(2.5f));
+        selection.ClearSelection();
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.5f));
+    }
+
+    [Test]
+    public void SpeedOrderCommand_AtBoundStillClearsStop()
+    {
+        ShipCommandDispatcher dispatcher = CreateCommandObjects(
+            out ShipSelectionManager selection, out _
+        );
+        ShipSailingSpeed speed = CreateShip("Selected", out ShipDestinationController ship);
+        selection.SelectSingle(ship);
+        dispatcher.DispatchStopSelectedShips();
+
+        Assert.That(dispatcher.TryIncreaseSelectedSpeedOrder(), Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+        Assert.That(speed.IsPlayerStopped, Is.False);
+    }
+
+    [Test]
+    public void SpeedOrderCommand_PreservesDestinationHeadingPoseSelectionAndSequence()
+    {
+        ShipCommandDispatcher dispatcher = CreateCommandObjects(
+            out ShipSelectionManager selection, out _
+        );
+        ShipSailingSpeed speed = CreateShip("Selected", out ShipDestinationController ship);
+        ShipHeadingController heading = ship.GetComponent<ShipHeadingController>();
+        ShipManeuverPlanner planner = ship.GetComponent<ShipManeuverPlanner>();
+        ShipTacking tacking = ship.GetComponent<ShipTacking>();
+        ShipWearing wearing = ship.GetComponent<ShipWearing>();
+        ship.SetDestination(new Vector3(50f, 0f, 0f),
+            ShipDestinationController.TurnSelectionMode.Auto,
+            WindNavigationAssistMode.Manual);
+        heading.SetTargetHeading(90f, TurnDirection.Clockwise);
+        SetPrivateField(planner, "isActive", true);
+        SetPrivateField(tacking, "isActive", true);
+        SetPrivateField(wearing, "isActive", true);
+        selection.SelectSingle(ship);
+        Vector3 position = ship.transform.position;
+        Quaternion rotation = ship.transform.rotation;
+        int sequence = dispatcher.DispatchSequence;
+
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
+        Assert.That(ship.HasDestination, Is.True);
+        Assert.That(heading.IsActive, Is.True);
+        Assert.That(planner.IsActive, Is.True);
+        Assert.That(tacking.IsActive, Is.True);
+        Assert.That(wearing.IsActive, Is.True);
+        Assert.That(ship.transform.position, Is.EqualTo(position));
+        Assert.That(ship.transform.rotation, Is.EqualTo(rotation));
+        Assert.That(selection.PrimarySelectedShip, Is.SameAs(ship));
+        Assert.That(dispatcher.DispatchSequence, Is.EqualTo(sequence));
+    }
+
+    [Test]
+    public void SpeedOrderCommand_RejectsNoSelectionMultipleSelectionAndMissingSpeed()
+    {
+        ShipCommandDispatcher dispatcher = CreateCommandObjects(
+            out ShipSelectionManager selection, out _
+        );
+        ShipSailingSpeed firstSpeed = CreateShip("First", out ShipDestinationController first);
+        ShipSailingSpeed secondSpeed = CreateShip("Second", out ShipDestinationController second);
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.False);
+        selection.AddSelection(first);
+        selection.AddSelection(second);
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.False);
+        Assert.That(firstSpeed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+        Assert.That(secondSpeed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+
+        GameObject invalidRoot = new GameObject("Missing Speed");
+        createdObjects.Add(invalidRoot);
+        ShipDestinationController invalidShip = invalidRoot.AddComponent<ShipDestinationController>();
+        selection.SelectSingle(invalidShip);
+        Assert.That(dispatcher.TryIncreaseSelectedSpeedOrder(), Is.False);
+        Assert.That(firstSpeed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+
+        selection.SelectSingle(first);
+        first.enabled = false;
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.False);
+        Assert.That(firstSpeed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+    }
+
+    [Test]
+    public void SpeedOrderCommand_RejectsActiveFormationMemberWithoutMutation()
+    {
+        ShipCommandDispatcher dispatcher = CreateCommandObjects(
+            out ShipSelectionManager selection,
+            out FormationCommandController formation
+        );
+        ShipSailingSpeed speed = CreateShip("First", out ShipDestinationController first);
+        CreateShip("Second", out ShipDestinationController second);
+        selection.AddSelection(first);
+        selection.AddSelection(second);
+        Assert.That(formation.CaptureCurrentFormation(selection.SelectedShips), Is.True);
+        selection.SelectSingle(first);
+        speed.SetPlayerStopSpeedCap(0f);
+        int sequence = dispatcher.DispatchSequence;
+
+        Assert.That(dispatcher.TryDecreaseSelectedSpeedOrder(), Is.False);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
+        Assert.That(speed.IsPlayerStopped, Is.True);
+        Assert.That(formation.IsActive, Is.True);
+        Assert.That(formation.ContainsActiveMember(first), Is.True);
+        Assert.That(selection.PrimarySelectedShip, Is.SameAs(first));
+        Assert.That(dispatcher.DispatchSequence, Is.EqualTo(sequence));
+    }
+
+    [Test]
+    public void SpeedOrderInput_ForwardsThroughDispatcher()
+    {
+        ShipPlayerCommandInput input = CreateInput(
+            out ShipSelectionManager selection, out _
+        );
+        ShipSailingSpeed speed = CreateShip("Selected", out ShipDestinationController ship);
+        selection.SelectSingle(ship);
+
+        Assert.That(input.TryDecreaseSelectedSpeedOrder(), Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(0.75f));
+        Assert.That(input.TryIncreaseSelectedSpeedOrder(), Is.True);
+        Assert.That(speed.PlayerSpeedOrderNormalized, Is.EqualTo(1f));
     }
 
 

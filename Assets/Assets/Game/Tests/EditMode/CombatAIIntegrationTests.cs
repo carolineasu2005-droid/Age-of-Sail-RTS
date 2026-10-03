@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -98,23 +99,47 @@ public class CombatAIIntegrationTests
     [Test]
     public void Prototype_PreservesTeamOneCombatShipAndHasTeamTwoAIVariant()
     {
-        string scene = File.ReadAllText(ScenePath);
-        Assert.That(Count(scene,
-            "m_SourcePrefab: {fileID: 100100000, guid: a6111000000000000000000000000012, type: 3}"),
-            Is.GreaterThanOrEqualTo(1));
-        string aiInstance = ExtractBlock(scene,
-            "--- !u!1001 &910055000000000001", "--- !u!1660057539");
-        Assert.That(aiInstance, Does.Contain(
-            "m_SourcePrefab: {fileID: 100100000, guid: a6111000000000000000000000000012, type: 3}"));
-        Assert.That(aiInstance, Does.Contain("propertyPath: teamId\n      value: 2"));
-        Assert.That(scene, Does.Contain("- {fileID: 910055000000000001}"));
-        string originalCombatShip = ExtractBlock(scene,
-            "--- !u!1001 &89041133", "--- !u!1 &89041134 stripped");
-        Assert.That(originalCombatShip, Does.Contain(
-            "m_SourcePrefab: {fileID: 100100000, guid: 45f76b674dece124096d84bb473f8322, type: 3}"));
-        Assert.That(originalCombatShip, Does.Contain(
-            "propertyPath: teamId\n      value: 1"));
-        Assert.That(scene, Does.Contain("- {fileID: 89041133}"));
+        string scene = File.ReadAllText(ScenePath).Replace("\r\n", "\n");
+        MatchCollection instances = Regex.Matches(scene,
+            @"^--- !u!1001 &(?<id>[0-9]+)\n.*?(?=^--- !u!|\z)",
+            RegexOptions.Multiline | RegexOptions.Singleline);
+        Match sceneRoots = Regex.Match(scene,
+            @"^--- !u!1660057539 &[0-9]+\nSceneRoots:\n.*?(?=^--- !u!|\z)",
+            RegexOptions.Multiline | RegexOptions.Singleline);
+        Assert.That(sceneRoots.Success, Is.True);
+        int teamOneCombatShips = 0;
+        int teamTwoAIVariants = 0;
+        foreach (Match instance in instances)
+        {
+            string rootEntry = @"^  - \{fileID: "
+                + instance.Groups["id"].Value + @"\}$";
+            if (!Regex.IsMatch(sceneRoots.Value, rootEntry,
+                RegexOptions.Multiline))
+            {
+                continue;
+            }
+
+            if (instance.Value.IndexOf(
+                "m_SourcePrefab: {fileID: 100100000, guid: 45f76b674dece124096d84bb473f8322, type: 3}",
+                StringComparison.Ordinal) >= 0
+                && instance.Value.IndexOf("propertyPath: teamId\n      value: 1",
+                    StringComparison.Ordinal) >= 0)
+            {
+                teamOneCombatShips++;
+            }
+
+            if (instance.Value.IndexOf(
+                "m_SourcePrefab: {fileID: 100100000, guid: a6111000000000000000000000000012, type: 3}",
+                StringComparison.Ordinal) >= 0
+                && instance.Value.IndexOf("propertyPath: teamId\n      value: 2",
+                    StringComparison.Ordinal) >= 0)
+            {
+                teamTwoAIVariants++;
+            }
+        }
+
+        Assert.That(teamOneCombatShips, Is.GreaterThanOrEqualTo(1));
+        Assert.That(teamTwoAIVariants, Is.GreaterThanOrEqualTo(1));
     }
 
     [Test]

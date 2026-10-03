@@ -73,4 +73,36 @@ public class ShipTargetSpeedAuthorityTests
 
         Assert.That(effective, Is.EqualTo(0.8f));
     }
+
+    [Test]
+    public void PlayerOrder_CapsNormalAvailableSpeed()
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.5f, false, 0f, false, 0f, false, 0f
+        ), Is.EqualTo(2f));
+    }
+
+    [Test]
+    public void ManeuverMinimum_CanExceedLowPlayerOrder()
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 1.6f, false, 0f, false, 0f
+        ), Is.EqualTo(1.6f));
+    }
+
+    [Test]
+    public void FormationMaximum_AppliesAfterManeuverMinimum()
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 2f, true, 1.4f, false, 0f
+        ), Is.EqualTo(1.4f));
+    }
+
+    [Test]
+    public void PlayerStopZero_WinsOverPlayerOrderManeuverAndFormation()
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 2f, true, 1.4f, true, 0f
+        ), Is.EqualTo(0f));
+    }
 }

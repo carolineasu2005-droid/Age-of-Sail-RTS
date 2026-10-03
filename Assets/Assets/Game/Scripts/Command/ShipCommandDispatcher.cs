@@ -10,7 +10,8 @@ public class ShipCommandDispatcher : MonoBehaviour
         SingleShip,
         RequiresFormation,
         StopSelectedShips,
-        DirectedHeading
+        DirectedHeading,
+        Follow
     }
 
     public enum DirectedHeadingFailure
@@ -25,6 +26,107 @@ public class ShipCommandDispatcher : MonoBehaviour
         PreviewUnavailable,
         UnsupportedManeuver,
         OwnerUnavailable
+    }
+
+    public enum FollowFailure
+    {
+        None, DispatcherUnavailable, NoSelection, MultipleSelection, InvalidFollower,
+        InvalidTarget, Self, NotFriendly, UnknownRelationship, Cycle,
+        MissingFollowComponents, TargetInvalidLifecycle
+    }
+
+    public readonly struct FollowCommandResult
+    {
+        public bool Accepted { get; }
+        public bool IsNoOp { get; }
+        public ShipDestinationController Follower { get; }
+        public GameObject TargetShipRoot { get; }
+        public FollowFailure Failure { get; }
+
+        internal FollowCommandResult(bool accepted, bool isNoOp,
+            ShipDestinationController follower, GameObject targetShipRoot, FollowFailure failure)
+        {
+            Accepted = accepted;
+            IsNoOp = isNoOp;
+            Follower = follower;
+            TargetShipRoot = targetShipRoot;
+            Failure = failure;
+        }
+    }
+
+    public bool TryStartFollow(GameObject targetShipRoot, out FollowCommandResult result)
+    {
+        ShipDestinationController ship = null;
+        FollowFailure failure = FollowFailure.None;
+        if (!isActiveAndEnabled) failure = FollowFailure.DispatcherUnavailable;
+        else if (selectionManager == null || selectionManager.SelectedCount == 0)
+            failure = FollowFailure.NoSelection;
+        else if (selectionManager.SelectedCount != 1) failure = FollowFailure.MultipleSelection;
+        else
+        {
+            ship = selectionManager.PrimarySelectedShip;
+            if (ship == null || !ship.isActiveAndEnabled) failure = FollowFailure.InvalidFollower;
+            else if (targetShipRoot == null || !targetShipRoot.activeInHierarchy)
+                failure = FollowFailure.InvalidTarget;
+            else if (ship.gameObject == targetShipRoot) failure = FollowFailure.Self;
+            else
+            {
+                CombatRelationship relationship = CombatRelationshipResolver.Resolve(
+                    ship.GetComponent<ShipCombatAffiliation>(),
+                    targetShipRoot.GetComponent<ShipCombatAffiliation>());
+                if (relationship == CombatRelationship.Unknown) failure = FollowFailure.UnknownRelationship;
+                else if (relationship != CombatRelationship.Friendly) failure = FollowFailure.NotFriendly;
+                else
+                {
+                    ShipIntegrity integrity = targetShipRoot.GetComponent<ShipIntegrity>();
+                    ShipFollowController follower = ship.GetComponent<ShipFollowController>();
+                    ShipFollowController target = targetShipRoot.GetComponent<ShipFollowController>();
+                    ShipFollowNavigationController navigation = ship.GetComponent<ShipFollowNavigationController>();
+                    if (integrity != null && integrity.IsSinking)
+                        failure = FollowFailure.TargetInvalidLifecycle;
+                    else if (follower == null || target == null || navigation == null
+                        || !navigation.isActiveAndEnabled
+                        || !follower.IsMovementEntityValid() || !target.IsMovementEntityValid())
+                        failure = FollowFailure.MissingFollowComponents;
+                    else if (follower.WouldCreateCycle(target)) failure = FollowFailure.Cycle;
+                    else if (!follower.CanBeginFollowRelationship(target)) failure = FollowFailure.InvalidTarget;
+                    else
+                    {
+                        if (follower.IsFollowing && follower.FollowTarget == target
+                            && follower.TargetTrailRecorder == target.GetComponent<ShipFollowTrailRecorder>()
+                            && follower.TargetTrailRecorder.TryGetFollowerProgress(follower, out _, out _))
+                        {
+                            result = new FollowCommandResult(true, true, ship, targetShipRoot, FollowFailure.None);
+                            return true;
+                        }
+
+                        // All preflight completes before touching existing Movement ownership.
+                        FormationCommandController formation = GetFormationCommandController();
+                        if (formation != null && formation.ContainsActiveMember(ship)) formation.CancelFormation();
+                        ClearPendingGroupCommand();
+                        ship.ClearDestination();
+                        ship.GetComponent<ShipManeuverPlanner>().CancelCurrentManeuver();
+                        ClearPlayerStop(ship);
+                        // Validation/subscription is owned by the foundation, not duplicated here.
+                        bool accepted = follower.TryBeginFollowRelationship(target);
+                        if (!accepted)
+                        {
+                            result = new FollowCommandResult(false, false, ship, targetShipRoot, FollowFailure.InvalidTarget);
+                            return false;
+                        }
+                        lastSelectedShipCount = 1;
+                        lastSingleShip = ship;
+                        lastDispatchResult = DispatchResult.Follow;
+                        dispatchSequence++;
+                        DispatchSequenceChanged?.Invoke(dispatchSequence);
+                        result = new FollowCommandResult(true, false, ship, targetShipRoot, FollowFailure.None);
+                        return true;
+                    }
+                }
+            }
+        }
+        result = new FollowCommandResult(false, false, ship, targetShipRoot, failure);
+        return false;
     }
 
     public readonly struct DirectedHeadingCommandResult
@@ -190,8 +292,7 @@ public class ShipCommandDispatcher : MonoBehaviour
         WindNavigationAssistMode navigationAssistMode
     )
     {
-        dispatchSequence++;
-        DispatchSequenceChanged?.Invoke(dispatchSequence);
+        if (!IsFinite(worldDestination)) return;
         lastWorldDestination = worldDestination;
         lastSelectionMode = selectionMode;
         lastNavigationAssistMode = navigationAssistMode;
@@ -218,14 +319,19 @@ public class ShipCommandDispatcher : MonoBehaviour
         {
             ShipDestinationController selectedShip = selectedShips[0];
 
-            if (selectedShip == null)
+            if (selectedShip == null || !selectedShip.isActiveAndEnabled)
             {
                 lastSelectedShipCount = 0;
                 lastDispatchResult = DispatchResult.NoSelection;
                 return;
             }
 
+            lastSingleShip = selectedShip;
+            lastDispatchResult = DispatchResult.SingleShip;
+            dispatchSequence++;
+            DispatchSequenceChanged?.Invoke(dispatchSequence);
             ClearPendingGroupCommand();
+            CancelPlayerFollow(selectedShip);
             ClearPlayerStop(selectedShip);
             selectedShip.SetDestination(
                 worldDestination,
@@ -237,6 +343,13 @@ public class ShipCommandDispatcher : MonoBehaviour
             return;
         }
 
+        if (!FormationGeometrySnapshot.TryCapture(selectedShips,
+            selectionManager.PrimarySelectedShip, out FormationGeometrySnapshot preflight)
+            || !IsValidFormationSnapshot(preflight)) return;
+        lastDispatchResult = DispatchResult.RequiresFormation;
+        dispatchSequence++;
+        DispatchSequenceChanged?.Invoke(dispatchSequence);
+        foreach (ShipDestinationController ship in selectedShips) CancelPlayerFollow(ship);
         ClearPlayerStops(selectedShips);
         groupCommandPending = true;
         pendingGroupDestination = worldDestination;
@@ -262,6 +375,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         WindNavigationAssistMode navigationAssistMode
     )
     {
+        if (!IsFinite(formationCenter) || !IsFinite(formationHeading)
+            || !IsValidFormationSnapshot(geometrySnapshot)) return;
+        lastDispatchResult = DispatchResult.RequiresFormation;
         dispatchSequence++;
         DispatchSequenceChanged?.Invoke(dispatchSequence);
         lastWorldDestination = formationCenter;
@@ -269,14 +385,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         lastNavigationAssistMode = navigationAssistMode;
         lastSingleShip = null;
 
-        if (geometrySnapshot == null || geometrySnapshot.Members.Count < 2)
-        {
-            lastSelectedShipCount = 0;
-            lastDispatchResult = DispatchResult.NoSelection;
-            return;
-        }
-
         ClearPendingGroupCommand();
+        foreach (FormationGeometryMember member in geometrySnapshot.Members)
+            CancelPlayerFollow(member.Ship);
         ClearPlayerStops(geometrySnapshot);
         groupCommandPending = true;
         pendingGroupDestination = formationCenter;
@@ -305,6 +416,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         WindNavigationAssistMode navigationAssistMode
     )
     {
+        if (!IsFinite(worldDestination)
+            || !IsValidFormationSnapshot(geometrySnapshot)) return;
+        lastDispatchResult = DispatchResult.RequiresFormation;
         dispatchSequence++;
         DispatchSequenceChanged?.Invoke(dispatchSequence);
         lastWorldDestination = worldDestination;
@@ -312,14 +426,9 @@ public class ShipCommandDispatcher : MonoBehaviour
         lastNavigationAssistMode = navigationAssistMode;
         lastSingleShip = null;
 
-        if (geometrySnapshot == null || geometrySnapshot.Members.Count < 2)
-        {
-            lastSelectedShipCount = 0;
-            lastDispatchResult = DispatchResult.NoSelection;
-            return;
-        }
-
         ClearPendingGroupCommand();
+        foreach (FormationGeometryMember member in geometrySnapshot.Members)
+            CancelPlayerFollow(member.Ship);
         ClearPlayerStops(geometrySnapshot);
         groupCommandPending = true;
         pendingGroupDestination = worldDestination;
@@ -388,6 +497,7 @@ public class ShipCommandDispatcher : MonoBehaviour
 
         foreach (ShipDestinationController selectedShip in selectedShips)
         {
+            CancelPlayerFollow(selectedShip);
             ApplyPlayerStop(selectedShip);
         }
 
@@ -480,9 +590,11 @@ public class ShipCommandDispatcher : MonoBehaviour
                             formation.CancelFormation();
                         }
 
+                        lastDispatchResult = DispatchResult.DirectedHeading;
                         dispatchSequence++;
                         DispatchSequenceChanged?.Invoke(dispatchSequence);
                         ClearPendingGroupCommand();
+                        CancelPlayerFollow(ship);
                         ship.ClearDestination();
                         ClearPlayerStop(ship);
                         planner.ExecuteHeadingCommand(normalizedHeading, direction);
@@ -546,6 +658,7 @@ public class ShipCommandDispatcher : MonoBehaviour
             return false;
         }
 
+        CancelPlayerFollow(ship);
         if (increase)
         {
             sailingSpeed.IncreasePlayerSpeedOrder();
@@ -625,6 +738,30 @@ public class ShipCommandDispatcher : MonoBehaviour
             sailingSpeed.ClearPlayerStopSpeedCap();
         }
     }
+
+
+    private static void CancelPlayerFollow(ShipDestinationController ship)
+    {
+        if (ship == null) return;
+        ShipFollowController follow = ship.GetComponent<ShipFollowController>();
+        if (follow != null) follow.CancelFollow();
+        ShipSailingSpeed speed = ship.GetComponent<ShipSailingSpeed>();
+        if (speed != null) speed.ClearFollowMaximumTargetSpeed();
+    }
+
+    private static bool IsValidFormationSnapshot(FormationGeometrySnapshot snapshot)
+    {
+        if (snapshot == null || snapshot.Members.Count < 2
+            || !IsFinite(snapshot.FormationCenter) || !IsFinite(snapshot.FormationHeading)) return false;
+        foreach (FormationGeometryMember member in snapshot.Members)
+            if (member.Ship == null || !member.Ship.isActiveAndEnabled
+                || !IsFinite(member.LocalX) || !IsFinite(member.LocalZ)) return false;
+        return true;
+    }
+
+    private static bool IsFinite(Vector3 point)
+        => IsFinite(point.x) && IsFinite(point.y) && IsFinite(point.z);
+    private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
 
     private static void ApplyPlayerStop(ShipDestinationController ship)

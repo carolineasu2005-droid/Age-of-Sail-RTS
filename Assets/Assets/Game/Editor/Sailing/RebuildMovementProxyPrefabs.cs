@@ -21,7 +21,10 @@ public static class RebuildMovementProxyPrefabs
         typeof(ShipWearing),
         typeof(ShipLeeway),
         typeof(ShipManeuverPlanner),
-        typeof(ShipDestinationController)
+        typeof(ShipDestinationController),
+        typeof(ShipFollowController),
+        typeof(ShipFollowTrailRecorder),
+        typeof(ShipFollowNavigationController)
     };
 
     [MenuItem("Tools/Sailing/Rebuild Light Heavy Movement Proxies")]

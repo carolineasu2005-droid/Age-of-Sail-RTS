@@ -14,7 +14,8 @@ public readonly struct MovementStatusSnapshot
         float previewDelta, float previewTargetHeading,
         TurnDirection previewDirection,
         ShipManeuverPlanner.ManeuverType previewManeuver,
-        bool previewClassificationAvailable)
+        bool previewClassificationAvailable,
+        MovementFollowStatusSnapshot follow = default)
     {
         SelectionCount = selectionCount;
         Ship = ship;
@@ -36,6 +37,7 @@ public readonly struct MovementStatusSnapshot
         PreviewDirection = previewDirection;
         PreviewManeuver = previewManeuver;
         PreviewClassificationAvailable = previewClassificationAvailable;
+        Follow = follow;
     }
 
     public int SelectionCount { get; }
@@ -59,6 +61,63 @@ public readonly struct MovementStatusSnapshot
     public TurnDirection PreviewDirection { get; }
     public ShipManeuverPlanner.ManeuverType PreviewManeuver { get; }
     public bool PreviewClassificationAvailable { get; }
+    public MovementFollowStatusSnapshot Follow { get; }
+}
+
+// Detached diagnostic values only; capturing does not refresh or command Follow.
+public readonly struct MovementFollowStatusSnapshot
+{
+    internal MovementFollowStatusSnapshot(ShipFollowController follow,
+        ShipFollowNavigationController navigation, ShipSailingSpeed speed)
+    {
+        IsAvailable = follow != null && navigation != null;
+        HasFollowIntent = follow != null && follow.HasFollowIntent;
+        IsFollowing = follow != null && follow.IsFollowing;
+        FollowTarget = follow != null && follow.FollowTarget != null
+            ? follow.FollowTarget.gameObject : null;
+        TargetDisplayIdentity = FollowTarget != null ? FollowTarget.name
+            : HasFollowIntent ? "LOST" : "None";
+        NavigationState = navigation != null ? navigation.State : default;
+        FollowStartLeaderDistance = follow != null ? follow.FollowStartLeaderDistance : 0d;
+        FollowerTrailProgress = navigation != null ? navigation.FollowerTrailProgress : 0d;
+        AlongTrailGap = navigation != null ? navigation.AlongTrailGap : 0d;
+        DesiredFollowGap = navigation != null ? navigation.DesiredFollowGap : 0f;
+        EntryReached = navigation != null && navigation.EntryReached;
+        ActiveTurn = navigation != null ? navigation.ActiveTurn : null;
+        FollowSpeedCapActive = speed != null && speed.FollowSpeedCapActive;
+        FollowSpeedCap = FollowSpeedCapActive ? speed.FollowSpeedCap : 0f;
+        ShipFollowTrailRecorder recorder = follow != null ? follow.TargetTrailRecorder : null;
+        HasTrailData = recorder != null;
+        TrailHeadDistance = recorder != null ? recorder.HeadDistance : 0d;
+        TrailSampleCount = recorder != null ? recorder.SampleCount : 0;
+        TurnEventCount = recorder != null ? recorder.TurnEvents.Count : 0;
+        ShipSailingSpeed leaderSpeed = FollowTarget != null
+            ? FollowTarget.GetComponent<ShipSailingSpeed>() : null;
+        HasLeaderSpeedReference = leaderSpeed != null && leaderSpeed.isActiveAndEnabled;
+        LeaderCourseSpeed = HasLeaderSpeedReference ? leaderSpeed.CourseSpeed : 0f;
+    }
+
+    public bool IsAvailable { get; }
+    public bool HasFollowIntent { get; }
+    public bool IsFollowing { get; }
+    public GameObject FollowTarget { get; }
+    public string TargetDisplayIdentity { get; }
+    public ShipFollowNavigationController.ReplayState NavigationState { get; }
+    public bool LostTargetHold => NavigationState == ShipFollowNavigationController.ReplayState.LostTargetHold;
+    public double FollowStartLeaderDistance { get; }
+    public double FollowerTrailProgress { get; }
+    public bool HasTrailData { get; }
+    public double TrailHeadDistance { get; }
+    public double AlongTrailGap { get; }
+    public float DesiredFollowGap { get; }
+    public bool FollowSpeedCapActive { get; }
+    public float FollowSpeedCap { get; }
+    public bool HasLeaderSpeedReference { get; }
+    public float LeaderCourseSpeed { get; }
+    public int TrailSampleCount { get; }
+    public int TurnEventCount { get; }
+    public bool EntryReached { get; }
+    public ShipFollowTurnEvent? ActiveTurn { get; }
 }
 
 public static class MovementStatusReadModel
@@ -110,7 +169,9 @@ public static class MovementStatusReadModel
             hasPreview ? preview.TargetHeading : 0f,
             hasPreview ? preview.Direction : default,
             hasPreview ? preview.PreviewManeuver : default,
-            hasPreview && preview.IsClassificationAvailable);
+            hasPreview && preview.IsClassificationAvailable,
+            new MovementFollowStatusSnapshot(ship.GetComponent<ShipFollowController>(),
+                ship.GetComponent<ShipFollowNavigationController>(), speed));
     }
 }
 
@@ -133,8 +194,9 @@ public static class MovementStatusFormatter
             return "Movement Status\nSelected ship unavailable";
         }
 
-        StringBuilder text = new(320);
+        StringBuilder text = new(640);
         text.Append("Movement: ").AppendLine(status.Ship.name);
+        AppendFollow(text, status.Follow);
         text.Append("Speed Order: ")
             .AppendLine($"{status.PlayerSpeedOrder * 100f:0}%");
         text.Append("Current Speed: ").AppendLine($"{status.CurrentSpeed:0.0} m/s");
@@ -166,5 +228,38 @@ public static class MovementStatusFormatter
         }
 
         return text.ToString();
+    }
+
+    private static void AppendFollow(StringBuilder text, MovementFollowStatusSnapshot follow)
+    {
+        if (!follow.IsAvailable)
+        {
+            text.AppendLine("Follow: Unavailable");
+            return;
+        }
+        text.Append("Follow: ").AppendLine(follow.HasFollowIntent ? "ON" : "OFF");
+        if (!follow.HasFollowIntent) return;
+        text.Append("Target: ").AppendLine(follow.TargetDisplayIdentity);
+        text.Append("State: ").Append(follow.NavigationState)
+            .AppendLine(follow.LostTargetHold ? string.Empty
+                : follow.EntryReached ? " (On trail)" : " (Entry pending)");
+        text.Append("Gap / Desired: ").AppendLine(follow.HasTrailData
+            ? $"{follow.AlongTrailGap:0.0} / {follow.DesiredFollowGap:0.0} m" : "Unavailable");
+        text.Append("Trail: ").AppendLine(follow.HasTrailData
+            ? $"{follow.FollowerTrailProgress:0.0} / {follow.TrailHeadDistance:0.0} m" : "Unavailable");
+        text.Append("Start: ").Append($"{follow.FollowStartLeaderDistance:0.0} m")
+            .Append("  Samples / Turns: ").Append(follow.TrailSampleCount)
+            .Append(" / ").AppendLine(follow.TurnEventCount.ToString());
+        text.Append("Leader Speed: ").AppendLine(follow.HasLeaderSpeedReference
+            ? $"{follow.LeaderCourseSpeed:0.0} m/s" : "Unavailable");
+        text.Append("Follow Cap: ").AppendLine(follow.FollowSpeedCapActive
+            ? $"{follow.FollowSpeedCap:0.0} m/s" : "Inactive");
+        if (follow.ActiveTurn.HasValue)
+        {
+            ShipFollowTurnEvent turn = follow.ActiveTurn.Value;
+            text.Append("Turn #").Append(turn.Sequence).Append(" ")
+                .Append(turn.Direction == TurnDirection.Clockwise ? "CW " : "CCW ")
+                .AppendLine($"{turn.StartDistance:0.0}-{turn.EndDistance:0.0} m");
+        }
     }
 }

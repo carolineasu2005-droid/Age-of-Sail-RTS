@@ -66,6 +66,9 @@ public class ShipSailingSpeed : MonoBehaviour
     // Retained player propulsion intent; 1..4 maps to 25%..100%.
     private int playerSpeedOrderStep = 4;
 
+    private bool followSpeedCapActive;
+    private float followSpeedCap;
+
     [SerializeField]
     private bool maneuverMinimumTargetSpeedActive;
 
@@ -162,6 +165,10 @@ public class ShipSailingSpeed : MonoBehaviour
 
     public float PlayerSpeedOrderNormalized => playerSpeedOrderStep * 0.25f;
 
+    public bool FollowSpeedCapActive => followSpeedCapActive;
+
+    public float FollowSpeedCap => followSpeedCap;
+
     public bool FormationSpeedCapActive => formationMaximumTargetSpeedActive;
 
     public float FormationSpeedCap => formationMaximumTargetSpeed;
@@ -232,6 +239,19 @@ public class ShipSailingSpeed : MonoBehaviour
         formationMaximumTargetSpeed = 0f;
     }
 
+    public void SetFollowMaximumTargetSpeed(float maximumTargetSpeed)
+    {
+        followSpeedCap = float.IsNaN(maximumTargetSpeed) || float.IsInfinity(maximumTargetSpeed)
+            ? 0f : Mathf.Max(0f, maximumTargetSpeed);
+        followSpeedCapActive = true;
+    }
+
+    public void ClearFollowMaximumTargetSpeed()
+    {
+        followSpeedCapActive = false;
+        followSpeedCap = 0f;
+    }
+
     public void SetPlayerStopSpeedCap(float maximumTargetSpeed)
     {
         playerStopSpeedCap = Mathf.Max(0f, maximumTargetSpeed);
@@ -265,10 +285,30 @@ public class ShipSailingSpeed : MonoBehaviour
         float playerStopSpeedCap
     )
     {
+        return ComposeEffectiveTargetSpeed(availableTargetSpeed, playerSpeedOrderNormalized,
+            false, 0f, maneuverMinimumActive, maneuverMinimumTargetSpeed,
+            formationSpeedCapActive, formationSpeedCap,
+            playerStopSpeedCapActive, playerStopSpeedCap);
+    }
+
+    public static float ComposeEffectiveTargetSpeed(
+        float availableTargetSpeed,
+        float playerSpeedOrderNormalized,
+        bool followSpeedCapActive,
+        float followSpeedCap,
+        bool maneuverMinimumActive,
+        float maneuverMinimumTargetSpeed,
+        bool formationSpeedCapActive,
+        float formationSpeedCap,
+        bool playerStopSpeedCapActive,
+        float playerStopSpeedCap
+    )
+    {
         float effectiveSpeed = Mathf.Max(0f, availableTargetSpeed);
         effectiveSpeed = Mathf.Min(
             effectiveSpeed,
-            effectiveSpeed * Mathf.Clamp01(playerSpeedOrderNormalized)
+            followSpeedCapActive ? Mathf.Max(0f, followSpeedCap)
+                : effectiveSpeed * Mathf.Clamp01(playerSpeedOrderNormalized)
         );
 
         if (maneuverMinimumActive)
@@ -377,6 +417,8 @@ public class ShipSailingSpeed : MonoBehaviour
         effectiveTargetSpeed = ComposeEffectiveTargetSpeed(
             polarTargetSpeed,
             PlayerSpeedOrderNormalized,
+            followSpeedCapActive,
+            followSpeedCap,
             maneuverMinimumTargetSpeedActive,
             maneuverMinimumTargetSpeed,
             formationMaximumTargetSpeedActive,

@@ -163,6 +163,9 @@ public class ShipPlayerCommandInput : MonoBehaviour
     private bool blindFireClickPending;
     private bool manualTargetClickPending;
 
+    private bool shipContextClickPending;
+    private GameObject shipContextClickedObject;
+
     private BlindFirePlayerCommandResult lastBlindFireCommandResult;
 
     public PendingFormationTemplate PendingTemplate => pendingFormationTemplate;
@@ -523,6 +526,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
         rightMouseDownGeometrySnapshot = null;
         blindFireClickPending = false;
         manualTargetClickPending = false;
+        shipContextClickPending = false;
+        shipContextClickedObject = null;
         hasLastValidPreviewHeading = false;
         previewGhostMeshCount = 0;
         HideFormationPlacementPreview();
@@ -542,10 +547,19 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return;
         }
 
-        if (!TryGetWorldDestination(
+        if (!blindFireArmed && TryGetClickedObjectAtScreenPosition(
+            lastMouseScreenPosition, out GameObject clickedObject)
+            && TryResolveShipContextRoot(clickedObject, out GameObject clickedShipRoot))
+        {
+            shipContextClickPending = true;
+            shipContextClickedObject = clickedShipRoot;
+        }
+
+        bool hasWorldDestination = TryGetWorldDestination(
             lastMouseScreenPosition,
             out Vector3 mouseDownWorldPosition
-        ))
+        );
+        if (!hasWorldDestination && !shipContextClickPending)
         {
             return;
         }
@@ -562,7 +576,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return;
         }
 
-        if (formationCommandController != null
+        if (hasWorldDestination && formationCommandController != null
             && formationCommandController
                 .TryCaptureSelectedFormationGeometry(
                     out FormationGeometrySnapshot geometrySnapshot
@@ -663,6 +677,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
         rightMouseDownGeometrySnapshot = null;
         blindFireClickPending = false;
         manualTargetClickPending = false;
+        shipContextClickPending = false;
+        shipContextClickedObject = null;
         formationPlacementPreviewActive = false;
         HideFormationPlacementPreview();
     }
@@ -768,7 +784,14 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return;
         }
 
-        if (TryAssignManualTargetAtScreenPosition(
+        if (shipContextClickPending)
+        {
+            // A captured ship click stays consumed even if that entity disappeared before release.
+            TryHandleShipContext(shipContextClickedObject);
+            return;
+        }
+
+        if (TryHandleShipContextAtScreenPosition(
             rightMouseDownScreenPosition
         ))
         {
@@ -800,7 +823,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
     }
 
 
-    private bool TryAssignManualTargetAtScreenPosition(
+    private bool TryHandleShipContextAtScreenPosition(
         Vector2 screenPosition
     )
     {
@@ -810,7 +833,38 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return false;
         }
 
-        return TryAssignManualTarget(clickedObject);
+        return TryHandleShipContext(clickedObject);
+    }
+
+    // True means a ship context was consumed, not that its command was accepted.
+    public bool TryHandleShipContext(GameObject clickedObject)
+    {
+        if (!TryResolveShipContextRoot(clickedObject, out GameObject targetShipRoot)) return false;
+        ShipDestinationController selectedShip = selectionManager != null
+            ? selectionManager.PrimarySelectedShip : null;
+        if (selectedShip == null || selectedShip.gameObject == targetShipRoot) return true;
+        CombatRelationship relationship = CombatRelationshipResolver.Resolve(
+            selectedShip.GetComponent<ShipCombatAffiliation>(),
+            targetShipRoot.GetComponent<ShipCombatAffiliation>());
+        if (relationship == CombatRelationship.Hostile) TryAssignManualTarget(targetShipRoot);
+        else if (relationship == CombatRelationship.Friendly
+            && commandDispatcher != null)
+            commandDispatcher.TryStartFollow(targetShipRoot, out _);
+        return true; // Self, Unknown, and every rejected ship command have no world fallthrough.
+    }
+
+    private static bool TryResolveShipContextRoot(GameObject clickedObject, out GameObject shipRoot)
+    {
+        shipRoot = null;
+        if (clickedObject == null) return false;
+        ShipDestinationController movement = clickedObject.GetComponentInParent<ShipDestinationController>(true);
+        if (movement != null) shipRoot = movement.gameObject;
+        else
+        {
+            ShipCombatState combat = clickedObject.GetComponentInParent<ShipCombatState>(true);
+            if (combat != null) shipRoot = combat.gameObject;
+        }
+        return shipRoot != null; // Component identity resolves hits; affiliation alone decides relation.
     }
 
 
@@ -971,7 +1025,7 @@ public class ShipPlayerCommandInput : MonoBehaviour
         ShipCombatState shooterCombatState =
             selectedShip.GetComponent<ShipCombatState>();
 
-        if (shooterCombatState == null
+        if (shooterCombatState == null || !shooterCombatState.isActiveAndEnabled
             || !TryResolveCombatShipRoot(
                 clickedObject,
                 out GameObject targetShipRoot
@@ -980,6 +1034,10 @@ public class ShipPlayerCommandInput : MonoBehaviour
             return false;
         }
 
+        if (CombatRelationshipResolver.Resolve(
+            selectedShip.GetComponent<ShipCombatAffiliation>(),
+            targetShipRoot.GetComponent<ShipCombatAffiliation>()) != CombatRelationship.Hostile)
+            return false;
         return shooterCombatState.AssignManualTarget(targetShipRoot);
     }
 
@@ -1309,6 +1367,8 @@ public class ShipPlayerCommandInput : MonoBehaviour
 
     private void CancelDestinationGesture()
     {
+        shipContextClickPending = false;
+        shipContextClickedObject = null;
         rightPlacementGestureActive = false;
         blindFireClickPending = false;
         manualTargetClickPending = false;

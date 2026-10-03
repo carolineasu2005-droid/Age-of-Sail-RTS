@@ -501,6 +501,9 @@ GameObject:
   - component: {fileID: 1647348079486186890}
   - component: {fileID: 7757940512578754880}
   - component: {fileID: 757359295240492283}
+  - component: {fileID: 900400000000000121}
+  - component: {fileID: 900400000000000122}
+  - component: {fileID: 900400000000000123}
   m_Layer: 0
   m_Name: PF_Proxy_Heavy_v01
   m_TagString: Untagged
@@ -1085,3 +1088,53 @@ Transform:
   - {fileID: 5883903474389050739}
   m_Father: {fileID: 4291764013390553459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &900400000000000121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4917116733890107804}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f8d34f2c7a949028fd2b3a4a03e0458, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipFollowController
+--- !u!114 &900400000000000122
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4917116733890107804}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 659854193d7b45a4ae9aca908ae48a6e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipFollowTrailRecorder
+  sampleDistanceThreshold: 4
+  sampleHeadingThreshold: 2.5
+  turnHeadingThreshold: 0.25
+  trimSafetyMargin: 25
+--- !u!114 &900400000000000123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4917116733890107804}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e99885ad1564d94aec60b15f8e92469, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: AgeOfSailRTS.Runtime::ShipFollowNavigationController
+  navigationThinkInterval: 0.2
+  straightLookAhead: 25
+  destinationRetargetThreshold: 10
+  trailArrivalTolerance: 6
+  curvatureHeadingThreshold: 10
+  turnHeadingTolerance: 1
+  desiredFollowGap: 60
+  tooCloseGap: 45
+  followingBandMaximum: 70
+  catchUpGap: 90

@@ -55,6 +55,8 @@ public class ManualTargetPlayerCommandTests
 
         shooterRoot = CreateCombatShip("Shooter Root", true);
         targetRoot = CreateCombatShip("Target Root", false);
+        SetPrivateField(shooterRoot.AddComponent<ShipCombatAffiliation>(), "teamId", 0);
+        SetPrivateField(targetRoot.AddComponent<ShipCombatAffiliation>(), "teamId", 1);
         alternateTargetRoot = CreateCombatShip(
             "Alternate Target Root",
             false

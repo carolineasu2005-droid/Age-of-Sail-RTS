@@ -28,6 +28,7 @@ public class MovementStatusPanelTests
     {
         Fixture fixture = CreateFixture();
         Assert.That(fixture.Panel.CurrentStatus.SelectionCount, Is.Zero);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.IsAvailable, Is.False);
         Assert.That(fixture.Panel.DisplayText, Does.Contain("No ship selected"));
         Assert.That(fixture.Panel.TryDecreaseSpeed(), Is.False);
         Assert.That(fixture.Panel.TryStop(), Is.False);
@@ -84,6 +85,8 @@ public class MovementStatusPanelTests
 
         Assert.That(fixture.Panel.CurrentStatus.SelectionCount, Is.EqualTo(2));
         Assert.That(fixture.Panel.CurrentStatus.HasControllableShip, Is.False);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.HasFollowIntent, Is.False);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.FollowTarget, Is.Null);
         Assert.That(fixture.Panel.DisplayText,
             Does.Contain("Select exactly one ship"));
         Assert.That(fixture.Panel.TryDecreaseSpeed(), Is.False);
@@ -323,6 +326,130 @@ public class MovementStatusPanelTests
             Does.Contain("m_GameObject: {fileID: 1123039775}")
                 .And.Contain("selectionManager: {fileID: 1123039782}")
                 .And.Contain("playerCommandInput: {fileID: 1123039776}"));
+    }
+
+    [Test]
+    public void FollowSnapshot_CopiesValuesWithoutRefreshingOrCommandingOwners()
+    {
+        Fixture fixture = CreateFixture();
+        ShipFixture leader = CreateShip(0f);
+        ShipFixture follower = CreateShip(0f);
+        var leaderFollow = AddFollow(leader);
+        var followerFollow = AddFollow(follower);
+        SetPrivateField(leader.Speed, "courseSpeed", 3f);
+        SetPrivateField(follower.Speed, "polarTargetSpeed", 4f);
+        Assert.That(followerFollow.Controller.TryBeginFollowRelationship(leaderFollow.Controller), Is.True);
+        leader.Destination.transform.position = Vector3.forward * 200f;
+        leaderFollow.Recorder.CaptureCurrentPose(1d);
+        followerFollow.Navigation.Tick(0d);
+        fixture.Selection.SelectSingle(follower.Destination);
+        int version = followerFollow.Controller.RelationshipVersion;
+        int command = follower.Planner.CommandSequence;
+        int samples = leaderFollow.Recorder.SampleCount;
+        Vector3 position = follower.Destination.transform.position;
+        float speed = follower.Speed.CurrentSpeed;
+        Refresh(fixture.Panel);
+        MovementFollowStatusSnapshot snapshot = fixture.Panel.CurrentStatus.Follow;
+        Assert.That(snapshot.IsAvailable, Is.True);
+        Assert.That(snapshot.HasFollowIntent, Is.True);
+        Assert.That(snapshot.IsFollowing, Is.True);
+        Assert.That(snapshot.FollowTarget, Is.SameAs(leader.Destination.gameObject));
+        Assert.That(snapshot.NavigationState, Is.EqualTo(followerFollow.Navigation.State));
+        Assert.That(snapshot.FollowStartLeaderDistance, Is.EqualTo(followerFollow.Controller.FollowStartLeaderDistance));
+        Assert.That(snapshot.FollowerTrailProgress, Is.EqualTo(followerFollow.Navigation.TrailCursor));
+        Assert.That(snapshot.TrailHeadDistance, Is.EqualTo(leaderFollow.Recorder.HeadDistance));
+        Assert.That(snapshot.AlongTrailGap, Is.EqualTo(followerFollow.Navigation.AlongTrailGap));
+        Assert.That(snapshot.DesiredFollowGap, Is.EqualTo(followerFollow.Navigation.DesiredFollowGap));
+        Assert.That(snapshot.FollowSpeedCapActive, Is.True);
+        Assert.That(snapshot.FollowSpeedCap, Is.EqualTo(follower.Speed.FollowSpeedCap));
+        Assert.That(snapshot.LeaderCourseSpeed, Is.EqualTo(leader.Speed.CourseSpeed));
+        Assert.That(snapshot.TrailSampleCount, Is.EqualTo(samples));
+        Assert.That(snapshot.TurnEventCount, Is.Zero);
+        Assert.That(snapshot.EntryReached, Is.True);
+        string originalIdentity = snapshot.TargetDisplayIdentity;
+        leader.Destination.name = "Renamed Leader";
+        Assert.That(snapshot.TargetDisplayIdentity, Is.EqualTo(originalIdentity));
+        for (int i = 0; i < 10; i++) Refresh(fixture.Panel);
+        Assert.That(followerFollow.Controller.RelationshipVersion, Is.EqualTo(version));
+        Assert.That(follower.Planner.CommandSequence, Is.EqualTo(command));
+        Assert.That(leaderFollow.Recorder.SampleCount, Is.EqualTo(samples));
+        Assert.That(leaderFollow.Recorder.SubscriberCount, Is.EqualTo(1));
+        Assert.That(follower.Destination.transform.position, Is.EqualTo(position));
+        Assert.That(follower.Speed.CurrentSpeed, Is.EqualTo(speed));
+        Assert.That(fixture.Panel.DisplayText, Does.Contain("Follow: ON").And.Contain("Renamed Leader"));
+        foreach (PropertyInfo property in typeof(MovementFollowStatusSnapshot).GetProperties())
+            Assert.That(property.SetMethod, Is.Null, property.Name);
+    }
+
+    [Test]
+    public void FollowSnapshot_LostTargetShowsHoldAndNoLiveTrailOrLeaderReference()
+    {
+        Fixture fixture = CreateFixture();
+        ShipFixture leader = CreateShip(0f);
+        ShipFixture follower = CreateShip(0f);
+        var leaderFollow = AddFollow(leader);
+        var followerFollow = AddFollow(follower);
+        followerFollow.Controller.TryBeginFollowRelationship(leaderFollow.Controller);
+        Object.DestroyImmediate(leader.Destination.gameObject);
+        followerFollow.Navigation.Tick(0d);
+        fixture.Selection.SelectSingle(follower.Destination);
+        Refresh(fixture.Panel);
+        MovementFollowStatusSnapshot status = fixture.Panel.CurrentStatus.Follow;
+        Assert.That(status.HasFollowIntent, Is.True);
+        Assert.That(status.IsFollowing, Is.False);
+        Assert.That(status.LostTargetHold, Is.True);
+        Assert.That(status.FollowTarget, Is.Null);
+        Assert.That(status.TargetDisplayIdentity, Is.EqualTo("LOST"));
+        Assert.That(status.HasLeaderSpeedReference, Is.False);
+        Assert.That(status.HasTrailData, Is.False);
+        Assert.That(status.FollowSpeedCapActive, Is.True);
+        Assert.That(status.FollowSpeedCap, Is.Zero);
+        Assert.That(fixture.Panel.DisplayText, Does.Contain("Target: LOST")
+            .And.Contain("LostTargetHold").And.Contain("Follow Cap: 0"));
+        Assert.That(follower.Destination.HasDestination, Is.False);
+    }
+
+    [Test]
+    public void FollowSnapshot_CopiesPendingTurnAndClearsOnDeselection()
+    {
+        Fixture fixture = CreateFixture();
+        ShipFixture leader = CreateShip(0f);
+        ShipFixture follower = CreateShip(0f);
+        var leaderFollow = AddFollow(leader);
+        var followerFollow = AddFollow(follower);
+        SetPrivateField(follower.Speed, "polarTargetSpeed", 4f);
+        SetPrivateField(leader.Speed, "courseSpeed", 3f);
+        followerFollow.Controller.TryBeginFollowRelationship(leaderFollow.Controller);
+        leader.Destination.transform.position = Vector3.forward * 200f;
+        leaderFollow.Recorder.CaptureCurrentPose(1d);
+        leader.Destination.transform.SetPositionAndRotation(Vector3.forward * 220f,
+            Quaternion.Euler(0f, 60f, 0f));
+        leaderFollow.Recorder.CaptureCurrentPose(2d);
+        followerFollow.Navigation.Tick(0d);
+        fixture.Selection.SelectSingle(follower.Destination);
+        Refresh(fixture.Panel);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.ActiveTurn.HasValue, Is.True);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.ActiveTurn.Value.Direction,
+            Is.EqualTo(TurnDirection.Clockwise));
+        Assert.That(fixture.Panel.CurrentStatus.Follow.TurnEventCount, Is.EqualTo(1));
+        Assert.That(fixture.Panel.DisplayText, Does.Contain("Turn #0 CW"));
+        fixture.Selection.ClearSelection();
+        Refresh(fixture.Panel);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.IsAvailable, Is.False);
+        Assert.That(fixture.Panel.CurrentStatus.Follow.FollowTarget, Is.Null);
+        Assert.That(followerFollow.Controller.IsFollowing, Is.True);
+        Assert.That(fixture.Panel.DisplayText, Does.Not.Contain("Follow: ON"));
+    }
+
+    private static (ShipFollowController Controller, ShipFollowTrailRecorder Recorder,
+        ShipFollowNavigationController Navigation) AddFollow(ShipFixture ship)
+    {
+        GameObject root = ship.Destination.gameObject;
+        var recorder = root.AddComponent<ShipFollowTrailRecorder>();
+        var controller = root.AddComponent<ShipFollowController>();
+        var navigation = root.AddComponent<ShipFollowNavigationController>();
+        InvokePrivate(navigation, "Awake");
+        return (controller, recorder, navigation);
     }
 
     private Fixture CreateFixture()

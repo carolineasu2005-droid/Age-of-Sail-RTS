@@ -21,6 +21,7 @@ public sealed class MovementStatusPanel : MonoBehaviour
     private string displayText = string.Empty;
     private string commandHint = string.Empty;
     private bool turnPointerCaptured;
+    private Vector2 statusScrollPosition;
 
     public MovementStatusSnapshot CurrentStatus => currentStatus;
     public string DisplayText => displayText;
@@ -226,8 +227,14 @@ public sealed class MovementStatusPanel : MonoBehaviour
 
         RefreshStatus();
         GUI.Box(panelRect, string.Empty);
-        GUI.Label(new Rect(panelRect.x + 10f, panelRect.y + 10f,
-            panelRect.width - 20f, 275f), displayText);
+        Rect statusRect = new Rect(panelRect.x + 10f, panelRect.y + 10f,
+            panelRect.width - 20f, 275f);
+        float contentWidth = Mathf.Max(1f, statusRect.width - 20f);
+        float contentHeight = GUI.skin.label.CalcHeight(new GUIContent(displayText), contentWidth);
+        statusScrollPosition = GUI.BeginScrollView(statusRect, statusScrollPosition,
+            new Rect(0f, 0f, contentWidth, Mathf.Max(statusRect.height, contentHeight)));
+        GUI.Label(new Rect(0f, 0f, contentWidth, contentHeight), displayText);
+        GUI.EndScrollView();
 
         bool previousEnabled = GUI.enabled;
         GUI.enabled = previousEnabled && CanUseControls()
@@ -270,6 +277,7 @@ public sealed class MovementStatusPanel : MonoBehaviour
 
     private void OnSelectionChanged()
     {
+        statusScrollPosition = Vector2.zero;
         CancelTurnHold();
         commandHint = string.Empty;
         RefreshStatus();

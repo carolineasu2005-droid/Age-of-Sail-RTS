@@ -207,6 +207,8 @@ public class ShipBlindFirePlayerCommandTests
     public void NormalCombatShipCommand_RemainsManualTargetWhenNotArmed()
     {
         GameObject targetRoot = CreateCombatShip("Manual Target");
+        SetTeamId(shooterRoot, 0);
+        SetTeamId(targetRoot, 1);
 
         bool assigned = commandInput.TryAssignManualTarget(targetRoot);
 
@@ -515,6 +517,19 @@ public class ShipBlindFirePlayerCommandTests
                 | BindingFlags.Public
                 | BindingFlags.DeclaredOnly
         ).All(property => property.SetMethod == null), Is.True);
+    }
+
+
+    private static void SetTeamId(GameObject root, int teamId)
+    {
+        ShipCombatAffiliation affiliation = root.GetComponent<ShipCombatAffiliation>();
+        if (affiliation == null)
+        {
+            affiliation = root.AddComponent<ShipCombatAffiliation>();
+        }
+
+        Assert.That(affiliation, Is.Not.Null);
+        SetPrivateField(affiliation, "teamId", teamId);
     }
 
 

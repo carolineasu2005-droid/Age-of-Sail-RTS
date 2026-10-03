@@ -2,6 +2,38 @@ using NUnit.Framework;
 
 public class ShipTargetSpeedAuthorityTests
 {
+    [TestCase(0.25f)]
+    [TestCase(0.5f)]
+    [TestCase(0.75f)]
+    [TestCase(1f)]
+    public void FollowInactive_PreservesExistingComposition(float order)
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, order, false, 0f, true, 1.6f, true, 3f, false, 0f),
+            Is.EqualTo(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+                4f, order, true, 1.6f, true, 3f, false, 0f)));
+    }
+
+    [Test]
+    public void FollowMaximum_ReplacesPlayerOrderButCannotExceedAvailableSpeed()
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 3f, false, 0f, false, 0f, false, 0f), Is.EqualTo(3f));
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            2f, 0.25f, true, 8f, false, 0f, false, 0f, false, 0f), Is.EqualTo(2f));
+    }
+
+    [Test]
+    public void FollowHold_StillAllowsManeuverMinimumThenFormationMaximumThenStop()
+    {
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 0f, true, 1.6f, false, 0f, false, 0f), Is.EqualTo(1.6f));
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 0f, true, 1.6f, true, 0.8f, false, 0f), Is.EqualTo(0.8f));
+        Assert.That(ShipSailingSpeed.ComposeEffectiveTargetSpeed(
+            4f, 0.25f, true, 0f, true, 1.6f, true, 0.8f, true, 0f), Is.Zero);
+    }
+
     [Test]
     public void ComposeEffectiveTargetSpeed_WithoutExternalCapsUsesAvailableSpeed()
     {

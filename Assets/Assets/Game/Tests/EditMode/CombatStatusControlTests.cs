@@ -33,6 +33,8 @@ public class CombatStatusControlTests
 
         shooter = CreateCombatShip("Shooter");
         target = CreateCombatShip("Target");
+        SetPrivateField(shooter.AddComponent<ShipCombatAffiliation>(), "teamId", 0);
+        SetPrivateField(target.AddComponent<ShipCombatAffiliation>(), "teamId", 1);
         target.transform.position = Vector3.right * 50f;
         selection.SelectSingle(shooter.GetComponent<ShipDestinationController>());
         RefreshPanel();

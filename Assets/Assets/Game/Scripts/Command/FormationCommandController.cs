@@ -391,6 +391,8 @@ public class FormationCommandController : MonoBehaviour
     [SerializeField]
     private int consumedDispatchSequence;
 
+    private int unrelatedFollowDispatchSequence;
+
     [SerializeField]
     private int currentDispatcherSequence;
 
@@ -613,7 +615,7 @@ public class FormationCommandController : MonoBehaviour
             return;
         }
 
-        if (currentDispatcherSequence > consumedDispatchSequence)
+        if (currentDispatcherSequence > Mathf.Max(consumedDispatchSequence, unrelatedFollowDispatchSequence))
         {
             CancelFormation();
             return;
@@ -649,6 +651,15 @@ public class FormationCommandController : MonoBehaviour
     private void HandleDispatchSequenceChanged(int dispatchSequence)
     {
         currentDispatcherSequence = dispatchSequence;
+
+        // A player Follow on another ship is not a replacement for these Formation members.
+        if (commandDispatcher != null
+            && commandDispatcher.LastDispatchResult == ShipCommandDispatcher.DispatchResult.Follow
+            && !ContainsActiveMember(commandDispatcher.LastSingleShip))
+        {
+            unrelatedFollowDispatchSequence = dispatchSequence;
+            return;
+        }
 
         if (isActive && dispatchSequence > consumedDispatchSequence)
         {
@@ -752,6 +763,12 @@ public class FormationCommandController : MonoBehaviour
             ));
         }
 
+        // Capture preflight and member construction succeeded; only now replace Follow intent.
+        foreach (FormationMember member in members)
+        {
+            ShipFollowController follow = member.destinationController.GetComponent<ShipFollowController>();
+            if (follow != null) follow.CancelFollow();
+        }
         memberCount = members.Count;
         isActive = true;
         formationState = FormationState.Captured;

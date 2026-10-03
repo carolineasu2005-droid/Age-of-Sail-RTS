@@ -69,6 +69,9 @@ public class ShipHeadingController : MonoBehaviour
 
     public bool IsActive => isActive;
 
+    // For a known issued command, cancellation leaves an unfinished arc; completion clears it.
+    internal bool HasCompletedCommand => !isActive && remainingTurnAngle <= 0f;
+
     public float TargetHeading => targetHeading;
 
     private void Awake()
